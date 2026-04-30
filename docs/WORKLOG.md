@@ -7,9 +7,11 @@
 - Neon schema introspected and mapped in API payload layer.
 - Login parity started (dark auth screen with stepper and phone entry card).
 - Trainer shell started (`/portal`, `/clients`, `/schedule`) with dark/mint dashboard style.
+- Milestone 1 complete: sessions routes rebuilt (`/sessions/new`, `/sessions/[id]`, `/sessions/pending-notes`) with mandatory-note and exercise-metric UI sections.
+- Milestone 2 complete: client detail routes rebuilt (`/clients/[id]`, `/clients/[id]/goal-template`, `/clients/[id]/tips`).
 
 ### In Progress
-- Milestone 1: sessions pages parity.
+- Milestone 3: profile + my-portal parity.
 
 ### Blockers
 - Vercel deployment intermittently failing with platform-side `deploy_failed` / `Unexpected error` despite clean local builds.
