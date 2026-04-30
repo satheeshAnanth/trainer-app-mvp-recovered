@@ -163,7 +163,7 @@ code {
 .trainer-screen {
   min-height: 100vh;
   background: var(--bg);
-  padding: 24px 16px 48px;
+  padding: 16px 12px 96px;
 }
 
 .trainer-container {
@@ -176,12 +176,12 @@ code {
   justify-content: space-between;
   align-items: flex-start;
   gap: 16px;
-  padding: 20px;
+  padding: 14px;
 }
 
 .trainer-title {
   margin: 8px 0 0;
-  font-size: 30px;
+  font-size: 24px;
 }
 
 .trainer-subtitle {
@@ -206,6 +206,11 @@ code {
   font-size: 13px;
 }
 
+.nav-pill-active {
+  border-color: var(--mint);
+  color: #99f6e4;
+}
+
 .trainer-content {
   margin-top: 14px;
   display: grid;
@@ -219,7 +224,7 @@ code {
 }
 
 .panel {
-  padding: 18px;
+  padding: 14px;
 }
 
 .panel h2 {
@@ -249,8 +254,9 @@ code {
 .ghost-button {
   text-decoration: none;
   border-radius: 12px;
-  padding: 10px 14px;
+  padding: 10px 12px;
   font-size: 14px;
+  border: 0;
 }
 
 .mint-button {
@@ -281,6 +287,35 @@ code {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+}
+
+.mobile-tabbar {
+  position: fixed;
+  left: 12px;
+  right: 12px;
+  bottom: 10px;
+  z-index: 20;
+  padding: 8px;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  backdrop-filter: blur(8px);
+}
+
+.mobile-tab {
+  text-decoration: none;
+  text-align: center;
+  color: #cbd5e1;
+  padding: 8px 6px;
+  border-radius: 10px;
+  font-size: 12px;
+  border: 1px solid #1f2937;
+  background: #0a1221;
+}
+
+.mobile-tab-active {
+  border-color: var(--mint);
+  color: #99f6e4;
 }
 
 .item-title {
@@ -343,4 +378,26 @@ code {
   border-radius: 14px;
   padding: 12px;
   margin-bottom: 12px;
+}
+
+@media (min-width: 768px) {
+  .trainer-screen {
+    padding: 24px 16px 48px;
+  }
+
+  .trainer-header {
+    padding: 20px;
+  }
+
+  .trainer-title {
+    font-size: 30px;
+  }
+
+  .panel {
+    padding: 18px;
+  }
+
+  .mobile-tabbar {
+    display: none;
+  }
 }

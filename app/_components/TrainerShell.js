@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 
 const navItems = [
   { href: "/portal", label: "Portal" },
@@ -9,6 +12,7 @@ const navItems = [
 ];
 
 export default function TrainerShell({ title, subtitle, children }) {
+  const pathname = usePathname();
   return (
     <main className="trainer-screen">
       <div className="trainer-container">
@@ -25,13 +29,29 @@ export default function TrainerShell({ title, subtitle, children }) {
 
         <nav className="trainer-nav card">
           {navItems.map((item) => (
-            <Link key={item.href} href={item.href} className="nav-pill">
+            <Link
+              key={item.href}
+              href={item.href}
+              className={`nav-pill ${pathname === item.href ? "nav-pill-active" : ""}`}
+            >
               {item.label}
             </Link>
           ))}
         </nav>
 
         <section className="trainer-content">{children}</section>
+
+        <nav className="mobile-tabbar card">
+          {navItems.slice(0, 4).map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={`mobile-tab ${pathname === item.href ? "mobile-tab-active" : ""}`}
+            >
+              {item.label}
+            </Link>
+          ))}
+        </nav>
       </div>
     </main>
   );
