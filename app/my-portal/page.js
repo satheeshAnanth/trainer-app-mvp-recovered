@@ -1,11 +1,25 @@
-import RecoveredRoutePage from "app/_components/RecoveredRoutePage";
+import ClientShell from "app/_components/ClientShell";
 
 export default function Page() {
   return (
-    <RecoveredRoutePage
-      title="my-portal"
-      description="Recovered route now has a functional shell and can be wired to real DB/auth logic."
-      routeKey="my-portal"
-    />
+    <ClientShell title="My Portal" subtitle="Track personal sessions and coach updates.">
+      <article className="card panel">
+        <h2>Weekly summary</h2>
+        <div className="stats-grid">
+          <div className="metric-card">
+            <p className="panel-label">Completed sessions</p>
+            <p className="panel-value">4</p>
+          </div>
+          <div className="metric-card">
+            <p className="panel-label">Self-logged workouts</p>
+            <p className="panel-value">2</p>
+          </div>
+          <div className="metric-card">
+            <p className="panel-label">Coach feedback pending</p>
+            <p className="panel-value">1</p>
+          </div>
+        </div>
+      </article>
+    </ClientShell>
   );
 }
