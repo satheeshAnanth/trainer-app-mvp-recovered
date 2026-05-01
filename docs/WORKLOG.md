@@ -82,3 +82,12 @@
 - Added role-specific OTP handling from `/login`: trainer uses `/api/auth/otp/*`; client uses `/api/client-auth/otp/*`.
 - Added resend OTP timer, change-number path, and client access-required instructions matching the provided mock.
 - Added UI primitives for role cards, specialization chips, and pricing plan cards in `globals.css`.
+
+## 2026-05-01 (session 8)
+
+### Completed
+- Clients list parity update: `+ Add Client` action opens modal with required fields (name, goal, mobile, demographics), empty-state card, and populated list card layout.
+- Added `POST /api/clients` to persist trainer-created clients (`clients` table) and keep mock fallback.
+- Client detail parity update (`/clients/[id]`): profile summary, goal-progress card with template warning/state, trainer tips summary/history link, sessions empty-state.
+- Goal-template builder parity (`/clients/[id]/goal-template`): dynamic goal exercises + metric rows, add/remove controls, save validation and persistence via `audit_events` (`client_goal_template`).
+- Trainer tips parity (`/clients/[id]/tips`): send tip form, status/category filters, filtered history list, persistence via `audit_events` (`client_tip`).
