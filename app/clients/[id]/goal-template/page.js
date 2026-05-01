@@ -48,9 +48,11 @@ export default function Page() {
   const [clientName, setClientName] = useState("Client");
   const [goalName, setGoalName] = useState("");
   const [exercises, setExercises] = useState([newExercise()]);
-  const [searchResults, setSearchResults] = useState({});
   const [searchModal, setSearchModal] = useState({ open: false, exIndex: -1, query: "" });
+  const [searchResults, setSearchResults] = useState([]);
+  const [searching, setSearching] = useState(false);
   const [previewImageUrl, setPreviewImageUrl] = useState("");
+  const [saveSuccessModalOpen, setSaveSuccessModalOpen] = useState(false);
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -98,20 +100,23 @@ export default function Page() {
     setExercises((prev) => prev.filter((_, i) => i !== index));
   }
 
-  async function searchExercises(index, term) {
+  async function searchExercises(term) {
     const q = String(term ?? "").trim();
     if (q.length < 4) {
       setMessage("Type at least 4 characters, then tap o.");
-      setSearchResults((prev) => ({ ...prev, [index]: [] }));
+      setSearchResults([]);
       return;
     }
+    setSearching(true);
     try {
-      const response = await fetch(`/api/exercises/master/search?q=${encodeURIComponent(q)}`);
+      const response = await fetch(`/api/exercises/master/search?q=${encodeURIComponent(q)}&limit=200`);
       const json = await response.json();
       const results = Array.isArray(json?.data?.exercises) ? json.data.exercises : [];
-      setSearchResults((prev) => ({ ...prev, [index]: uniqueExerciseResults(results).slice(0, 8) }));
+      setSearchResults(uniqueExerciseResults(results).slice(0, 120));
     } catch {
-      setSearchResults((prev) => ({ ...prev, [index]: [] }));
+      setSearchResults([]);
+    } finally {
+      setSearching(false);
     }
   }
 
@@ -137,7 +142,17 @@ export default function Page() {
     setMessage("");
     setSaving(true);
     try {
-      const payloadExercises = exercises.map((exercise) => ({
+      const payloadExercises = exercises
+        .filter((exercise) => {
+          const hasValue =
+            String(exercise.masterExerciseId ?? "").trim() ||
+            String(exercise.exercise ?? "").trim() ||
+            String(exercise.variation ?? "").trim() ||
+            String(exercise.target ?? "").trim() ||
+            String(exercise.search ?? "").trim();
+          return Boolean(hasValue);
+        })
+        .map((exercise) => ({
         id: exercise.id,
         masterExerciseId: exercise.masterExerciseId,
         exercise: exercise.exercise,
@@ -145,7 +160,11 @@ export default function Page() {
         target: exercise.target,
         frequency: exercise.frequency,
         priority: exercise.priority,
-      }));
+        }));
+      if (payloadExercises.length === 0) {
+        setMessage("Add at least one goal exercise before saving.");
+        return;
+      }
       const response = await fetch(`/api/clients/${clientId}/goal-template`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -163,6 +182,7 @@ export default function Page() {
         return;
       }
       setMessage("Goal template saved.");
+      setSaveSuccessModalOpen(true);
     } catch {
       setMessage("Could not save goal template.");
     } finally {
@@ -209,8 +229,9 @@ export default function Page() {
                       className="ghost-button"
                       style={{ width: 36, minWidth: 36, padding: "8px 0", textAlign: "center" }}
                       onClick={() => {
+                        setSearchResults([]);
                         setSearchModal({ open: true, exIndex, query: exercise.search });
-                        searchExercises(exIndex, exercise.search);
+                        searchExercises(exercise.search);
                       }}
                       title="Search"
                     >
@@ -293,7 +314,11 @@ export default function Page() {
         ) : null}
         {searchModal.open ? (
           <div className="modal-backdrop" onClick={() => setSearchModal({ open: false, exIndex: -1, query: "" })}>
-            <div className="modal-card card" onClick={(e) => e.stopPropagation()}>
+            <div
+              className="modal-card card"
+              style={{ width: "100vw", maxWidth: "100vw", minHeight: "100vh", borderRadius: 0 }}
+              onClick={(e) => e.stopPropagation()}
+            >
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <h2 style={{ margin: 0 }}>Search exercise</h2>
                 <button className="ghost-button" type="button" onClick={() => setSearchModal({ open: false, exIndex: -1, query: "" })}>Close</button>
@@ -308,13 +333,17 @@ export default function Page() {
                   type="button"
                   className="ghost-button"
                   style={{ width: 36, minWidth: 36, padding: "8px 0", textAlign: "center" }}
-                  onClick={() => searchExercises(searchModal.exIndex, searchModal.query)}
+                  onClick={() => searchExercises(searchModal.query)}
                 >
                   o
                 </button>
               </div>
               <div style={{ display: "grid", gap: 8, marginTop: 10 }}>
-                {(searchResults[searchModal.exIndex] ?? []).map((item) => (
+                {searching ? <p className="item-sub">Searching...</p> : null}
+                {!searching && searchResults.length === 0 && String(searchModal.query ?? "").trim().length >= 4 ? (
+                  <p className="item-sub">No matches found. Try a different keyword.</p>
+                ) : null}
+                {searchResults.map((item) => (
                   <button
                     key={`search-modal-${item.id}`}
                     type="button"
@@ -328,6 +357,27 @@ export default function Page() {
                     {item.displayName ?? normalizeExerciseDisplayName(item?.name)}
                   </button>
                 ))}
+              </div>
+            </div>
+          </div>
+        ) : null}
+        {saveSuccessModalOpen ? (
+          <div className="modal-backdrop" onClick={() => setSaveSuccessModalOpen(false)}>
+            <div className="modal-card card" onClick={(e) => e.stopPropagation()}>
+              <div style={{ minHeight: "55vh", display: "grid", alignContent: "center", gap: 12, textAlign: "center" }}>
+                <p className="eyebrow" style={{ margin: 0 }}>Saved</p>
+                <h2 style={{ margin: 0 }}>Goal template saved successfully</h2>
+                <p className="item-sub" style={{ margin: 0 }}>
+                  This goal plan will now load into every new session for this client.
+                </p>
+                <button
+                  type="button"
+                  className="continue-btn"
+                  style={{ marginTop: 8 }}
+                  onClick={() => setSaveSuccessModalOpen(false)}
+                >
+                  Continue
+                </button>
               </div>
             </div>
           </div>

@@ -2,10 +2,14 @@
 
 import { useEffect, useMemo, useState } from "react";
 import TrainerShell from "app/_components/TrainerShell";
-import { labelizeMetricKey } from "app/lib/metricLabels";
+import { describeMetricKey, getMetricOptions, labelizeMetricKey } from "app/lib/metricLabels";
 import Link from "next/link";
 
 const TABS = ["live", "review"];
+const TAB_LABELS = {
+  live: "Draft",
+  review: "Final",
+};
 const SKIP_REASONS = [
   { value: "time_constraint", label: "Time constraint" },
   { value: "client_fatigue", label: "Client fatigue" },
@@ -60,7 +64,7 @@ function newEntry(partial = {}) {
     completionStatus: "",
     skipReason: "",
     requiredKeys,
-    setLogs: [blankSetFromKeys(requiredKeys)],
+    setLogs: [],
     notes: "",
     ...partial,
   };
@@ -90,6 +94,60 @@ function makePayload({ overallNotes, entries, goalTemplate }) {
   };
 }
 
+function buildLocalAssessment(entries, goalEntries) {
+  const totalGoals = goalEntries.length;
+  const completedGoals = goalEntries.filter((e) => e.completionStatus === "completed").length;
+  const partialGoals = goalEntries.filter((e) => e.completionStatus === "partial").length;
+  const skippedGoals = goalEntries.filter((e) => e.completionStatus === "skipped").length;
+  const populatedSets = entries.reduce(
+    (acc, entry) =>
+      acc +
+      (entry.setLogs ?? []).filter((setRow) =>
+        Object.values(setRow ?? {}).some((v) => String(v ?? "").trim() !== "")
+      ).length,
+    0
+  );
+  const unresolvedGoals = goalEntries.filter((e) => !e.completionStatus).length;
+  const substitutionCount = entries.filter((e) => e.linkedGoalExerciseId).length;
+
+  let score = 3;
+  if (totalGoals > 0) {
+    const completionRatio = (completedGoals + partialGoals * 0.5) / totalGoals;
+    if (completionRatio >= 0.9) score = 5;
+    else if (completionRatio >= 0.7) score = 4;
+    else if (completionRatio >= 0.4) score = 3;
+    else score = 2;
+  }
+  if (unresolvedGoals > 0) score = Math.max(1, score - 1);
+  if (populatedSets >= 8) score = Math.min(5, score + 1);
+
+  const wentWell = [
+    totalGoals > 0
+      ? `${completedGoals}/${totalGoals} goal exercises fully completed${partialGoals ? `, with ${partialGoals} partially completed` : ""}.`
+      : "Session captured with non-goal exercises.",
+    `${populatedSets} sets included measurable metrics.`,
+  ];
+  if (substitutionCount > 0) wentWell.push(`${substitutionCount} ad-hoc exercise(s) were linked back to goal work.`);
+
+  const improve = [];
+  if (skippedGoals > 0) improve.push(`Address ${skippedGoals} skipped goal exercise(s) with planned alternates.`);
+  if (unresolvedGoals > 0) improve.push(`Mark completion status for ${unresolvedGoals} pending goal exercise(s) before closure.`);
+  if (populatedSets < 4) improve.push("Capture more set-level metrics (load/reps/RPE) for stronger progress tracking.");
+  if (improve.length === 0) improve.push("Progressive overload and recovery checks can be tightened next session.");
+
+  return {
+    score,
+    wentWell: wentWell.slice(0, 3),
+    improve: improve.slice(0, 3),
+    model: "rule-based",
+  };
+}
+
+function isStructuralSetsMetric(key) {
+  const normalized = String(key ?? "").trim().toLowerCase();
+  return normalized === "sets";
+}
+
 export default function Page() {
   const [tab, setTab] = useState("live");
   const [clients, setClients] = useState([]);
@@ -100,7 +158,6 @@ export default function Page() {
   const [editorOpen, setEditorOpen] = useState(false);
   const [exerciseSearch, setExerciseSearch] = useState("");
   const [searchResults, setSearchResults] = useState([]);
-  const [showPendingGoals, setShowPendingGoals] = useState(false);
   const [currentSetIndex, setCurrentSetIndex] = useState(0);
   const [showTimingFields, setShowTimingFields] = useState(false);
   const [sessionId, setSessionId] = useState("");
@@ -108,9 +165,13 @@ export default function Page() {
   const [saving, setSaving] = useState(false);
   const [showAddClient, setShowAddClient] = useState(false);
   const [sharedNote, setSharedNote] = useState("");
-  const [sharedNotes, setSharedNotes] = useState([]);
+  const [discussion, setDiscussion] = useState([]);
   const [publishText, setPublishText] = useState("");
+  const [finalComment, setFinalComment] = useState("");
+  const [assessment, setAssessment] = useState(null);
+  const [assessmentLoading, setAssessmentLoading] = useState(false);
   const [payment, setPayment] = useState({ amountInr: "", upiId: "", note: "" });
+  const [paymentReceived, setPaymentReceived] = useState(false);
   const [form, setForm] = useState({
     clientId: "",
     sessionDate: normalizeDateDisplay(new Date().toISOString()),
@@ -131,7 +192,7 @@ export default function Page() {
   const unresolvedGoalCount = pendingGoalEntries.length;
   const skippedWithoutReasonCount = goalEntries.filter((e) => e.completionStatus === "skipped" && !e.skipReason).length;
   const goalChecksPassed = unresolvedGoalCount === 0 && skippedWithoutReasonCount === 0;
-  const readyForFinal = publishText.trim().length > 0 && sharedNotes.length > 0;
+  const readyToPublish = publishText.trim().length > 0;
 
   useEffect(() => {
     (async () => {
@@ -150,7 +211,7 @@ export default function Page() {
 
   async function fetchRequiredKeys(masterExerciseId, name) {
     try {
-      const res = await fetch(`/api/exercises/master/search?withKeys=1&q=${encodeURIComponent(name || "")}`);
+      const res = await fetch(`/api/exercises/master/search?withKeys=1&limit=200&q=${encodeURIComponent(name || "")}`);
       const json = await res.json();
       const rows = Array.isArray(json?.data?.exercises) ? json.data.exercises : [];
       const match = rows.find((row) => String(row?.id) === String(masterExerciseId)) || rows.find((row) => normalizeTextForMatch(row?.name) === normalizeTextForMatch(name));
@@ -173,8 +234,20 @@ export default function Page() {
         setEntries((prev) => prev.filter((e) => e.source !== "goal"));
         return;
       }
+      const normalizedTemplateExercises = template.exercises
+        .map((exercise) => {
+          const mappedName = String(exercise?.exercise ?? exercise?.name ?? "").trim();
+          if (!mappedName) return null;
+          return { ...exercise, exercise: mappedName };
+        })
+        .filter(Boolean);
+      if (normalizedTemplateExercises.length === 0) {
+        setGoalTemplate(null);
+        setEntries((prev) => prev.filter((e) => e.source !== "goal"));
+        return;
+      }
       setGoalTemplate(template);
-      const goalRows = await Promise.all(template.exercises.map(async (exercise, index) => {
+      const goalRows = await Promise.all(normalizedTemplateExercises.map(async (exercise, index) => {
         const name = String(exercise?.exercise ?? "").trim();
         const requiredKeys = await fetchRequiredKeys(String(exercise?.masterExerciseId ?? ""), name);
         return newEntry({
@@ -187,7 +260,7 @@ export default function Page() {
           priority: String(exercise?.priority ?? "mandatory"),
           frequency: String(exercise?.frequency ?? "every_session"),
           requiredKeys,
-          setLogs: [blankSetFromKeys(requiredKeys)],
+          setLogs: [],
         });
       }));
       setEntries((prev) => [...goalRows, ...prev.filter((e) => e.source !== "goal")]);
@@ -227,7 +300,7 @@ export default function Page() {
     setEntries((prev) => prev.map((entry, i) => {
       if (i !== entryIndex) return entry;
       const kept = (entry.setLogs || []).filter((_, idx) => idx !== setIndex);
-      return { ...entry, setLogs: kept.length > 0 ? kept : [blankSetFromKeys(entry.requiredKeys || [])] };
+      return { ...entry, setLogs: kept };
     }));
   }
 
@@ -239,20 +312,12 @@ export default function Page() {
       return;
     }
     try {
-      const res = await fetch(`/api/exercises/master/search?withKeys=1&q=${encodeURIComponent(q)}`);
+      const res = await fetch(`/api/exercises/master/search?withKeys=1&limit=200&q=${encodeURIComponent(q)}`);
       const json = await res.json();
       setSearchResults(Array.isArray(json?.data?.exercises) ? json.data.exercises : []);
     } catch {
       setSearchResults([]);
     }
-  }
-
-  function startGoalExercise(goalExerciseId) {
-    const idx = entries.findIndex((entry) => entry.goalExerciseId === goalExerciseId);
-    if (idx < 0) return;
-    setEntryIndex(idx);
-    setCurrentSetIndex(Math.max(0, (entries[idx]?.setLogs?.length ?? 1) - 1));
-    setEditorOpen(true);
   }
 
   function startAdhocExercise(item) {
@@ -263,7 +328,7 @@ export default function Page() {
       source: "adhoc",
       masterExerciseId: String(item?.id ?? ""),
       requiredKeys,
-      setLogs: [blankSetFromKeys(requiredKeys)],
+      setLogs: [],
     });
     setEntries((prev) => [...prev, next]);
     setEntryIndex(entries.length);
@@ -288,6 +353,10 @@ export default function Page() {
 
   function logCurrentSet() {
     if (!currentEntry) return;
+    if (!currentEntry.setLogs?.length) {
+      setMessage("Add a set first.");
+      return;
+    }
     const row = currentEntry.setLogs?.[currentSetIndex] ?? {};
     const hasValue = Object.values(row).some((v) => String(v ?? "").trim() !== "");
     if (!hasValue) {
@@ -314,13 +383,46 @@ export default function Page() {
               name: String(item?.name ?? ""),
               masterExerciseId: String(item?.id ?? ""),
               requiredKeys,
-              setLogs: entry.setLogs && entry.setLogs.length > 0 ? entry.setLogs : [blankSetFromKeys(requiredKeys)],
+              setLogs: entry.setLogs && entry.setLogs.length > 0 ? entry.setLogs : [],
             }
           : entry
       )
     );
     setSearchModalOpen(false);
   }
+
+  async function runWorkoutAssessment() {
+    setAssessmentLoading(true);
+    try {
+      const response = await fetch("/api/sessions/assessment", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ entries, goalEntries }),
+      });
+      const json = await response.json();
+      if (response.ok && json?.ok && json?.data?.assessment) {
+        setAssessment(json.data.assessment);
+      } else {
+        setAssessment(buildLocalAssessment(entries, goalEntries));
+      }
+    } catch {
+      setAssessment(buildLocalAssessment(entries, goalEntries));
+    } finally {
+      setAssessmentLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    if (tab !== "review") return;
+    runWorkoutAssessment().catch(() => null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab, entries]);
+
+  useEffect(() => {
+    if (tab !== "review") return;
+    loadDiscussion(sessionId).catch(() => null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab, sessionId]);
 
   async function ensureSession(status = "draft") {
     const client = clients.find((c) => c.id === form.clientId);
@@ -333,7 +435,11 @@ export default function Page() {
       rawNotes: form.overallNotes || form.trainerPrivateNotes,
       summary: "Draft updated",
       status,
-      payload: makePayload({ overallNotes: form.overallNotes, entries, goalTemplate }),
+      payload: {
+        ...makePayload({ overallNotes: form.overallNotes, entries, goalTemplate }),
+        assessment: assessment ?? null,
+        paymentReceived: Boolean(paymentReceived),
+      },
       durationMinutes: Number.isFinite(Number(form.durationMinutes)) ? Number(form.durationMinutes) : null,
       estimatedCalories: null,
     };
@@ -350,6 +456,21 @@ export default function Page() {
     return sessionId;
   }
 
+  async function loadDiscussion(targetSessionId) {
+    if (!targetSessionId) {
+      setDiscussion([]);
+      return;
+    }
+    try {
+      const res = await fetch(`/api/sessions/${targetSessionId}/comments`);
+      const json = await res.json();
+      const rows = Array.isArray(json?.data?.comments) ? json.data.comments : [];
+      setDiscussion(rows);
+    } catch {
+      setDiscussion([]);
+    }
+  }
+
   async function saveDraft() {
     setSaving(true); setMessage("");
     try { await ensureSession("draft"); setMessage("Draft updated."); } catch (e) { setMessage(e?.message ?? "Unable to save draft."); } finally { setSaving(false); }
@@ -363,7 +484,9 @@ export default function Page() {
       const res = await fetch(`/api/sessions/${id}/comments`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: sharedNote, authorRole: "trainer", authorName: "Trainer" }) });
       const json = await res.json();
       if (!res.ok || !json?.ok) throw new Error(json?.message ?? "Unable to post shared note.");
-      setSharedNotes((prev) => [sharedNote, ...prev]); setSharedNote(""); setMessage("Shared note added.");
+      await loadDiscussion(id);
+      setSharedNote("");
+      setMessage("Shared note added.");
     } catch (e) { setMessage(e?.message ?? "Unable to post shared note."); } finally { setSaving(false); }
   }
 
@@ -378,15 +501,35 @@ export default function Page() {
     } catch (e) { setMessage(e?.message ?? "Unable to request payment."); } finally { setSaving(false); }
   }
 
-  async function finalSubmit() {
-    if (!readyForFinal) return;
+  async function publishToClient() {
+    if (!readyToPublish) return setMessage("Add publish notes before publishing.");
     if (!goalChecksPassed) return setMessage("Complete goal exercise statuses and skip reasons first.");
     setSaving(true); setMessage("");
     try {
-      const id = await ensureSession("completed");
+      const id = await ensureSession("pending_notes");
       await fetch(`/api/sessions/${id}/share`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ share: true }) });
-      setMessage("Final submitted to client.");
-    } catch (e) { setMessage(e?.message ?? "Unable to submit final session."); } finally { setSaving(false); }
+      setMessage("Session details published to client.");
+    } catch (e) { setMessage(e?.message ?? "Unable to publish session."); } finally { setSaving(false); }
+  }
+
+  async function lockSessionNotes() {
+    if (!goalChecksPassed) return setMessage("Complete goal exercise statuses and skip reasons first.");
+    if (!paymentReceived) return setMessage("Confirm payment received before locking notes.");
+    if (!finalComment.trim()) return setMessage("Add a final trainer comment before locking notes.");
+    setSaving(true); setMessage("");
+    try {
+      const id = await ensureSession("pending_notes");
+      const res = await fetch(`/api/sessions/${id}/comments`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: finalComment.trim(), authorRole: "trainer", authorName: "Trainer" }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json?.ok) throw new Error(json?.message ?? "Unable to add final trainer comment.");
+      setFinalComment("");
+      await ensureSession("completed");
+      setMessage("Session notes locked.");
+    } catch (e) { setMessage(e?.message ?? "Unable to lock session notes."); } finally { setSaving(false); }
   }
 
   async function addClientInline() {
@@ -407,34 +550,11 @@ export default function Page() {
     <TrainerShell title={form.sessionTitle} subtitle="">
       <article className="card panel session-wizard-header">
         <div className="wizard-topline"><h2>{form.sessionTitle}</h2><button className="ghost-button" type="button">Cancel</button></div>
-        <div className="wizard-tabs">{TABS.map((t) => <button key={t} type="button" className={`wizard-tab ${tab === t ? "wizard-tab-active" : ""}`} onClick={() => setTab(t)}>{t[0].toUpperCase() + t.slice(1)}</button>)}</div>
-      </article>
-
-      <article className="card panel" style={{ position: "sticky", top: 8, zIndex: 20 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
-          <div>
-            <p className="item-title" style={{ margin: 0 }}>Session Rail</p>
-            <p className="item-sub" style={{ margin: 0 }}>
-              Current: {currentEntry?.name || "None"} · Pending goals: {pendingGoalEntries.length}
-            </p>
-          </div>
-          <button className="ghost-button" type="button" onClick={() => setShowPendingGoals((v) => !v)}>
-            {showPendingGoals ? "Hide Pending" : "Show Pending"}
-          </button>
-        </div>
-        {showPendingGoals ? (
-          <div style={{ display: "grid", gap: 8, marginTop: 8 }}>
-            {pendingGoalEntries.length === 0 ? <p className="item-sub">No pending goals.</p> : pendingGoalEntries.map((entry) => (
-              <button key={`rail-${entry.id}`} type="button" className="ghost-button" style={{ textAlign: "left" }} onClick={() => startGoalExercise(entry.goalExerciseId)}>
-                {entry.name}
-              </button>
-            ))}
-          </div>
-        ) : null}
+        <div className="wizard-tabs">{TABS.map((t) => <button key={t} type="button" className={`wizard-tab ${tab === t ? "wizard-tab-active" : ""}`} onClick={() => setTab(t)}>{TAB_LABELS[t]}</button>)}</div>
       </article>
 
       {tab === "live" ? <article className="card panel">
-        <h2>Session HUD</h2>
+        <h2>Draft Capture</h2>
         <div className="form-grid">
           <label className="field"><span>Client</span><select value={form.clientId} onChange={(e) => setForm((prev) => ({ ...prev, clientId: e.target.value }))}><option value="">Select a client</option>{clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
           <div className="field" style={{ alignSelf: "end", width: "fit-content" }}><button className="ghost-button ghost-button-compact" type="button" onClick={() => setShowAddClient(true)}>+ Add</button></div>
@@ -476,6 +596,11 @@ export default function Page() {
             </p>
           ) : null}
         </div>
+        <div className="quick-actions" style={{ marginTop: 10 }}>
+          <button className="mint-button" type="button" onClick={saveDraft} disabled={saving}>
+            {saving ? "Saving..." : "Save Draft"}
+          </button>
+        </div>
       </article> : null}
 
       {editorOpen && currentEntry ? (
@@ -484,7 +609,11 @@ export default function Page() {
             <div className="wizard-review-top">
               <div>
                 <p className="item-title">{currentEntry.name || "Exercise capture"}</p>
-                <p className="item-sub">Set {Math.min(currentSetIndex + 1, currentEntry.setLogs?.length || 1)} of ?</p>
+                <p className="item-sub">
+                  {currentEntry.setLogs?.length
+                    ? `Set ${Math.min(currentSetIndex + 1, currentEntry.setLogs.length)} of ${currentEntry.setLogs.length}`
+                    : "No sets yet"}
+                </p>
               </div>
               <div className="quick-actions">
                 <button className="ghost-button" type="button" onClick={() => setEditorOpen(false)}>Back</button>
@@ -493,11 +622,16 @@ export default function Page() {
             <label className="field full">
               <span>Exercise name</span>
               <div style={{ display: "flex", gap: 8 }}>
-                <input value={currentEntry.name} onChange={(e) => setEntryField("name", e.target.value)} />
+                <input
+                  value={currentEntry.name}
+                  onChange={(e) => setEntryField("name", e.target.value)}
+                  disabled={currentEntry.source === "goal"}
+                />
                 <button
                   className="ghost-button"
                   type="button"
                   onClick={openSearchForCurrentEntry}
+                  disabled={currentEntry.source === "goal"}
                   style={{ width: 36, minWidth: 36, padding: "8px 0", textAlign: "center" }}
                   title="Search"
                 >
@@ -505,6 +639,9 @@ export default function Page() {
                 </button>
               </div>
             </label>
+            {currentEntry.source === "goal" ? (
+              <p className="item-sub">Goal exercise name is locked here. Edit it from Client &gt; Goal Template.</p>
+            ) : null}
             <p className="item-sub">{currentEntry.masterExerciseId ? "Mapped exercise selected." : "Not mapped yet. Search and select canonical exercise."}</p>
             {currentEntry.source === "goal" ? (
               <>
@@ -552,9 +689,12 @@ export default function Page() {
             )}
             <div className="quick-actions" style={{ marginBottom: 8 }}>
               <button className="mint-button" type="button" onClick={logCurrentSet}>Log this set</button>
-              <button className="ghost-button" type="button" onClick={() => addSetRow(false)}>Add next set</button>
+              <button className="ghost-button" type="button" onClick={() => addSetRow(false)}>
+                {currentEntry.setLogs?.length ? "Add next set" : "Add first set"}
+              </button>
               <button className="continue-btn" type="button" onClick={finishCurrentExercise}>Done with this Exercise</button>
             </div>
+            {(currentEntry.setLogs ?? []).length === 0 ? <p className="item-sub">No sets logged yet.</p> : null}
             {(currentEntry.setLogs ?? []).map((setRow, setIdx) => (
               <div key={`${currentEntry.id}-set-${setIdx}`} className="metric-card" style={{ marginTop: 8 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -562,10 +702,30 @@ export default function Page() {
                   <button className="ghost-button" type="button" onClick={() => deleteSetRow(setIdx)}>Delete</button>
                 </div>
                 <div className="form-grid" style={{ marginTop: 8 }}>
-                  {(currentEntry.requiredKeys || []).map((key) => (
+                  {(currentEntry.requiredKeys || []).filter((key) => !isStructuralSetsMetric(key)).map((key) => (
                     <label key={`${currentEntry.id}-${setIdx}-${key}`} className="field">
                       <span>{labelizeMetricKey(key)}</span>
-                      <input value={setRow[key] ?? ""} onChange={(e) => setSetMetric(setIdx, key, e.target.value)} />
+                      {describeMetricKey(key) ? <p className="item-sub" style={{ margin: "2px 0 6px" }}>{describeMetricKey(key)}</p> : null}
+                      {getMetricOptions(key).length > 0 ? (
+                        <select
+                          value={
+                            getMetricOptions(key).some((option) => option.value === String(setRow[key] ?? ""))
+                              ? String(setRow[key] ?? "")
+                              : ""
+                          }
+                          onChange={(e) => setSetMetric(setIdx, key, e.target.value)}
+                        >
+                          <option value="">Select {labelizeMetricKey(key).toLowerCase()}</option>
+                          {getMetricOptions(key).map((option) => (
+                            <option key={`${key}-${option.value}`} value={option.value}>{option.label}</option>
+                          ))}
+                          {setRow[key] && !getMetricOptions(key).some((option) => option.value === String(setRow[key])) ? (
+                            <option value={String(setRow[key])}>{`Current: ${setRow[key]}`}</option>
+                          ) : null}
+                        </select>
+                      ) : (
+                        <input value={setRow[key] ?? ""} onChange={(e) => setSetMetric(setIdx, key, e.target.value)} />
+                      )}
                     </label>
                   ))}
                 </div>
@@ -583,12 +743,119 @@ export default function Page() {
       ) : null}
 
       {tab === "review" ? <>
-        <article className="card panel"><h2>Goal Progress Summary</h2>{goalEntries.length === 0 ? <p className="item-sub">No goal exercises.</p> : goalEntries.map((entry) => <div key={entry.id} className="list-item" style={{ marginTop: 8 }}><div><p className="item-title">{entry.name}</p><p className="item-sub">{entry.completionStatus ? `Status: ${entry.completionStatus}` : "Status not marked"}{entry.skipReason ? ` · Reason: ${entry.skipReason}` : ""}</p></div><button className="ghost-button" type="button" onClick={() => { setEntryIndex(entries.findIndex((e) => e.id === entry.id)); setEditorOpen(true); }}>Edit</button></div>)}</article>
-        <article className="card panel"><h2>Additional Exercises</h2>{entries.filter((e) => e.source === "adhoc").length === 0 ? <p className="item-sub">No other exercises.</p> : entries.filter((e) => e.source === "adhoc").map((entry) => <div key={entry.id} className="list-item" style={{ marginTop: 8 }}><span>{entry.name || "Other exercise"}</span><span>{entry.setLogs?.length || 0} sets</span></div>)}</article>
-        <article className="card panel"><h2>Finish Session</h2>{!goalChecksPassed ? <p className="item-sub" style={{ color: "#facc15" }}>Resolve goal statuses before final submit. Missing status: {unresolvedGoalCount}. Missing skip reason: {skippedWithoutReasonCount}.</p> : null}<div className="quick-actions"><button className="mint-button" type="button" onClick={saveDraft} disabled={saving}>Save draft</button><button className="ghost-button" type="button" onClick={() => setTab("live")}>Back to live</button></div></article>
-        <article className="card panel"><h2>Shared Session Notes</h2><div className="form-grid"><input value={sharedNote} onChange={(e) => setSharedNote(e.target.value)} placeholder="Add a shared note for client..." /><button className="ghost-button" type="button" onClick={sendSharedNote}>Reply</button></div></article>
+        <article className="card panel">
+          <h2>Goal Progress Summary</h2>
+          {goalEntries.length === 0 ? <p className="item-sub">No goal exercises.</p> : goalEntries.map((entry) => (
+            <div key={entry.id} className="list-item" style={{ marginTop: 8 }}>
+              <div>
+                <p className="item-title">{entry.name}</p>
+                <p className="item-sub">
+                  {entry.completionStatus ? `Status: ${entry.completionStatus}` : "Status not marked"}
+                  {entry.skipReason ? ` · Reason: ${entry.skipReason}` : ""}
+                </p>
+              </div>
+              <button className="ghost-button" type="button" onClick={() => { setEntryIndex(entries.findIndex((e) => e.id === entry.id)); setEditorOpen(true); }}>
+                Edit
+              </button>
+            </div>
+          ))}
+        </article>
+        <article className="card panel">
+          <h2>Additional Exercises</h2>
+          {entries.filter((e) => e.source === "adhoc").length === 0 ? <p className="item-sub">No other exercises.</p> : entries.filter((e) => e.source === "adhoc").map((entry) => (
+            <div key={entry.id} className="list-item" style={{ marginTop: 8 }}>
+              <span>{entry.name || "Other exercise"}</span>
+              <span>{entry.setLogs?.length || 0} sets</span>
+            </div>
+          ))}
+        </article>
+        <article className="card panel">
+          <h2>Workout Assessment</h2>
+          {assessment ? (
+            <div className="metric-card">
+              <p className="item-title" style={{ marginTop: 0 }}>Quality score: {assessment.score}/5</p>
+              <p className="item-sub" style={{ marginBottom: 6 }}>What went well</p>
+              <ul className="list">
+                {(assessment.wentWell ?? []).map((item, idx) => (
+                  <li key={`well-${idx}`} className="list-item"><span>{item}</span></li>
+                ))}
+              </ul>
+              <p className="item-sub" style={{ margin: "10px 0 6px" }}>What to improve next session</p>
+              <ul className="list">
+                {(assessment.improve ?? []).map((item, idx) => (
+                  <li key={`improve-${idx}`} className="list-item"><span>{item}</span></li>
+                ))}
+              </ul>
+            </div>
+          ) : (
+            <p className="item-sub">Assessment not generated yet.</p>
+          )}
+          <div className="quick-actions" style={{ marginTop: 10 }}>
+            <button className="ghost-button" type="button" onClick={runWorkoutAssessment} disabled={assessmentLoading}>
+              {assessmentLoading ? "Generating..." : "Re-run assessment"}
+            </button>
+          </div>
+        </article>
+        <article className="card panel">
+          <h2>Finish Session</h2>
+          {!goalChecksPassed ? <p className="item-sub" style={{ color: "#facc15" }}>Resolve goal statuses before final submit. Missing status: {unresolvedGoalCount}. Missing skip reason: {skippedWithoutReasonCount}.</p> : null}
+          <div className="quick-actions">
+            <button className="ghost-button" type="button" onClick={() => setTab("live")}>Back to draft</button>
+          </div>
+        </article>
+        <article className="card panel">
+          <h2>Discussion (Trainer + Client)</h2>
+          <div className="card panel" style={{ marginBottom: 10 }}>
+            {discussion.length === 0 ? (
+              <p className="item-sub">No messages yet.</p>
+            ) : (
+              <ul className="list">
+                {discussion.map((comment) => (
+                  <li key={comment.id} className="list-item">
+                    <div>
+                      <p className="item-title">
+                        {String(comment.author_name ?? "User")} · {String(comment.author_role ?? "trainer")}
+                      </p>
+                      <p className="item-sub">{comment.text}</p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+          <div className="form-grid">
+            <input value={sharedNote} onChange={(e) => setSharedNote(e.target.value)} placeholder="Reply to client..." />
+            <button className="ghost-button" type="button" onClick={sendSharedNote}>Reply</button>
+          </div>
+        </article>
         <article className="card panel"><h2>Session Payment (UPI)</h2><div className="form-grid"><input placeholder="Amount INR" value={payment.amountInr} onChange={(e) => setPayment((p) => ({ ...p, amountInr: e.target.value }))} /><input placeholder="UPI ID" value={payment.upiId} onChange={(e) => setPayment((p) => ({ ...p, upiId: e.target.value }))} /><input placeholder="Payment note" value={payment.note} onChange={(e) => setPayment((p) => ({ ...p, note: e.target.value }))} /></div><button className="ghost-button" type="button" onClick={requestPayment}>Request payment</button></article>
-        <article className="card panel"><h2>Publish</h2><textarea rows={3} value={publishText} onChange={(e) => setPublishText(e.target.value)} placeholder="Required for first publish: add a note the client should see..." /><button className="continue-btn" type="button" disabled={!readyForFinal || !goalChecksPassed || saving} onClick={finalSubmit}>Final Submit to Client</button></article>
+        <article className="card panel">
+          <h2>Payment Confirmation</h2>
+          <label className="field" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <input type="checkbox" checked={paymentReceived} onChange={(e) => setPaymentReceived(e.target.checked)} />
+            <span>I confirm payment has been received from client.</span>
+          </label>
+          <p className="item-sub">Finalization is enabled only after trainer confirms payment receipt.</p>
+        </article>
+        <article className="card panel">
+          <h2>Publish to Client</h2>
+          <textarea rows={3} value={publishText} onChange={(e) => setPublishText(e.target.value)} placeholder="Add trainer publish notes the client should see..." />
+          <div className="quick-actions" style={{ marginTop: 8 }}>
+            <button className="continue-btn" type="button" disabled={!readyToPublish || !goalChecksPassed || saving} onClick={publishToClient}>
+              Publish Session Details
+            </button>
+          </div>
+        </article>
+        <article className="card panel">
+          <h2>Lock Notes</h2>
+          <label className="field full">
+            <span>Final trainer comment (required)</span>
+            <textarea rows={3} value={finalComment} onChange={(e) => setFinalComment(e.target.value)} placeholder="Add final closure note before locking..." />
+          </label>
+          <button className="continue-btn" type="button" disabled={saving || !paymentReceived || !finalComment.trim()} onClick={lockSessionNotes}>
+            Lock Session Notes
+          </button>
+        </article>
       </> : null}
 
       {message ? <p className="item-sub" style={{ color: message.toLowerCase().includes("unable") || message.toLowerCase().includes("select") || message.toLowerCase().includes("resolve") ? "#fca5a5" : "#34d399" }}>{message}</p> : null}

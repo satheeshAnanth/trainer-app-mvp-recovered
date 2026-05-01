@@ -11,6 +11,8 @@ export async function GET(request) {
   const { searchParams } = new URL(request.url);
   const q = (searchParams.get("q") ?? "").trim();
   const withKeys = searchParams.get("withKeys") === "1";
+  const rawLimit = Number.parseInt(searchParams.get("limit") ?? "100", 10);
+  const limit = Number.isFinite(rawLimit) ? Math.min(Math.max(rawLimit, 1), 500) : 100;
 
   if (!hasDatabaseUrl()) {
     const filtered = q
@@ -24,15 +26,17 @@ export async function GET(request) {
     });
   }
 
-  const rows = await searchMasterExercises(q, 30);
-  let exercises = rows.map((row) => ({
+  const rows = await searchMasterExercises(q, limit);
+  let exercises = dedupeExercises(
+    rows.map((row) => ({
     id: row.id,
-    name: row.name,
+    name: normalizeExerciseName(row.name),
     category: row.category,
     equipment: row.equipment,
     importantInputFields: safeParseArray(row.important_input_fields_json),
     imageUrl: extractImageUrl(row.tracking_json),
-  }));
+    }))
+  );
 
   if (withKeys && exercises.length > 0) {
     exercises = await Promise.all(
@@ -47,8 +51,33 @@ export async function GET(request) {
     ok: true,
     recovered: true,
     route: "api/exercises/master/search",
-    data: { exercises, source: "database" },
+    data: { exercises, source: "database", count: exercises.length, limit },
   });
+}
+
+function normalizeExerciseName(rawName) {
+  let name = String(rawName ?? "").trim();
+  if (!name) return "";
+  // Remove common catalog prefixes like "EX123 -", "EX_45:", etc.
+  name = name.replace(/^ex[\w-]*\s*[-:]\s*/i, "");
+  // Remove other short code prefixes like "AB12 -".
+  name = name.replace(/^[A-Z]{1,4}\d+\s*[-:]\s*/i, "");
+  name = name.replace(/\s+/g, " ").trim();
+  return name;
+}
+
+function dedupeExercises(items) {
+  const seen = new Set();
+  const out = [];
+  for (const item of items) {
+    const normalizedName = normalizeExerciseName(item?.name);
+    if (!normalizedName) continue;
+    const key = normalizedName.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push({ ...item, name: normalizedName });
+  }
+  return out;
 }
 
 function safeParseArray(text) {

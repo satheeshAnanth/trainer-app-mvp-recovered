@@ -108,3 +108,40 @@
 - `GET /api/auth/pricing` now exposes these model values for all onboarding/profile/dashboard UI.
 - `POST /api/clients` enforces trainer billing limits server-side and rejects additions with a clear 402 payload when the trainer is at capacity.
 - `POST /api/admin/register-trainer` now accepts `billingModel` and persists `billing_status` + `max_clients`, while also preventing role-conflict numbers (client number cannot register as trainer).
+
+## Latest product contract (2026-05-01 late session)
+- Search and mapping reliability:
+  - exercise master search now supports higher result limits, name normalization, and duplicate suppression,
+  - search result names strip import-style prefixes (`EX...`, short code prefixes) and trim spacing.
+- Goal template reliability:
+  - save flow ignores untouched empty rows, enforces at least one valid exercise row, and shows full-screen save confirmation.
+- Session capture flow contract:
+  - tabs are now labeled **Draft** and **Final**,
+  - `Session Rail` is removed from the workflow surface,
+  - goal exercise names are locked during session capture (edit path is `Client > Goal Template`),
+  - exercises start with zero sets (no default Set 1); trainer adds the first set explicitly,
+  - duplicate "Sets" metric input is removed from per-set capture rows (set index remains structural only).
+- Draft safety:
+  - explicit `Save Draft` action is available in the Draft capture screen to avoid mid-session loss.
+- Finalization and client communication:
+  - Final tab includes: goal summary, additional exercises, workout assessment, discussion thread, payment request, payment confirmation, and lock action,
+  - trainer can **Publish Session Details** to client without locking notes,
+  - two-way discussion is loaded from session comments (trainer + client replies visible; trainer can reply),
+  - **Lock Session Notes** requires:
+    - goal checks passed,
+    - payment received confirmation checked,
+    - final trainer comment added.
+- Workout assessment layer:
+  - new endpoint `POST /api/sessions/assessment`,
+  - deterministic rule-based assessment available by default,
+  - optional LLM augmentation is enabled when `OPENAI_API_KEY` is configured,
+  - assessment is persisted in session payload for continuity.
+- Metric guidance + controlled input policy:
+  - short per-metric helper descriptions are rendered in both new-session and session-detail editors,
+  - one-time DB enrichment added descriptions into `master_exercise_metrics.source_payload_json`,
+  - dropdown-first metric capture expanded to include qualitative and bounded numeric lists (`RPE`, `reps`, `sets`, `rest`, `load`, `duration`, `distance`, `heart rate`, `incline`, etc.),
+  - free text remains only where no constrained list is intentionally defined.
+- Auth/onboarding continuity:
+  - unknown-number trainer onboarding now receives the login-entered phone via query param and locks it on onboarding step 1.
+- Known schema constraints reflected in API normalization:
+  - client `activity_level` normalization now maps UI labels to live DB check constraint values (`sedentary`, `light`, `moderate`, `active`, `very_active`).

@@ -198,3 +198,47 @@
     - skip reason visibility,
     - simple progress direction marker (up/down/same) based on recent comparable session load.
 - Preserved existing share/final submit path while adding lock behavior to prevent silent mutation of finalized structured data.
+
+## 2026-05-01 (session 17)
+
+### Completed
+- Stabilized session/goal/tips flows after rapid UX iteration:
+  - fixed `goal-template` save UX and added full-screen success confirmation,
+  - fixed repeat-open search modal behavior and made search selector full-screen on mobile,
+  - fixed goal exercise preload compatibility in new sessions for mixed template row shapes.
+- Search contract hardening:
+  - expanded master search limits through API and UI,
+  - normalized + deduplicated exercise names in search responses.
+- Trainer onboarding continuity:
+  - forwarded login phone into trainer onboarding (`/onboard/trainer?phone=...`) and locked the phone input field.
+- Client add reliability:
+  - normalized `activityLevel` and `gender` to satisfy live DB constraints,
+  - improved add-client modal error handling for 409 conflicts (inline modal messaging, retry clarity),
+  - simulated live API inserts to verify end-to-end behavior.
+- Tips reliability:
+  - fixed `POST /api/clients/[id]/tips` insert for live schema (moved actor metadata into payload JSON).
+- Dev environment recovery:
+  - diagnosed local Next dev chunk-cache corruption (`Cannot find module './9276.js'`) and recovered by clean restart.
+
+## 2026-05-01 (session 18)
+
+### Completed
+- Session capture and finalization UX updates:
+  - removed default auto-created set rows; exercises now begin with no sets,
+  - locked goal exercise name editing inside session capture (edit path moved to goal-template screen),
+  - removed redundant per-row `Sets` metric input to avoid duplicate "set" concepts.
+- Metric guidance + controlled inputs:
+  - added concise metric helper descriptions in capture/edit UIs,
+  - one-time DB backfill wrote metric descriptions to `master_exercise_metrics.source_payload_json`,
+  - expanded dropdown-first inputs across qualitative and numeric metrics with bounded lists.
+- Draft/Final flow refactor:
+  - renamed tabs to `Draft` and `Final`,
+  - removed Session Rail,
+  - added explicit `Save Draft` action in Draft tab.
+- Final tab operational model:
+  - added workout assessment card with re-run support,
+  - added `POST /api/sessions/assessment` (rule-based + optional LLM path),
+  - added publish-vs-lock separation:
+    - **Publish Session Details** to client,
+    - continue two-way discussion and payment request afterward,
+    - **Lock Session Notes** only after payment-received confirmation + required final trainer comment.

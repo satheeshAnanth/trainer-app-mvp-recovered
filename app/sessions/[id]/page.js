@@ -3,7 +3,7 @@
 import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import TrainerShell from "app/_components/TrainerShell";
-import { labelizeMetricKey } from "app/lib/metricLabels";
+import { describeMetricKey, getMetricOptions, labelizeMetricKey } from "app/lib/metricLabels";
 import { parseSessionPayload } from "app/lib/payloadMerge";
 
 const EMPTY_SECTIONS = {
@@ -80,7 +80,7 @@ export default function Page() {
     const t = setTimeout(async () => {
       try {
         const response = await fetch(
-          `/api/exercises/master/search?q=${encodeURIComponent(q)}&withKeys=1`
+          `/api/exercises/master/search?q=${encodeURIComponent(q)}&withKeys=1&limit=200`
         );
         const result = await response.json();
         setSearchResults(result?.data?.exercises ?? []);
@@ -326,12 +326,33 @@ export default function Page() {
                 {metricKeysForExercise(ex).map((mk) => (
                   <label key={mk} className="field">
                     <span>{labelizeMetricKey(mk)}</span>
-                    <input
-                      type="text"
-                      inputMode="decimal"
-                      value={(ex.metrics ?? {})[mk] ?? ""}
-                      onChange={(e) => setExerciseMetric(exIndex, mk, e.target.value)}
-                    />
+                    {describeMetricKey(mk) ? <p className="item-sub" style={{ margin: "2px 0 6px" }}>{describeMetricKey(mk)}</p> : null}
+                    {getMetricOptions(mk).length > 0 ? (
+                      <select
+                        value={
+                          getMetricOptions(mk).some((option) => option.value === String((ex.metrics ?? {})[mk] ?? ""))
+                            ? String((ex.metrics ?? {})[mk] ?? "")
+                            : ""
+                        }
+                        onChange={(e) => setExerciseMetric(exIndex, mk, e.target.value)}
+                      >
+                        <option value="">Select {labelizeMetricKey(mk).toLowerCase()}</option>
+                        {getMetricOptions(mk).map((option) => (
+                          <option key={`${mk}-${option.value}`} value={option.value}>{option.label}</option>
+                        ))}
+                        {(ex.metrics ?? {})[mk] &&
+                        !getMetricOptions(mk).some((option) => option.value === String((ex.metrics ?? {})[mk])) ? (
+                          <option value={String((ex.metrics ?? {})[mk])}>{`Current: ${(ex.metrics ?? {})[mk]}`}</option>
+                        ) : null}
+                      </select>
+                    ) : (
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        value={(ex.metrics ?? {})[mk] ?? ""}
+                        onChange={(e) => setExerciseMetric(exIndex, mk, e.target.value)}
+                      />
+                    )}
                   </label>
                 ))}
               </div>

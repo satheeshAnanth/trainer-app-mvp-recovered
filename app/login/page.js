@@ -268,7 +268,13 @@ function LoginForm() {
               </p>
 
               <div className="auth-form">
-                <button type="button" className="continue-btn" onClick={() => router.push("/onboard/trainer")}>New trainer? Start onboarding</button>
+                <button
+                  type="button"
+                  className="continue-btn"
+                  onClick={() => router.push(`/onboard/trainer?phone=${encodeURIComponent(normalizePhone(phone))}`)}
+                >
+                  New trainer? Start onboarding
+                </button>
                 <button type="button" className="ghost-button" onClick={() => router.push(`/client-onboard?phone=${encodeURIComponent(normalizePhone(phone))}`)}>
                   I am a client, talk to trainer
                 </button>

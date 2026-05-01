@@ -19,6 +19,7 @@ const EMPTY_FORM = {
 export default function Page() {
   const [clients, setClients] = useState([]);
   const [error, setError] = useState("");
+  const [modalError, setModalError] = useState("");
   const [showModal, setShowModal] = useState(false);
   const [saving, setSaving] = useState(false);
   const [billing, setBilling] = useState({ status: "trial", maxClients: 5, perClientCostInr: 99 });
@@ -62,11 +63,12 @@ export default function Page() {
 
   function setField(key, value) {
     setForm((prev) => ({ ...prev, [key]: value }));
+    if (modalError) setModalError("");
   }
 
   async function addClient() {
     if (atCapacity) {
-      setError(
+      setModalError(
         isTrial
           ? "Trial client limit reached. Switch plan from Profile to add more clients."
           : "Client limit reached for current plan. Contact support to increase your limit."
@@ -74,11 +76,11 @@ export default function Page() {
       return;
     }
     if (!form.name.trim() || !form.mobile.trim()) {
-      setError("Name and mobile are required.");
+      setModalError("Name and mobile are required.");
       return;
     }
     setSaving(true);
-    setError("");
+    setModalError("");
     try {
       const response = await fetch("/api/clients", {
         method: "POST",
@@ -87,14 +89,20 @@ export default function Page() {
       });
       const json = await response.json();
       if (!response.ok || !json?.ok) {
-        setError(json?.message ?? "Could not add client.");
+        const message = String(json?.message ?? "Could not add client.");
+        if (response.status === 409) {
+          setModalError(message || "This mobile number already exists. Use a different number.");
+        } else {
+          setModalError(message);
+        }
         return;
       }
       setShowModal(false);
       setForm(EMPTY_FORM);
+      setModalError("");
       await loadClients();
     } catch {
-      setError("Could not add client.");
+      setModalError("Could not add client.");
     } finally {
       setSaving(false);
     }
@@ -149,7 +157,16 @@ export default function Page() {
           <div className="modal-card card" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <h2 style={{ margin: 0 }}>Add Client</h2>
-              <button className="ghost-button" type="button" onClick={() => setShowModal(false)}>Close</button>
+              <button
+                className="ghost-button"
+                type="button"
+                onClick={() => {
+                  setShowModal(false);
+                  setModalError("");
+                }}
+              >
+                Close
+              </button>
             </div>
             <div className="form-grid" style={{ marginTop: 12 }}>
               <label className="field full">
@@ -205,6 +222,7 @@ export default function Page() {
                 />
               </label>
             </div>
+            {modalError ? <p className="item-sub" style={{ color: "#fca5a5", marginTop: 10 }}>{modalError}</p> : null}
             <button className="continue-btn" type="button" disabled={saving} onClick={addClient}>
               {saving ? "Adding..." : "Add Client"}
             </button>

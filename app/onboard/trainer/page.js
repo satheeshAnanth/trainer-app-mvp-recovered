@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 
 const ALL_SKILLS = [
   "Strength Training",
@@ -28,8 +28,9 @@ const WALKTHROUGH = [
   },
 ];
 
-export default function TrainerOnboardPage() {
+function TrainerOnboardForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [step, setStep] = useState(1);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -50,8 +51,19 @@ export default function TrainerOnboardPage() {
     billingModel: "trial",
   });
   const [walkIndex, setWalkIndex] = useState(0);
+  const [phoneLocked, setPhoneLocked] = useState(false);
 
   const isValidPhone = useMemo(() => form.phone.replace(/\D/g, "").length === 10, [form.phone]);
+
+  useEffect(() => {
+    const rawPhone = String(searchParams.get("phone") ?? "").trim();
+    if (!rawPhone) return;
+    const digits = rawPhone.replace(/\D/g, "");
+    const local10 = digits.length >= 10 ? digits.slice(-10) : "";
+    if (!local10) return;
+    setForm((prev) => ({ ...prev, phone: local10 }));
+    setPhoneLocked(true);
+  }, [searchParams]);
 
   async function loadPricing() {
     try {
@@ -148,8 +160,14 @@ export default function TrainerOnboardPage() {
                 <label className="auth-label" style={{ marginTop: 10 }}>Mobile number</label>
                 <div className="phone-input-shell">
                   <span className="country-code">+91</span>
-                  <input className="phone-input" value={form.phone} onChange={(e) => setField("phone", e.target.value)} />
+                  <input
+                    className="phone-input"
+                    value={form.phone}
+                    onChange={(e) => setField("phone", e.target.value)}
+                    disabled={phoneLocked}
+                  />
                 </div>
+                {phoneLocked ? <p className="item-sub">Mobile number is locked from your login step.</p> : null}
                 <label className="auth-label" style={{ marginTop: 10 }}>Gym name</label>
                 <input className="auth-input" value={form.gymName} onChange={(e) => setField("gymName", e.target.value)} />
                 <label className="auth-label" style={{ marginTop: 10 }}>Specialization</label>
@@ -236,5 +254,21 @@ export default function TrainerOnboardPage() {
         </section>
       </div>
     </main>
+  );
+}
+
+export default function TrainerOnboardPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="auth-screen">
+          <div className="auth-container">
+            <p className="auth-subtitle">Loading…</p>
+          </div>
+        </main>
+      }
+    >
+      <TrainerOnboardForm />
+    </Suspense>
   );
 }

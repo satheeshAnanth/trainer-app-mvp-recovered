@@ -78,7 +78,13 @@ export async function POST(request, { params }) {
   }
 
   const trainerPhone = request.cookies.get("trainer_session")?.value ?? "trainer";
-  const payload = JSON.stringify({ text, category, read: false });
+  const payload = JSON.stringify({
+    text,
+    category,
+    read: false,
+    actorRole: "trainer",
+    actorId: trainerPhone,
+  });
   const rows = await query(
     `
       INSERT INTO audit_events (
@@ -87,9 +93,7 @@ export async function POST(request, { params }) {
         entity_id,
         action,
         payload_json,
-        created_at,
-        actor_role,
-        actor_id
+        created_at
       )
       VALUES (
         md5(random()::text || clock_timestamp()::text),
@@ -97,13 +101,11 @@ export async function POST(request, { params }) {
         $1,
         'tip_sent',
         $2::text,
-        NOW(),
-        'trainer',
-        $3
+        NOW()
       )
       RETURNING *
     `,
-    [id, payload, trainerPhone]
+    [id, payload]
   );
 
   return NextResponse.json(

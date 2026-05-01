@@ -13,6 +13,35 @@ function normalizePhone(phone = "") {
   return `+${digits}`;
 }
 
+function normalizeGender(value = "") {
+  const normalized = String(value ?? "").trim().toLowerCase().replace(/\s+/g, "_");
+  if (!normalized || normalized === "not_set") return null;
+  const allowed = new Set(["female", "male", "other"]);
+  return allowed.has(normalized) ? normalized : null;
+}
+
+function normalizeActivityLevel(value = "") {
+  const raw = String(value ?? "").trim().toLowerCase();
+  if (!raw || raw === "not set" || raw === "not_set") return null;
+  const canonical = raw.replace(/[_-]+/g, " ").replace(/\s+/g, " ").trim();
+  const synonymMap = {
+    "lightly active": "light",
+    "light active": "light",
+    light: "light",
+    "moderately active": "moderate",
+    "moderate active": "moderate",
+    moderate: "moderate",
+    active: "active",
+    "very active": "very_active",
+    very_active: "very_active",
+    "very active ": "very_active",
+    sedentary: "sedentary",
+  };
+  const normalized = synonymMap[canonical] ?? canonical;
+  const allowed = new Set(["sedentary", "light", "moderate", "active", "very_active"]);
+  return allowed.has(normalized) ? normalized : null;
+}
+
 export async function GET() {
   const payload = await buildRecoveredPayload("api/clients");
   return NextResponse.json({
@@ -31,8 +60,8 @@ export async function POST(request) {
   const age = body?.age ? Number(body.age) : null;
   const weightKg = body?.weightKg ? Number(body.weightKg) : null;
   const heightCm = body?.heightCm ? Number(body.heightCm) : null;
-  const gender = String(body?.gender ?? "").trim() || null;
-  const activityLevel = String(body?.activityLevel ?? "").trim() || null;
+  const gender = normalizeGender(body?.gender);
+  const activityLevel = normalizeActivityLevel(body?.activityLevel);
   const priorCondition = String(body?.priorCondition ?? "").trim() || null;
   const trainerPhone = request.cookies.get("trainer_session")?.value ?? null;
 
