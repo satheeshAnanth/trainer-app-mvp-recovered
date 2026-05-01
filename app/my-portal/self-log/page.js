@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import ClientShell from "app/_components/ClientShell";
 
 export default function Page() {
@@ -12,6 +12,25 @@ export default function Page() {
   });
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
+  const [client, setClient] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/client-auth/session");
+        const json = await res.json();
+        if (!cancelled) {
+          setClient(json?.data?.user ?? null);
+        }
+      } catch {
+        if (!cancelled) setClient(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   function setField(key, value) {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -23,14 +42,18 @@ export default function Page() {
       setMessage("Please fill required workout fields.");
       return;
     }
+    if (!client?.clientId) {
+      setMessage("Client session missing. Please sign in again.");
+      return;
+    }
     setSaving(true);
     try {
       const response = await fetch("/api/client/sessions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          clientId: "c1",
-          clientName: "Ananya Rao",
+          clientId: client.clientId,
+          clientName: client.name ?? client.clientName ?? "Client",
           sessionDate: new Date().toISOString().slice(0, 10),
           sessionTitle: form.workoutType,
           details: form.details,

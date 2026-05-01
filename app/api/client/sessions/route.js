@@ -13,6 +13,14 @@ export async function GET() {
 }
 
 export async function POST(request) {
+  const sessionRaw = request.cookies.get("client_session")?.value;
+  let sessionClientId = null;
+  try {
+    sessionClientId = JSON.parse(sessionRaw ?? "{}")?.clientId ?? null;
+  } catch {
+    sessionClientId = sessionRaw ?? null;
+  }
+
   const body = await request.json();
   const {
     clientId,
@@ -28,6 +36,13 @@ export async function POST(request) {
     return NextResponse.json(
       { ok: false, message: "clientId, sessionTitle, and details are required." },
       { status: 400 }
+    );
+  }
+
+  if (sessionClientId && sessionClientId !== clientId) {
+    return NextResponse.json(
+      { ok: false, message: "You can only submit logs for your own client account." },
+      { status: 403 }
     );
   }
 

@@ -32,9 +32,9 @@
 
 ## Auth and route protection
 - **Trainer:** `trainer_session` cookie set by `POST /api/auth/otp/verify` (value = normalized phone). `middleware.js` protects `/portal`, `/clients`, `/schedule`, `/profile`, `/sessions`. Unauthenticated users go to `/login?next=…`.
-- **Client:** `client_session` cookie set by `POST /api/client-auth/login` (JSON with `clientUserId`, `clientId`, etc., or plain `clientId` in mock mode). Middleware protects `/my-portal`. Unauthenticated users go to `/client-login?next=…`.
-- **Recovery / no `DATABASE_URL`:** client login accepts any valid email and pins the session to the first mock client; trainer OTP mock still uses code `123456`.
-- **Client password in DB:** if `password_hash` starts with `$2` (bcrypt), login returns 501 until a verifier is added; plaintext or empty hash matches recovery behavior described in code.
+- **Client:** `client_session` cookie set by `POST /api/client-auth/otp/verify` (JSON with `clientId` + phone). Middleware protects `/my-portal`. Unauthenticated users go to `/client-login?next=…&reason=registration_required`.
+- **Client eligibility rule:** client mobile must already exist in the `clients` table (trainer-added record). `POST /api/client-auth/check-phone` and `POST /api/client-auth/otp/send|verify` return a user-facing “talk to your trainer” message if not found.
+- **Recovery / no `DATABASE_URL`:** client auth still uses mobile + OTP, but checks against `mockData.clients`. Trainer/client OTP mock code remains `123456`.
 
 ## Autonomous Build Constraints
 - Allowed actions: code edits, commits, pushes, deploy attempts.

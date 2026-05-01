@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { hasDatabaseUrl, query } from "app/lib/db";
+import { mockData } from "app/lib/mockData";
 
 const COOKIE = "client_session";
 
@@ -31,46 +32,33 @@ export async function GET(request) {
   }
 
   if (!hasDatabaseUrl()) {
+    const client = mockData.clients.find((item) => item.id === parsed.clientId) ?? null;
     return NextResponse.json({
       ok: true,
       recovered: true,
       route: "api/client-auth/session",
       data: {
-        authenticated: true,
+        authenticated: Boolean(client),
         user: {
           role: "client",
-          clientId: parsed.clientId,
-          email: parsed.email,
-          name: parsed.name,
+          clientId: client?.id ?? parsed.clientId,
+          name: client?.name ?? null,
+          mobile: client?.mobile ?? client?.phone ?? null,
         },
         source: "mock",
       },
     });
   }
 
-  const rows = parsed.clientUserId
-    ? await query(
-        `
-          SELECT cu.id, cu.email, cu.name, cu.client_id, c.name AS client_name
-          FROM client_users cu
-          LEFT JOIN clients c ON c.id = cu.client_id
-          WHERE cu.id = $1
-            AND COALESCE(cu.is_active, 1) = 1
-          LIMIT 1
-        `,
-        [parsed.clientUserId]
-      )
-    : await query(
-        `
-          SELECT cu.id, cu.email, cu.name, cu.client_id, c.name AS client_name
-          FROM client_users cu
-          LEFT JOIN clients c ON c.id = cu.client_id
-          WHERE cu.client_id = $1
-            AND COALESCE(cu.is_active, 1) = 1
-          LIMIT 1
-        `,
-        [parsed.clientId]
-      );
+  const rows = await query(
+    `
+      SELECT id, name, mobile
+      FROM clients
+      WHERE id = $1
+      LIMIT 1
+    `,
+    [parsed.clientId]
+  );
 
   if (!rows[0]) {
     return NextResponse.json({
@@ -89,11 +77,9 @@ export async function GET(request) {
       authenticated: true,
       user: {
         role: "client",
-        clientUserId: rows[0].id,
-        clientId: rows[0].client_id,
-        email: rows[0].email,
+        clientId: rows[0].id,
         name: rows[0].name,
-        clientName: rows[0].client_name,
+        mobile: rows[0].mobile,
       },
       source: "database",
     },

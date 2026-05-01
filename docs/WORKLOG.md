@@ -13,15 +13,15 @@
 - Milestone 4 complete: added DB-backed write handlers (`POST`/`PATCH`) for sessions, session status, session comments, schedule event notes, and schedule event status.
 
 ### In Progress
-- Persist goal-template field values to DB; bcrypt (or similar) for client passwords when `password_hash` is bcrypt.
+- Persist goal-template field values to DB.
 
 ### Blockers
 - Vercel deployment intermittently failing with platform-side `deploy_failed` / `Unexpected error` despite clean local builds.
 
 ### Next Up
 1. Persist per-client goal-template metrics (schema or JSON column) and wire Save on goal-template page.
-2. Optional: bcrypt verification for `client_users.password_hash` and OTP/magic-link client flow.
-3. Harden middleware (role claims in cookie vs server session store).
+2. Harden middleware + session checks (role claims in cookie vs server session store).
+3. Add client-facing “talk to trainer” onboarding route from blocked login state.
 
 ## 2026-05-01
 
@@ -41,7 +41,7 @@
 - `/clients` loads from `/api/clients`; goal template API returns real `clients.goal` plus placeholder `sessionFields`; goal-template page reflects DB goal text.
 - `app/lib/metricLabels.js` shared by new-session and session-detail flows.
 
-## 2026-05-02
+## 2026-05-01 (session 3)
 
 ### Completed
 - Root `middleware.js`: trainer routes require `trainer_session`; `/my-portal/**` requires `client_session`; redirects preserve `?next=` for post-login return.
@@ -49,3 +49,12 @@
 - Trainer and client shells: Sign out calls API `DELETE` then redirects (clears httpOnly cookies).
 - `/sessions/[id]`: catalog search, add/remove exercises (parity with new session).
 - Trainer OTP cookie `secure` flag in production.
+
+## 2026-05-01 (session 4)
+
+### Completed
+- Client auth switched to mobile + OTP only (`/api/client-auth/check-phone`, `/api/client-auth/otp/send`, `/api/client-auth/otp/verify`).
+- Client login now enforces trainer-added mobile gating via `clients.mobile`; unknown numbers receive “talk to your trainer” message.
+- Removed legacy email/password client login routes.
+- `GET /api/client-auth/session` now validates against `clients` table and returns mobile/name identity.
+- Client self-log page now reads logged-in client identity from session and `/api/client/sessions` rejects cross-client submissions.

@@ -26,6 +26,7 @@ export function middleware(request) {
       const url = request.nextUrl.clone();
       url.pathname = "/client-login";
       url.searchParams.set("next", pathname);
+      url.searchParams.set("reason", "registration_required");
       return NextResponse.redirect(url);
     }
   }
