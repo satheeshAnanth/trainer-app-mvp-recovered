@@ -65,6 +65,14 @@ export default function Page() {
   }
 
   async function addClient() {
+    if (atCapacity) {
+      setError(
+        isTrial
+          ? "Trial client limit reached. Switch plan from Profile to add more clients."
+          : "Client limit reached for current plan. Contact support to increase your limit."
+      );
+      return;
+    }
     if (!form.name.trim() || !form.mobile.trim()) {
       setError("Name and mobile are required.");
       return;
@@ -97,7 +105,7 @@ export default function Page() {
       <article className="card panel">
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
           <h2 style={{ margin: 0 }}>Clients</h2>
-          <button className="mint-button" type="button" onClick={() => setShowModal(true)} disabled={atCapacity}>
+          <button className="mint-button" type="button" onClick={() => setShowModal(true)}>
             + Add Client
           </button>
         </div>

@@ -233,8 +233,8 @@ export default function Page() {
 
   async function runExerciseSearch(term) {
     const q = String(term ?? "").trim();
-    if (q.length < 5) {
-      setMessage("Enter at least 5 characters, then tap Search.");
+    if (q.length < 4) {
+      setMessage("Enter at least 4 characters, then tap o.");
       setSearchResults([]);
       return;
     }
@@ -466,11 +466,15 @@ export default function Page() {
         <div className="metric-card" style={{ marginTop: 10 }}>
           <p className="item-title">Session timeline</p>
           {entries.length === 0 ? <p className="item-sub">No entries yet.</p> : entries.map((entry, idx) => <button key={entry.id} type="button" className="list-item ghost-button" style={{ width: "100%", textAlign: "left", marginTop: 8 }} onClick={() => { setEntryIndex(idx); setCurrentSetIndex(Math.max(0, (entry.setLogs?.length || 1) - 1)); setEditorOpen(true); }}><span>{entry.name || "Untitled"} {entry.source === "goal" ? "· Goal" : "· Other Exercise"}</span><span>{entry.setLogs?.length || 0} sets</span></button>)}
-          <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 12, marginTop: 10 }}>
-            <button className="ghost-button" type="button" onClick={() => startGoalExercise(pendingGoalEntries[0]?.goalExerciseId)} disabled={pendingGoalEntries.length === 0}>Goal Exercise</button>
+          <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 10, marginTop: 10 }}>
             <button className="mint-button" type="button" onClick={() => { setExerciseSearch(""); setSearchResults([]); setSearchModalOpen(true); }} title="Add exercise">+</button>
             <button className="ghost-button" type="button" onClick={() => { setExerciseSearch(""); setSearchResults([]); setSearchModalOpen(true); }}>Other Exercise</button>
           </div>
+          {pendingGoalEntries.length > 0 ? (
+            <p className="item-sub" style={{ marginTop: 8 }}>
+              Goal exercises are managed from the client goal template and appear here automatically.
+            </p>
+          ) : null}
         </div>
       </article> : null}
 
@@ -490,7 +494,15 @@ export default function Page() {
               <span>Exercise name</span>
               <div style={{ display: "flex", gap: 8 }}>
                 <input value={currentEntry.name} onChange={(e) => setEntryField("name", e.target.value)} />
-                <button className="ghost-button" type="button" onClick={openSearchForCurrentEntry}>Search</button>
+                <button
+                  className="ghost-button"
+                  type="button"
+                  onClick={openSearchForCurrentEntry}
+                  style={{ width: 36, minWidth: 36, padding: "8px 0", textAlign: "center" }}
+                  title="Search"
+                >
+                  o
+                </button>
               </div>
             </label>
             <p className="item-sub">{currentEntry.masterExerciseId ? "Mapped exercise selected." : "Not mapped yet. Search and select canonical exercise."}</p>
@@ -589,8 +601,16 @@ export default function Page() {
               <button className="ghost-button" type="button" onClick={() => setSearchModalOpen(false)}>Close</button>
             </div>
             <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
-              <input value={exerciseSearch} onChange={(e) => setExerciseSearch(e.target.value)} placeholder="Type at least 5 characters" />
-              <button className="ghost-button" type="button" onClick={() => runExerciseSearch(exerciseSearch)}>Search</button>
+              <input value={exerciseSearch} onChange={(e) => setExerciseSearch(e.target.value)} placeholder="Type at least 4 characters" />
+              <button
+                className="ghost-button"
+                type="button"
+                onClick={() => runExerciseSearch(exerciseSearch)}
+                style={{ width: 36, minWidth: 36, padding: "8px 0", textAlign: "center" }}
+                title="Search"
+              >
+                o
+              </button>
             </div>
             <div style={{ display: "grid", gap: 8, marginTop: 10 }}>
               {searchResults.map((item) => (

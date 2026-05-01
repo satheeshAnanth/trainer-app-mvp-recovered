@@ -49,6 +49,7 @@ export default function Page() {
   const [goalName, setGoalName] = useState("");
   const [exercises, setExercises] = useState([newExercise()]);
   const [searchResults, setSearchResults] = useState({});
+  const [searchModal, setSearchModal] = useState({ open: false, exIndex: -1, query: "" });
   const [previewImageUrl, setPreviewImageUrl] = useState("");
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
@@ -98,14 +99,14 @@ export default function Page() {
   }
 
   async function searchExercises(index, term) {
-    setExerciseField(index, "search", term);
-    setExerciseField(index, "showResults", true);
-    if (!term.trim()) {
+    const q = String(term ?? "").trim();
+    if (q.length < 4) {
+      setMessage("Type at least 4 characters, then tap o.");
       setSearchResults((prev) => ({ ...prev, [index]: [] }));
       return;
     }
     try {
-      const response = await fetch(`/api/exercises/master/search?q=${encodeURIComponent(term.trim())}`);
+      const response = await fetch(`/api/exercises/master/search?q=${encodeURIComponent(q)}`);
       const json = await response.json();
       const results = Array.isArray(json?.data?.exercises) ? json.data.exercises : [];
       setSearchResults((prev) => ({ ...prev, [index]: uniqueExerciseResults(results).slice(0, 8) }));
@@ -197,45 +198,38 @@ export default function Page() {
               <div className="form-grid">
                 <label className="field full">
                   <span>Goal exercise {exIndex + 1} (master library)</span>
-                  <input
-                    value={exercise.search}
-                    onChange={(e) => searchExercises(exIndex, e.target.value)}
-                    placeholder="Search exercise (e.g. Back Squat)"
-                  />
-                </label>
-                {exercise.showResults && Array.isArray(searchResults[exIndex]) && searchResults[exIndex].length > 0 ? (
-                  <div className="field full">
-                    <div style={{ display: "grid", gap: 6 }}>
-                      {searchResults[exIndex].map((item) => (
-                        <button
-                          key={`${exIndex}-${item.id}`}
-                          type="button"
-                          className="ghost-button"
-                          onClick={() => chooseExercise(exIndex, item)}
-                          style={{ textAlign: "left" }}
-                        >
-                          {item.displayName ?? normalizeExerciseDisplayName(item?.name)}
-                        </button>
-                      ))}
-                    </div>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <input
+                      value={exercise.search}
+                      onChange={(e) => setExerciseField(exIndex, "search", e.target.value)}
+                      placeholder="Search exercise (e.g. Back Squat)"
+                    />
+                    <button
+                      type="button"
+                      className="ghost-button"
+                      style={{ width: 36, minWidth: 36, padding: "8px 0", textAlign: "center" }}
+                      onClick={() => {
+                        setSearchModal({ open: true, exIndex, query: exercise.search });
+                        searchExercises(exIndex, exercise.search);
+                      }}
+                      title="Search"
+                    >
+                      o
+                    </button>
                   </div>
+                </label>
+                {exercise.exercise ? <p className="item-sub" style={{ gridColumn: "1 / -1" }}>{exercise.exercise}</p> : null}
+                {exercise.imageUrl ? (
+                  <button
+                    type="button"
+                    className="ghost-button"
+                    style={{ width: "fit-content" }}
+                    onClick={() => setPreviewImageUrl(exercise.imageUrl)}
+                    title="View exercise image"
+                  >
+                    View image
+                  </button>
                 ) : null}
-                <label className="field full">
-                  <span>Selected mapped exercise</span>
-                  <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                    <input value={exercise.exercise} disabled placeholder="Select from search results" />
-                    {exercise.imageUrl ? (
-                      <button
-                        type="button"
-                        className="ghost-button"
-                        onClick={() => setPreviewImageUrl(exercise.imageUrl)}
-                        title="View exercise image"
-                      >
-                        View image
-                      </button>
-                    ) : null}
-                  </div>
-                </label>
                 <label className="field">
                   <span>Variation (optional)</span>
                   <input
@@ -295,6 +289,47 @@ export default function Page() {
               alt="Selected exercise preview"
               style={{ width: "100%", borderRadius: 12, border: "1px solid rgba(148,163,184,0.25)" }}
             />
+          </div>
+        ) : null}
+        {searchModal.open ? (
+          <div className="modal-backdrop" onClick={() => setSearchModal({ open: false, exIndex: -1, query: "" })}>
+            <div className="modal-card card" onClick={(e) => e.stopPropagation()}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <h2 style={{ margin: 0 }}>Search exercise</h2>
+                <button className="ghost-button" type="button" onClick={() => setSearchModal({ open: false, exIndex: -1, query: "" })}>Close</button>
+              </div>
+              <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+                <input
+                  value={searchModal.query}
+                  onChange={(e) => setSearchModal((prev) => ({ ...prev, query: e.target.value }))}
+                  placeholder="Type at least 4 characters"
+                />
+                <button
+                  type="button"
+                  className="ghost-button"
+                  style={{ width: 36, minWidth: 36, padding: "8px 0", textAlign: "center" }}
+                  onClick={() => searchExercises(searchModal.exIndex, searchModal.query)}
+                >
+                  o
+                </button>
+              </div>
+              <div style={{ display: "grid", gap: 8, marginTop: 10 }}>
+                {(searchResults[searchModal.exIndex] ?? []).map((item) => (
+                  <button
+                    key={`search-modal-${item.id}`}
+                    type="button"
+                    className="ghost-button"
+                    style={{ textAlign: "left" }}
+                    onClick={() => {
+                      chooseExercise(searchModal.exIndex, item);
+                      setSearchModal({ open: false, exIndex: -1, query: "" });
+                    }}
+                  >
+                    {item.displayName ?? normalizeExerciseDisplayName(item?.name)}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
         ) : null}
         {message ? <p className="item-sub" style={{ color: message.includes("saved") ? "#34d399" : "#fca5a5" }}>{message}</p> : null}
