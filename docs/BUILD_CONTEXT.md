@@ -30,6 +30,12 @@
 - **`completed` / `signed_off` / `trainer_review`:** API requires `payload.sections` (`warmup`, `mainWork`, `cooldown`, `goalUpdate`), a non-empty `payload.exercises` array, and each exercise must expose all required metrics. Required keys come from `master_exercise_metrics` rows with `metric_value = Primary` plus `important_input_fields_json` on `master_exercises`, merged with any `metricRequired` array sent by the client (used when `DATABASE_URL` is unset). Keys are matched with canonical synonyms (duration, incline, distance, sets, reps, load, etc.).
 - **`PATCH /api/sessions/[id]`:** loads existing row when using the DB; merges `payload` into stored JSON; runs the full checks only when the effective status is one of the completed-style statuses above.
 
+## Auth and route protection
+- **Trainer:** `trainer_session` cookie set by `POST /api/auth/otp/verify` (value = normalized phone). `middleware.js` protects `/portal`, `/clients`, `/schedule`, `/profile`, `/sessions`. Unauthenticated users go to `/login?next=…`.
+- **Client:** `client_session` cookie set by `POST /api/client-auth/login` (JSON with `clientUserId`, `clientId`, etc., or plain `clientId` in mock mode). Middleware protects `/my-portal`. Unauthenticated users go to `/client-login?next=…`.
+- **Recovery / no `DATABASE_URL`:** client login accepts any valid email and pins the session to the first mock client; trainer OTP mock still uses code `123456`.
+- **Client password in DB:** if `password_hash` starts with `$2` (bcrypt), login returns 501 until a verifier is added; plaintext or empty hash matches recovery behavior described in code.
+
 ## Autonomous Build Constraints
 - Allowed actions: code edits, commits, pushes, deploy attempts.
 - Never rewrite git history or force push.

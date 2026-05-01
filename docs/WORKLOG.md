@@ -13,15 +13,15 @@
 - Milestone 4 complete: added DB-backed write handlers (`POST`/`PATCH`) for sessions, session status, session comments, schedule event notes, and schedule event status.
 
 ### In Progress
-- Route guards (trainer vs client); persist goal-template field values to DB; optional custom metrics on session detail.
+- Persist goal-template field values to DB; bcrypt (or similar) for client passwords when `password_hash` is bcrypt.
 
 ### Blockers
 - Vercel deployment intermittently failing with platform-side `deploy_failed` / `Unexpected error` despite clean local builds.
 
 ### Next Up
-1. Client auth parity and protected routes (trainer shell vs client shell).
-2. Persist per-client goal-template metrics (schema or JSON column) and wire Save on goal-template page.
-3. Session detail: add exercises from catalog (parity with `/sessions/new`).
+1. Persist per-client goal-template metrics (schema or JSON column) and wire Save on goal-template page.
+2. Optional: bcrypt verification for `client_users.password_hash` and OTP/magic-link client flow.
+3. Harden middleware (role claims in cookie vs server session store).
 
 ## 2026-05-01
 
@@ -40,3 +40,12 @@
 - `/sessions/pending-notes` differentiates client self-log vs trainer work; **Approve** only for `client_submitted`; list shows `raw_notes_preview` from DB-backed session list.
 - `/clients` loads from `/api/clients`; goal template API returns real `clients.goal` plus placeholder `sessionFields`; goal-template page reflects DB goal text.
 - `app/lib/metricLabels.js` shared by new-session and session-detail flows.
+
+## 2026-05-02
+
+### Completed
+- Root `middleware.js`: trainer routes require `trainer_session`; `/my-portal/**` requires `client_session`; redirects preserve `?next=` for post-login return.
+- `POST /api/client-auth/login`, real `GET`/`DELETE /api/client-auth/session`; client-login page (email + optional password); trainer login respects `next`.
+- Trainer and client shells: Sign out calls API `DELETE` then redirects (clears httpOnly cookies).
+- `/sessions/[id]`: catalog search, add/remove exercises (parity with new session).
+- Trainer OTP cookie `secure` flag in production.

@@ -13,6 +13,12 @@ const navItems = [
 
 export default function ClientShell({ title, subtitle, children }) {
   const pathname = usePathname();
+
+  async function signOut() {
+    await fetch("/api/client-auth/session", { method: "DELETE" });
+    window.location.href = "/client-login";
+  }
+
   return (
     <main className="trainer-screen">
       <div className="trainer-container">
@@ -22,9 +28,9 @@ export default function ClientShell({ title, subtitle, children }) {
             <h1 className="trainer-title">{title}</h1>
             <p className="trainer-subtitle">{subtitle}</p>
           </div>
-          <Link className="ghost-button" href="/client-login">
+          <button type="button" className="ghost-button" onClick={signOut}>
             Sign Out
-          </Link>
+          </button>
         </header>
 
         <nav className="trainer-nav card">

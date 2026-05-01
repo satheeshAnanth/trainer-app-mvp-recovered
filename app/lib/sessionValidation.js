@@ -9,12 +9,6 @@ export function requiresFullTrainerPayload(status) {
   return s === "completed" || s === "signed_off" || s === "trainer_review";
 }
 
-/** @deprecated prefer requiresFullTrainerPayload — kept for clarity in docs */
-export function isNonDraftTrainerStatus(status) {
-  const s = (status ?? "draft").toLowerCase();
-  return s !== "draft" && s !== "client_submitted";
-}
-
 function sectionsComplete(sections) {
   const missing = [];
   for (const key of SECTION_KEYS) {

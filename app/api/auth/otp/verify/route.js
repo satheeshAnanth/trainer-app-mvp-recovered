@@ -41,7 +41,7 @@ export async function POST(request) {
       response.cookies.set("trainer_session", phone, {
         httpOnly: true,
         sameSite: "lax",
-        secure: false,
+        secure: process.env.NODE_ENV === "production",
         maxAge: 60 * 60 * 24,
         path: "/",
       });
@@ -87,7 +87,7 @@ export async function POST(request) {
   response.cookies.set("trainer_session", phone, {
     httpOnly: true,
     sameSite: "lax",
-    secure: false,
+    secure: process.env.NODE_ENV === "production",
     maxAge: 60 * 60 * 24,
     path: "/",
   });

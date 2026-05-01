@@ -1,10 +1,17 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useMemo, useState } from "react";
 
-export default function Page() {
+function safeNextPath(next) {
+  if (!next || typeof next !== "string") return "/portal";
+  if (!next.startsWith("/") || next.startsWith("//")) return "/portal";
+  return next;
+}
+
+function TrainerLoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [phone, setPhone] = useState("");
   const [otp, setOtp] = useState("");
   const [step, setStep] = useState("phone");
@@ -65,7 +72,7 @@ export default function Page() {
         setError(verifyJson?.message ?? "Invalid OTP.");
         return;
       }
-      router.push("/portal");
+      router.push(safeNextPath(searchParams.get("next")));
     } finally {
       setSubmitting(false);
     }
@@ -145,5 +152,21 @@ export default function Page() {
         </section>
       </div>
     </main>
+  );
+}
+
+export default function Page() {
+  return (
+    <Suspense
+      fallback={
+        <main className="auth-screen">
+          <div className="auth-container">
+            <p className="auth-subtitle">Loading…</p>
+          </div>
+        </main>
+      }
+    >
+      <TrainerLoginForm />
+    </Suspense>
   );
 }

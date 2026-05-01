@@ -31,6 +31,8 @@ export default function Page() {
   const [newComment, setNewComment] = useState("");
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
+  const [searchQ, setSearchQ] = useState("");
+  const [searchResults, setSearchResults] = useState([]);
 
   function hydrateFromRecord(record) {
     if (!record) return;
@@ -69,6 +71,26 @@ export default function Page() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId]);
 
+  useEffect(() => {
+    const q = searchQ.trim();
+    if (q.length < 2) {
+      setSearchResults([]);
+      return undefined;
+    }
+    const t = setTimeout(async () => {
+      try {
+        const response = await fetch(
+          `/api/exercises/master/search?q=${encodeURIComponent(q)}&withKeys=1`
+        );
+        const result = await response.json();
+        setSearchResults(result?.data?.exercises ?? []);
+      } catch {
+        setSearchResults([]);
+      }
+    }, 320);
+    return () => clearTimeout(t);
+  }, [searchQ]);
+
   function setSection(key, value) {
     setSections((prev) => ({ ...prev, [key]: value }));
   }
@@ -79,6 +101,31 @@ export default function Page() {
         i === exIndex ? { ...ex, metrics: { ...(ex.metrics ?? {}), [metricKey]: value } } : ex
       )
     );
+  }
+
+  function addExerciseFromCatalog(row) {
+    const keys = Array.isArray(row.requiredKeys) ? row.requiredKeys : [];
+    if (keys.length === 0) {
+      setMessage("This exercise has no required metrics in the catalog yet.");
+      return;
+    }
+    const metrics = Object.fromEntries(keys.map((k) => [k, ""]));
+    setExercises((prev) => [
+      ...prev,
+      {
+        exerciseId: row.id,
+        name: row.name,
+        metricRequired: keys,
+        metrics,
+      },
+    ]);
+    setSearchQ("");
+    setSearchResults([]);
+    setMessage("");
+  }
+
+  function removeExerciseAt(index) {
+    setExercises((prev) => prev.filter((_, i) => i !== index));
   }
 
   function buildPayload() {
@@ -207,7 +254,7 @@ export default function Page() {
 
       <article className="card panel">
         <h2>Mandatory note sections</h2>
-        <p className="item-sub">These map to `payload.sections` and sync with raw notes on save.</p>
+        <p className="item-sub">These map to session payload sections and sync with raw notes on save.</p>
         <div className="form-grid">
           <label className="field full">
             <span>Warm-up *</span>
@@ -230,12 +277,51 @@ export default function Page() {
 
       <article className="card panel">
         <h2>Exercise metrics</h2>
+        <p className="item-sub">Search the catalog to add exercises. Fill metrics before marking complete.</p>
+        <label className="field full">
+          <span>Search exercises</span>
+          <input
+            type="search"
+            value={searchQ}
+            onChange={(e) => setSearchQ(e.target.value)}
+            placeholder="Type at least two letters (e.g. squat, walk)"
+          />
+        </label>
+        {searchResults.length > 0 ? (
+          <ul className="list" style={{ marginTop: "0.75rem" }}>
+            {searchResults.map((row) => (
+              <li className="list-item" key={row.id}>
+                <div>
+                  <p className="item-title">{row.name}</p>
+                  <p className="item-sub">{row.category ?? "Exercise"}</p>
+                </div>
+                <button type="button" className="ghost-button" onClick={() => addExerciseFromCatalog(row)}>
+                  Add
+                </button>
+              </li>
+            ))}
+          </ul>
+        ) : null}
         {exercises.length === 0 ? (
-          <p className="item-sub">No structured exercises on this session. Edit on create flow or paste details in notes.</p>
+          <p className="item-sub" style={{ marginTop: "1rem" }}>
+            No structured exercises yet. Add from the catalog or paste details in raw notes.
+          </p>
         ) : (
           exercises.map((ex, exIndex) => (
             <div key={`${ex.exerciseId ?? ex.name}-${exIndex}`} className="metric-card" style={{ marginTop: "1rem" }}>
-              <p className="item-title">{ex.name ?? ex.exerciseId ?? `Exercise ${exIndex + 1}`}</p>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  gap: "0.5rem",
+                  alignItems: "flex-start",
+                }}
+              >
+                <p className="item-title">{ex.name ?? ex.exerciseId ?? `Exercise ${exIndex + 1}`}</p>
+                <button type="button" className="ghost-button" onClick={() => removeExerciseAt(exIndex)}>
+                  Remove
+                </button>
+              </div>
               <div className="form-grid">
                 {metricKeysForExercise(ex).map((mk) => (
                   <label key={mk} className="field">
