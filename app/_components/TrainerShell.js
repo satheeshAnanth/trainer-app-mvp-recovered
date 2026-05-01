@@ -4,10 +4,10 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const navItems = [
-  { href: "/portal", label: "Portal" },
+  { href: "/portal", label: "Home" },
   { href: "/clients", label: "Clients" },
+  { href: "/sessions/new", label: "Log" },
   { href: "/schedule", label: "Schedule" },
-  { href: "/sessions/pending-notes", label: "Pending Notes" },
   { href: "/profile", label: "Profile" },
 ];
 
@@ -48,7 +48,7 @@ export default function TrainerShell({ title, subtitle, children }) {
         <section className="trainer-content">{children}</section>
 
         <nav className="mobile-tabbar card">
-          {navItems.slice(0, 4).map((item) => (
+          {navItems.map((item) => (
             <Link
               key={item.href}
               href={item.href}

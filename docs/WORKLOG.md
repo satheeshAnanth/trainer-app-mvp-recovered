@@ -67,3 +67,10 @@
 - Extended `POST /api/admin/register-trainer` to persist `trainer_phones` metadata and seed trial billing row (best effort), then set trainer session cookie.
 - Hardened phone matching in trainer/client auth checks with digit-normalized comparisons (`regexp_replace`) to reduce format mismatch login failures.
 - Added `/client-onboard` page and client-login redirect to that page when number is not trainer-added.
+
+## 2026-05-01 (session 6)
+
+### Completed
+- Rebuilt `/portal` landing UI toward screenshot parity: hero welcome + CTA, KPI cards, pending/ready/most-active insights, schedule request empty-state, and recent sessions with status chips.
+- Wired dashboard values to live APIs (`/api/auth/session`, `/api/clients`, `/api/sessions`) instead of hardcoded stats.
+- Updated trainer shell nav labels and mobile tab structure to `Home / Clients / Log / Schedule / Profile`.
