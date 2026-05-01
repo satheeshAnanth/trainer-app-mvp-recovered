@@ -13,15 +13,15 @@
 - Milestone 4 complete: added DB-backed write handlers (`POST`/`PATCH`) for sessions, session status, session comments, schedule event notes, and schedule event status.
 
 ### In Progress
-- Route guards (trainer vs client), richer session detail editing for catalog-shaped payloads, optional custom metrics per exercise in UI.
+- Route guards (trainer vs client); persist goal-template field values to DB; optional custom metrics on session detail.
 
 ### Blockers
 - Vercel deployment intermittently failing with platform-side `deploy_failed` / `Unexpected error` despite clean local builds.
 
 ### Next Up
-1. Session detail / pending-notes UI for dynamic exercise payloads and approval copy.
-2. Clients list from `/api/clients` and goal-template backed by DB when columns exist.
-3. Client auth parity and protected routes.
+1. Client auth parity and protected routes (trainer shell vs client shell).
+2. Persist per-client goal-template metrics (schema or JSON column) and wire Save on goal-template page.
+3. Session detail: add exercises from catalog (parity with `/sessions/new`).
 
 ## 2026-05-01
 
