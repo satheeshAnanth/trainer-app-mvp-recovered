@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { buildRecoveredPayload } from "app/lib/apiResponse";
 import { hasDatabaseUrl, query } from "app/lib/db";
+import { shouldValidateTrainerSession, validateTrainerSessionBody } from "app/lib/sessionValidation";
 
 export async function GET() {
   const payload = await buildRecoveredPayload("api/sessions");
@@ -32,6 +33,19 @@ export async function POST(request) {
       { ok: false, message: "clientId and sessionTitle are required." },
       { status: 400 }
     );
+  }
+
+  if (shouldValidateTrainerSession({ status, payload })) {
+    const check = await validateTrainerSessionBody(
+      { status, payload },
+      { skipDb: !hasDatabaseUrl() }
+    );
+    if (!check.ok) {
+      return NextResponse.json(
+        { ok: false, message: check.message, details: check.details },
+        { status: 400 }
+      );
+    }
   }
 
   if (!hasDatabaseUrl()) {

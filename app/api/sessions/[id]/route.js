@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { buildRecoveredPayload } from "app/lib/apiResponse";
 import { hasDatabaseUrl, query } from "app/lib/db";
+import { mergeSessionPayload } from "app/lib/payloadMerge";
+import { isNonDraftTrainerStatus, validateTrainerSessionBody } from "app/lib/sessionValidation";
 
 export async function GET(_request, { params }) {
   const payload = await buildRecoveredPayload("api/sessions/[id]", params);
@@ -29,6 +31,34 @@ export async function PATCH(request, { params }) {
     return NextResponse.json({ ok: false, message: "Session id is required." }, { status: 400 });
   }
 
+  let existingRow = null;
+  if (hasDatabaseUrl()) {
+    const existingRows = await query(
+      `SELECT status, payload_json FROM sessions WHERE id = $1 LIMIT 1`,
+      [id]
+    );
+    existingRow = existingRows[0] ?? null;
+    if (!existingRow) {
+      return NextResponse.json({ ok: false, message: "Session not found." }, { status: 404 });
+    }
+  }
+
+  const finalStatus = status ?? existingRow?.status ?? "draft";
+  const mergedPayload = mergeSessionPayload(existingRow?.payload_json, payload);
+
+  if (isNonDraftTrainerStatus(finalStatus)) {
+    const check = await validateTrainerSessionBody(
+      { status: finalStatus, payload: mergedPayload },
+      { skipDb: !hasDatabaseUrl() }
+    );
+    if (!check.ok) {
+      return NextResponse.json(
+        { ok: false, message: check.message, details: check.details },
+        { status: 400 }
+      );
+    }
+  }
+
   if (!hasDatabaseUrl()) {
     return NextResponse.json({
       ok: true,
@@ -39,8 +69,8 @@ export async function PATCH(request, { params }) {
         session_title: sessionTitle ?? null,
         raw_notes: rawNotes ?? null,
         summary: summary ?? null,
-        status: status ?? null,
-        payload_json: payload ?? null,
+        status: finalStatus,
+        payload_json: mergedPayload,
         estimated_calories: estimatedCalories ?? null,
         duration_minutes: durationMinutes ?? null,
         source: "mock",
@@ -48,6 +78,7 @@ export async function PATCH(request, { params }) {
     });
   }
 
+  const payloadToStore = payload !== undefined ? mergedPayload : undefined;
   const rows = await query(
     `
       UPDATE sessions
@@ -56,9 +87,9 @@ export async function PATCH(request, { params }) {
         raw_notes = COALESCE($3, raw_notes),
         summary = COALESCE($4, summary),
         status = COALESCE($5, status),
-        payload_json = COALESCE($6::text, payload_json),
-        estimated_calories = COALESCE($7, estimated_calories),
-        duration_minutes = COALESCE($8, duration_minutes),
+        payload_json = CASE WHEN $6::boolean THEN $7::text ELSE payload_json END,
+        estimated_calories = COALESCE($8, estimated_calories),
+        duration_minutes = COALESCE($9, duration_minutes),
         updated_at = NOW()
       WHERE id = $1
       RETURNING *
@@ -69,7 +100,8 @@ export async function PATCH(request, { params }) {
       rawNotes ?? null,
       summary ?? null,
       status ?? null,
-      payload ? JSON.stringify(payload) : null,
+      payload !== undefined,
+      payloadToStore !== undefined ? JSON.stringify(payloadToStore) : null,
       estimatedCalories ?? null,
       durationMinutes ?? null,
     ]
