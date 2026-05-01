@@ -43,6 +43,21 @@ export async function PATCH(request, { params }) {
     }
   }
 
+  const existingStatus = String(existingRow?.status ?? "").toLowerCase();
+  const requestedStatus = String(status ?? "").toLowerCase();
+  const finalizedStatuses = new Set(["completed", "signed_off"]);
+  const isFinalized = finalizedStatuses.has(existingStatus);
+  const isReopenRequest = requestedStatus === "reopened" || requestedStatus === "draft";
+  if (isFinalized && payload !== undefined && !isReopenRequest) {
+    return NextResponse.json(
+      {
+        ok: false,
+        message: "This session is finalized. Reopen the session before editing structured exercise data.",
+      },
+      { status: 409 }
+    );
+  }
+
   const finalStatus = status ?? existingRow?.status ?? "draft";
   const mergedPayload = mergeSessionPayload(existingRow?.payload_json, payload);
 

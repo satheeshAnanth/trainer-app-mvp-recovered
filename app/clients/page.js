@@ -13,6 +13,7 @@ const EMPTY_FORM = {
   heightCm: "",
   gender: "not set",
   activityLevel: "not set",
+  priorCondition: "",
 };
 
 export default function Page() {
@@ -20,19 +21,40 @@ export default function Page() {
   const [error, setError] = useState("");
   const [showModal, setShowModal] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [billing, setBilling] = useState({ status: "trial", maxClients: 5, perClientCostInr: 99 });
   const [form, setForm] = useState(EMPTY_FORM);
 
   async function loadClients() {
     try {
-      const response = await fetch("/api/clients");
-      const json = await response.json();
-      setClients(json?.data?.clients ?? []);
+      const [clientsRes, profileRes, pricingRes] = await Promise.all([
+        fetch("/api/clients"),
+        fetch("/api/profile/trainer"),
+        fetch("/api/auth/pricing"),
+      ]);
+      const clientsJson = await clientsRes.json();
+      const profileJson = await profileRes.json();
+      const pricingJson = await pricingRes.json();
+      const trainer = profileJson?.data?.trainer ?? {};
+      const isTrial = String(trainer?.billing_status ?? "trial").toLowerCase() === "trial";
+      setClients(clientsJson?.data?.clients ?? []);
+      setBilling({
+        status: isTrial ? "trial" : "per_client",
+        maxClients: Number(
+          trainer?.max_clients ??
+            (isTrial ? pricingJson?.data?.billingModels?.trial?.clientLimit ?? 5 : 5000)
+        ),
+        perClientCostInr: Number(pricingJson?.data?.billingModels?.perClient?.perClientCostInr ?? 99),
+      });
       setError("");
     } catch {
       setError("Could not load clients.");
       setClients([]);
     }
   }
+
+  const isTrial = billing.status === "trial";
+  const slotsLeft = Math.max(0, Number(billing.maxClients || 0) - clients.length);
+  const atCapacity = slotsLeft <= 0;
 
   useEffect(() => {
     loadClients();
@@ -75,10 +97,15 @@ export default function Page() {
       <article className="card panel">
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
           <h2 style={{ margin: 0 }}>Clients</h2>
-          <button className="mint-button" type="button" onClick={() => setShowModal(true)}>
+          <button className="mint-button" type="button" onClick={() => setShowModal(true)} disabled={atCapacity}>
             + Add Client
           </button>
         </div>
+        <p className="item-sub" style={{ marginTop: 8 }}>
+          {isTrial
+            ? `Free trial up to X clients: ${clients.length}/${billing.maxClients} used (${slotsLeft} slots left).`
+            : `Per-client pricing after threshold: INR ${billing.perClientCostInr} per active client / month.`}
+        </p>
 
         {error ? <p className="item-sub" style={{ color: "#fca5a5" }}>{error}</p> : null}
 
@@ -91,12 +118,17 @@ export default function Page() {
           <ul className="list" style={{ marginTop: 12 }}>
             {clients.map((c) => (
               <li className="list-item" key={c.id}>
-                <div>
+                <Link
+                  href={`/clients/${c.id}`}
+                  style={{
+                    textDecoration: "none",
+                    color: "inherit",
+                    display: "block",
+                    width: "100%",
+                  }}
+                >
                   <p className="item-title">{c.name}</p>
                   <p className="item-sub">{c.goal || "No goal set"}</p>
-                </div>
-                <Link href={`/clients/${c.id}`} className="ghost-button">
-                  Open
                 </Link>
               </li>
             ))}
@@ -136,8 +168,8 @@ export default function Page() {
                 <span>Height (cm)</span>
                 <input type="number" value={form.heightCm} onChange={(e) => setField("heightCm", e.target.value)} />
               </label>
-              <label className="field">
-                <span>Gender</span>
+              <label className="field full">
+                <span>Sex</span>
                 <select value={form.gender} onChange={(e) => setField("gender", e.target.value)}>
                   <option>not set</option>
                   <option>female</option>
@@ -154,6 +186,15 @@ export default function Page() {
                   <option>moderately active</option>
                   <option>very active</option>
                 </select>
+              </label>
+              <label className="field full">
+                <span>Prior conditions / injuries (optional)</span>
+                <textarea
+                  rows={3}
+                  value={form.priorCondition}
+                  onChange={(e) => setField("priorCondition", e.target.value)}
+                  placeholder="e.g. lower back pain, knee surgery history, asthma"
+                />
               </label>
             </div>
             <button className="continue-btn" type="button" disabled={saving} onClick={addClient}>

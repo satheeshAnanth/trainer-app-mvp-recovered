@@ -29,25 +29,37 @@ export default function Page() {
   const [trainerName, setTrainerName] = useState("Coach");
   const [sessions, setSessions] = useState([]);
   const [clients, setClients] = useState([]);
+  const [billing, setBilling] = useState({ billingStatus: "trial", maxClients: 5 });
+  const [pricing, setPricing] = useState({ billingModels: { trial: { clientLimit: 5 }, perClient: { perClientCostInr: 99 } } });
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const [trainerRes, sessionsRes, clientsRes] = await Promise.all([
+      const [trainerRes, sessionsRes, clientsRes, profileRes, pricingRes] = await Promise.all([
         fetch("/api/auth/session").catch(() => null),
         fetch("/api/sessions").catch(() => null),
         fetch("/api/clients").catch(() => null),
+        fetch("/api/profile/trainer").catch(() => null),
+        fetch("/api/auth/pricing").catch(() => null),
       ]);
 
       const trainerJson = trainerRes ? await trainerRes.json() : null;
       const sessionsJson = sessionsRes ? await sessionsRes.json() : null;
       const clientsJson = clientsRes ? await clientsRes.json() : null;
+      const profileJson = profileRes ? await profileRes.json() : null;
+      const pricingJson = pricingRes ? await pricingRes.json() : null;
 
       if (cancelled) return;
       const trainer = trainerJson?.data?.user;
+      const trainerProfile = profileJson?.data?.trainer ?? {};
       if (trainer?.name) setTrainerName(trainer.name);
       setSessions(sessionsJson?.data?.sessions ?? []);
       setClients(clientsJson?.data?.clients ?? []);
+      setBilling({
+        billingStatus: String(trainerProfile?.billing_status ?? "trial"),
+        maxClients: Number(trainerProfile?.max_clients ?? 5),
+      });
+      if (pricingJson?.data) setPricing((prev) => ({ ...prev, ...pricingJson.data }));
     })();
     return () => {
       cancelled = true;
@@ -106,6 +118,12 @@ export default function Page() {
       recentSessions,
     };
   }, [clients, sessions]);
+  const currentClients = computed.clientsCount;
+  const trialLimit = Number(pricing?.billingModels?.trial?.clientLimit ?? 5);
+  const perClientCost = Number(pricing?.billingModels?.perClient?.perClientCostInr ?? 99);
+  const isTrial = String(billing.billingStatus).toLowerCase() === "trial";
+  const effectiveLimit = Number(billing.maxClients || (isTrial ? trialLimit : 5000));
+  const capacityLeft = Math.max(0, effectiveLimit - currentClients);
 
   return (
     <TrainerShell title="Trainer dashboard" subtitle="Live snapshot of your coaching pipeline and client workload">
@@ -156,6 +174,21 @@ export default function Page() {
           <p className="item-sub">{computed.mostActiveCount} logged sessions</p>
         </article>
       </div>
+
+      <article className="card panel">
+        <h2>Billing model</h2>
+        <div className="list-item">
+          <div>
+            <p className="item-title">{isTrial ? "Free trial up to X clients" : "Per-client pricing after threshold"}</p>
+            <p className="item-sub">
+              {isTrial
+                ? `${currentClients}/${effectiveLimit} clients used in trial.`
+                : `INR ${perClientCost} per active client per month.`}
+            </p>
+          </div>
+          <span className="status-chip">{capacityLeft} slots left</span>
+        </div>
+      </article>
 
       <article className="card panel">
         <h2>Schedule requests</h2>

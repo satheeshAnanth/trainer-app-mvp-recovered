@@ -18,12 +18,9 @@ function ClientOnboardInner() {
             Your number is not active in the app yet. Ask your trainer to add you as a client first.
           </p>
           {phone ? <p className="auth-subtitle">Tried mobile: {phone}</p> : null}
-          <div className="quick-actions" style={{ marginTop: "1rem" }}>
-            <Link href="/client-login" className="mint-button">
-              Back to client login
-            </Link>
-            <Link href="/login" className="ghost-button">
-              Trainer login
+          <div className="auth-button-row">
+            <Link href="/login" className="mint-button">
+              Back to login
             </Link>
           </div>
         </section>

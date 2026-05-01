@@ -3,6 +3,16 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
+const ALL_SKILLS = [
+  "Strength Training",
+  "Cardio & Conditioning",
+  "Yoga & Flexibility",
+  "Sports Performance",
+  "Rehabilitation",
+  "Nutrition & Wellness",
+  "General Fitness",
+];
+
 const WALKTHROUGH = [
   {
     title: "Track every session clearly",
@@ -23,15 +33,21 @@ export default function TrainerOnboardPage() {
   const [step, setStep] = useState(1);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const [pricing, setPricing] = useState({ oneToOne: 1200, monthly: 9000, online: 800 });
+  const [pricing, setPricing] = useState({
+    billingModels: {
+      trial: { clientLimit: 5, perClientCostInr: 0 },
+      perClient: { clientLimit: 5000, perClientCostInr: 99 },
+    },
+  });
   const [form, setForm] = useState({
     name: "",
     phone: "",
     gymName: "",
-    specialization: "",
+    specialization: [],
     yearsExperience: "",
     location: "",
     pricingTier: "starter",
+    billingModel: "trial",
   });
   const [walkIndex, setWalkIndex] = useState(0);
 
@@ -41,7 +57,10 @@ export default function TrainerOnboardPage() {
     try {
       const res = await fetch("/api/auth/pricing");
       const json = await res.json();
-      setPricing(json?.data?.pricing ?? pricing);
+      setPricing({
+        ...pricing,
+        ...(json?.data ?? {}),
+      });
     } catch {
       // keep defaults
     }
@@ -61,6 +80,17 @@ export default function TrainerOnboardPage() {
     setForm((prev) => ({ ...prev, [key]: value }));
   }
 
+  function toggleSpecialization(skill) {
+    setForm((prev) => {
+      const current = Array.isArray(prev.specialization) ? prev.specialization : [];
+      const exists = current.includes(skill);
+      return {
+        ...prev,
+        specialization: exists ? current.filter((item) => item !== skill) : [...current, skill],
+      };
+    });
+  }
+
   async function completeRegistration() {
     setSaving(true);
     setError("");
@@ -70,6 +100,7 @@ export default function TrainerOnboardPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...form,
+          specialization: Array.isArray(form.specialization) ? form.specialization.join(", ") : "",
           yearsExperience: Number(form.yearsExperience || 0),
         }),
       });
@@ -111,23 +142,38 @@ export default function TrainerOnboardPage() {
               <p className="eyebrow">New Trainer</p>
               <h1 className="auth-title">Set up your account</h1>
               <p className="auth-subtitle">These details are used to create your trainer profile.</p>
-              <div className="auth-form">
+              <div className="auth-form auth-field-stack">
                 <label className="auth-label">Full name</label>
-                <input className="phone-input" value={form.name} onChange={(e) => setField("name", e.target.value)} />
+                <input className="auth-input" value={form.name} onChange={(e) => setField("name", e.target.value)} />
                 <label className="auth-label" style={{ marginTop: 10 }}>Mobile number</label>
                 <div className="phone-input-shell">
                   <span className="country-code">+91</span>
                   <input className="phone-input" value={form.phone} onChange={(e) => setField("phone", e.target.value)} />
                 </div>
                 <label className="auth-label" style={{ marginTop: 10 }}>Gym name</label>
-                <input className="phone-input" value={form.gymName} onChange={(e) => setField("gymName", e.target.value)} />
+                <input className="auth-input" value={form.gymName} onChange={(e) => setField("gymName", e.target.value)} />
                 <label className="auth-label" style={{ marginTop: 10 }}>Specialization</label>
-                <input className="phone-input" value={form.specialization} onChange={(e) => setField("specialization", e.target.value)} />
+                <div className="spec-grid">
+                  {ALL_SKILLS.map((skill) => {
+                    const active = Array.isArray(form.specialization) && form.specialization.includes(skill);
+                    return (
+                      <button
+                        key={skill}
+                        type="button"
+                        className={`spec-item ${active ? "spec-item-active" : ""}`}
+                        onClick={() => toggleSpecialization(skill)}
+                      >
+                        {active ? "✓ " : "○ "}
+                        {skill}
+                      </button>
+                    );
+                  })}
+                </div>
                 <label className="auth-label" style={{ marginTop: 10 }}>Years of experience</label>
-                <input className="phone-input" type="number" value={form.yearsExperience} onChange={(e) => setField("yearsExperience", e.target.value)} />
+                <input className="auth-input" type="number" value={form.yearsExperience} onChange={(e) => setField("yearsExperience", e.target.value)} />
                 <label className="auth-label" style={{ marginTop: 10 }}>Location</label>
-                <input className="phone-input" value={form.location} onChange={(e) => setField("location", e.target.value)} />
-                {error ? <p className="auth-subtitle" style={{ color: "#fca5a5" }}>{error}</p> : null}
+                <input className="auth-input" value={form.location} onChange={(e) => setField("location", e.target.value)} />
+                {error ? <p className="auth-alert">{error}</p> : null}
                 <button className="continue-btn" type="button" onClick={nextFromProfile}>
                   Continue
                 </button>
@@ -138,19 +184,33 @@ export default function TrainerOnboardPage() {
           {step === 2 ? (
             <>
               <p className="eyebrow">Pricing</p>
-              <h1 className="auth-title">Choose your plan</h1>
-              <p className="auth-subtitle">You can update pricing later from profile settings.</p>
-              <div className="auth-form">
-                <label className="auth-label">Plan tier</label>
-                <select className="phone-input" value={form.pricingTier} onChange={(e) => setField("pricingTier", e.target.value)}>
-                  <option value="starter">Starter</option>
-                  <option value="pro">Pro</option>
-                  <option value="elite">Elite</option>
-                </select>
-                <p className="auth-subtitle">One-to-one: INR {pricing.oneToOne}</p>
-                <p className="auth-subtitle">Monthly: INR {pricing.monthly}</p>
-                <p className="auth-subtitle">Online: INR {pricing.online}</p>
-                {error ? <p className="auth-subtitle" style={{ color: "#fca5a5" }}>{error}</p> : null}
+              <h1 className="auth-title">Choose billing model</h1>
+              <p className="auth-subtitle">Start free, then switch to per-client billing as you scale.</p>
+              <div className="auth-form auth-field-stack">
+                <div className="plan-grid">
+                  <button
+                    type="button"
+                    className={`plan-card ${form.billingModel === "trial" ? "plan-card-active" : ""}`}
+                    onClick={() => setField("billingModel", "trial")}
+                  >
+                    <h3>Free trial up to {pricing?.billingModels?.trial?.clientLimit ?? 5} clients</h3>
+                    <p className="item-sub">Ideal for getting started quickly.</p>
+                  </button>
+                  <button
+                    type="button"
+                    className={`plan-card ${form.billingModel === "per_client" ? "plan-card-active" : ""}`}
+                    onClick={() => setField("billingModel", "per_client")}
+                  >
+                    <h3>Per-client pricing after threshold</h3>
+                    <p className="item-sub">
+                      INR {pricing?.billingModels?.perClient?.perClientCostInr ?? 99} per active client / month.
+                    </p>
+                  </button>
+                </div>
+                <p className="auth-subtitle">
+                  Trial limit: {pricing?.billingModels?.trial?.clientLimit ?? 5} clients.
+                </p>
+                {error ? <p className="auth-alert">{error}</p> : null}
                 <button className="continue-btn" type="button" disabled={saving} onClick={completeRegistration}>
                   {saving ? "Creating..." : "Create trainer account"}
                 </button>

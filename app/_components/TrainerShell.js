@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { IconClients, IconHome, IconLog, IconProfile, IconSchedule } from "app/_components/NavIcons";
 
 const navItems = [
-  { href: "/portal", label: "Home" },
-  { href: "/clients", label: "Clients" },
-  { href: "/sessions/new", label: "Log" },
-  { href: "/schedule", label: "Schedule" },
-  { href: "/profile", label: "Profile" },
+  { href: "/portal", label: "Home", Icon: IconHome },
+  { href: "/clients", label: "Clients", Icon: IconClients },
+  { href: "/sessions/new", label: "Log", Icon: IconLog },
+  { href: "/schedule", label: "Schedule", Icon: IconSchedule },
+  { href: "/profile", label: "Profile", Icon: IconProfile },
 ];
 
 export default function TrainerShell({ title, subtitle, children }) {
@@ -22,18 +23,18 @@ export default function TrainerShell({ title, subtitle, children }) {
   return (
     <main className="trainer-screen">
       <div className="trainer-container">
-        <header className="trainer-header card">
+        <header className="trainer-header card surface-elevated">
           <div>
             <p className="eyebrow">Trainer App</p>
             <h1 className="trainer-title">{title}</h1>
             <p className="trainer-subtitle">{subtitle}</p>
           </div>
-          <button type="button" className="ghost-button" onClick={signOut}>
+          <button type="button" className="ghost-button ghost-button-compact" onClick={signOut}>
             Sign Out
           </button>
         </header>
 
-        <nav className="trainer-nav card">
+        <nav className="trainer-nav card surface-elevated trainer-nav-desktop" aria-label="Trainer sections">
           {navItems.map((item) => (
             <Link
               key={item.href}
@@ -47,16 +48,25 @@ export default function TrainerShell({ title, subtitle, children }) {
 
         <section className="trainer-content">{children}</section>
 
-        <nav className="mobile-tabbar card">
-          {navItems.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`mobile-tab ${pathname === item.href ? "mobile-tab-active" : ""}`}
-            >
-              {item.label}
-            </Link>
-          ))}
+        <nav className="mobile-tabbar" aria-label="Primary">
+          <div className="mobile-tabbar-inner card surface-glass">
+            {navItems.map((item) => {
+              const active = pathname === item.href;
+              const Icon = item.Icon;
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={`mobile-tab ${active ? "mobile-tab-active" : ""}`}
+                >
+                  <span className="mobile-tab-icon">
+                    <Icon className="mobile-tab-svg" />
+                  </span>
+                  <span className="mobile-tab-label">{item.label}</span>
+                </Link>
+              );
+            })}
+          </div>
         </nav>
       </div>
     </main>

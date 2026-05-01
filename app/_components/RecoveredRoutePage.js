@@ -1,12 +1,11 @@
 import Link from "next/link";
 
 const navLinks = [
-  { href: "/login", label: "Trainer Login" },
+  { href: "/login", label: "Common Login" },
   { href: "/portal", label: "Trainer Portal" },
   { href: "/clients", label: "Clients" },
   { href: "/schedule", label: "Schedule" },
   { href: "/sessions/new", label: "New Session" },
-  { href: "/client-login", label: "Client Login" },
   { href: "/my-portal", label: "Client Portal" },
 ];
 

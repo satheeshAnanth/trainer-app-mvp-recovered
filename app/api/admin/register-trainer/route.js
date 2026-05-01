@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { buildRecoveredPayload } from "app/lib/apiResponse";
 import { hasDatabaseUrl, query } from "app/lib/db";
+import { normalizeBillingModel, PRICING_MODEL } from "app/lib/pricingModel";
 
 export async function GET() {
   const payload = await buildRecoveredPayload("api/admin/register-trainer");
@@ -30,6 +31,7 @@ export async function POST(request) {
   const yearsExperience = Number(body?.yearsExperience ?? 0);
   const location = String(body?.location ?? "").trim();
   const pricingTier = String(body?.pricingTier ?? "starter").trim();
+  const billingModel = normalizeBillingModel(body?.billingModel);
 
   if (!phone || !name) {
     return NextResponse.json({ ok: false, message: "name and phone are required." }, { status: 400 });
@@ -49,6 +51,8 @@ export async function POST(request) {
         years_experience: yearsExperience || null,
         location: location || null,
         pricing_tier: pricingTier,
+        billing_status: billingModel,
+        max_clients: billingModel === "trial" ? PRICING_MODEL.trial.clientLimit : PRICING_MODEL.perClient.clientLimit,
         source: "mock",
       },
     });
@@ -60,6 +64,26 @@ export async function POST(request) {
       path: "/",
     });
     return response;
+  }
+
+  const phoneDigits = phone.replace(/\D/g, "");
+  const clientConflictRows = await query(
+    `
+      SELECT id
+      FROM clients
+      WHERE regexp_replace(COALESCE(mobile, ''), '[^0-9]', '', 'g') = $1
+      LIMIT 1
+    `,
+    [phoneDigits]
+  );
+  if (clientConflictRows[0]) {
+    return NextResponse.json(
+      {
+        ok: false,
+        message: "This number is already registered as a client and cannot be used as a trainer.",
+      },
+      { status: 409 }
+    );
   }
 
   const rows = await query(
@@ -90,9 +114,9 @@ export async function POST(request) {
         $5,
         $6,
         $7,
-        'trial',
+        $8,
         NOW() + INTERVAL '14 days',
-        50,
+        $9,
         NOW(),
         NOW()
       )
@@ -103,6 +127,8 @@ export async function POST(request) {
         years_experience = EXCLUDED.years_experience,
         location = EXCLUDED.location,
         pricing_tier = EXCLUDED.pricing_tier,
+        billing_status = EXCLUDED.billing_status,
+        max_clients = EXCLUDED.max_clients,
         updated_at = NOW()
       RETURNING *
     `,
@@ -114,6 +140,8 @@ export async function POST(request) {
       Number.isFinite(yearsExperience) && yearsExperience > 0 ? yearsExperience : null,
       location || null,
       pricingTier || "starter",
+      billingModel,
+      billingModel === "trial" ? PRICING_MODEL.trial.clientLimit : PRICING_MODEL.perClient.clientLimit,
     ]
   );
 

@@ -91,3 +91,110 @@
 - Client detail parity update (`/clients/[id]`): profile summary, goal-progress card with template warning/state, trainer tips summary/history link, sessions empty-state.
 - Goal-template builder parity (`/clients/[id]/goal-template`): dynamic goal exercises + metric rows, add/remove controls, save validation and persistence via `audit_events` (`client_goal_template`).
 - Trainer tips parity (`/clients/[id]/tips`): send tip form, status/category filters, filtered history list, persistence via `audit_events` (`client_tip`).
+
+## 2026-05-01 (session 9)
+
+### Completed
+- Rebuilt `/sessions/new` as a 4-step wizard flow matching log screens: `Details -> Notes -> Review -> Pre-final` with tabbed header and cancel action.
+- Added notes parser flow (free-text workout notes -> parsed review entries) with quick templates (Strength/Mobility/Conditioning), skip/parse controls, and entry-by-entry review editor.
+- Added pre-final preview grouped by category, save-draft action, shared session notes composer, payment request block, and final submit guard requiring client-visible publish note + at least one trainer shared note.
+- Added inline Add Client modal inside Details step to support quick client creation during logging.
+- Added `POST /api/sessions/[id]/payment` and `POST /api/sessions/[id]/share` handlers used by pre-final flow.
+
+## 2026-05-01 (session 10)
+
+### Completed
+- Rebuilt `/schedule` to screenshot parity:
+  - top stat chips (Total / Pending / Accepted),
+  - status filter pills,
+  - create appointment form (date/time/client/note),
+  - grouped event cards by date with `Edit` and `Cancel`.
+- Added schedule write APIs:
+  - `POST /api/schedule/events` (create appointment),
+  - `PATCH /api/schedule/events/[id]` (edit appointment details),
+  - existing `PATCH /api/schedule/events/[id]/status` used for cancel action.
+- Rebuilt `/profile` to parity layout with account block, skills/specializations multi-select chips, settings block, session/logout block, and app version footer.
+- Added `PATCH /api/profile/trainer` to persist trainer `name` + `specialization` by session phone.
+
+## 2026-05-01 (session 11)
+
+### Completed
+- Visual parity foundation pass: upgraded global theme (gradient background, elevated cards, glass surfaces) and wired `next/font` Inter for consistent typography.
+- Rebuilt trainer + client mobile tab bars to match shared screenshots: **5-icon bottom navigation** with active mint highlight (instead of text-only tabs).
+- `ClientShell` now shows five bottom tabs (was previously capped at four on mobile).
+- Polished `/schedule` UI to match reference density: labeled form fields, pill filter row with horizontal scroll, and appointment rows using the shared list-item pattern.
+
+## 2026-05-01 (session 12)
+
+### Completed
+- Matched the **role landing** screen (`/`) to the shared reference: side-by-side role pills with explicit selected state + Continue routing to trainer vs client login.
+- Tuned **auth card styling** to the shared palette (darker page background + slightly lifted card) and aligned `/login` Step 1 “Sign In” visuals (green accent progress + CTA, phone field focus ring, `+91` divider treatment).
+
+## 2026-05-01 (session 13)
+
+### Completed
+- End-to-end auth/onboarding UI cleanup pass for consistency:
+  - added dedicated auth form primitives in `globals.css` (`auth-input`, `auth-select`, `auth-alert`, `auth-link`, `auth-button-row`, `auth-section-card`),
+  - replaced borderless onboarding/profile inputs that were using `phone-input` incorrectly.
+- Updated `/login` to use the new primitives (error surfaces, verify action row, profile/pricing inputs), improving visual consistency across all steps.
+- Updated `/client-login`, `/client-onboard`, and `/onboard/trainer` to the same visual system so the entire entry flow feels like one coherent product.
+
+## 2026-05-01 (session 14)
+
+### Completed
+- Milestone 1 (Goal Template Program Layer) started and implemented:
+  - `GET/POST /api/clients/[id]/goal-template` now supports `goalName`, active status, and normalized template exercises (`masterExerciseId`, `exercise`, `variation`, `target`, `frequency`, `priority`).
+  - Trainer goal-template UI now captures program intent explicitly (goal name + mapped exercises from master search + frequency + priority) instead of free-form metric rows.
+  - Latest saved template is treated as the active template for the client.
+- Unified auth entry to a single `/login` flow; removed active `/client-login` usage and redirected legacy `/client-login` to `/login`.
+- Updated middleware/client-shell/client-onboard routes to return to `/login` for all unauthenticated or signed-out client paths.
+- Implemented explicit billing model architecture:
+  - `Free trial up to X clients`
+  - `Per-client pricing after threshold`
+  using shared model constants in `app/lib/pricingModel.js`.
+- Updated pricing APIs/UI:
+  - `GET /api/auth/pricing` now returns billing model metadata (`trial.clientLimit`, `perClient.perClientCostInr`),
+  - `/onboard/trainer` and `/login` (new trainer pricing step) now expose billing-model selection with the required wording.
+- Added server-side enforcement in `POST /api/clients`:
+  - requires trainer session,
+  - checks trainer billing status + max client limit before add,
+  - returns clear 402 response when trial limit is reached.
+- Added cross-role conflict guard in trainer registration:
+  - `POST /api/admin/register-trainer` now blocks numbers already registered as clients.
+- Post-login trainer flow polish for billing clarity:
+  - `/portal`, `/clients`, and `/profile` now surface counters/limits and active billing mode so limits are visible before actions fail.
+
+## 2026-05-01 (session 15)
+
+### Completed
+- Session flow UX pass (`/sessions/new`) aligned to mobile-first coaching capture:
+  - moved to compact row-first main screen with sticky session rail and quick launcher,
+  - exercise editing moved to full-screen modal editor per exercise.
+- Search-driven canonical exercise mapping hardened in capture:
+  - each exercise has explicit `Search` action,
+  - trainer selects a master exercise result before finish,
+  - mapped result determines mandatory metric keys shown in set logging.
+- Reduced flow friction:
+  - removed separate “next exercise” modal launcher dependency,
+  - set logging remains in the exercise editor until `Done with this Exercise`,
+  - return to timeline happens after done with success toast/message.
+- Optional timing fields switched to progressive disclosure:
+  - `+ Add timing` reveals start/end/duration only when needed,
+  - no static time real-estate consumed by default.
+- Copy updates for coaching context:
+  - `Ad-hoc` -> `Other Exercise`,
+  - `Finish Exercise` -> `Done with this Exercise`,
+  - launcher language updated to “Log”/“Resume” style.
+
+## 2026-05-01 (session 16)
+
+### Completed
+- Milestone 4 implementation pass:
+  - added finalized-record guard in `PATCH /api/sessions/[id]`:
+    - completed/signed-off sessions reject structured payload edits unless explicitly reopened/drafted first.
+  - upgraded `GET /api/client/sessions` to DB-backed client session feed from `client_session` cookie identity, including parsed payload and goal-row summaries.
+  - added goal-facing client summary rendering on `/my-portal`:
+    - target vs done for goal exercises,
+    - skip reason visibility,
+    - simple progress direction marker (up/down/same) based on recent comparable session load.
+- Preserved existing share/final submit path while adding lock behavior to prevent silent mutation of finalized structured data.

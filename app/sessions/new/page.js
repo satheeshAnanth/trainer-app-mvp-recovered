@@ -1,312 +1,634 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import TrainerShell from "app/_components/TrainerShell";
 import { labelizeMetricKey } from "app/lib/metricLabels";
+import Link from "next/link";
+
+const TABS = ["live", "review"];
+const SKIP_REASONS = [
+  { value: "time_constraint", label: "Time constraint" },
+  { value: "client_fatigue", label: "Client fatigue" },
+  { value: "pain_discomfort", label: "Pain/discomfort" },
+  { value: "substituted_exercise", label: "Substituted exercise" },
+];
+
+function normalizeDateDisplay(value) {
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return value;
+  return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
+}
+
+function normalizeTextForMatch(text) {
+  return String(text ?? "").toLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
+}
+
+function looksLikeSubstitution(adhocName, goalName) {
+  const a = normalizeTextForMatch(adhocName);
+  const g = normalizeTextForMatch(goalName);
+  if (!a || !g) return false;
+  return a === g || a.includes(g) || g.includes(a);
+}
+
+function classifyCategory(text) {
+  const t = String(text ?? "").toLowerCase();
+  if (t.includes("stretch") || t.includes("mobility")) return "Mobility";
+  if (t.includes("run") || t.includes("bike") || t.includes("row") || t.includes("treadmill")) return "Conditioning";
+  if (t.includes("squat") || t.includes("press") || t.includes("lunge") || t.includes("deadlift")) return "Strength";
+  return "Other";
+}
+
+function blankSetFromKeys(requiredKeys) {
+  const out = {};
+  for (const key of requiredKeys) out[key] = "";
+  return out;
+}
+
+function newEntry(partial = {}) {
+  const requiredKeys = partial.requiredKeys && partial.requiredKeys.length > 0 ? partial.requiredKeys : ["sets", "reps", "load"];
+  return {
+    id: crypto.randomUUID(),
+    name: "",
+    category: "Other",
+    source: "adhoc",
+    masterExerciseId: "",
+    goalExerciseId: null,
+    linkedGoalExerciseId: null,
+    target: "",
+    priority: "optional",
+    frequency: "every_session",
+    completionStatus: "",
+    skipReason: "",
+    requiredKeys,
+    setLogs: [blankSetFromKeys(requiredKeys)],
+    notes: "",
+    ...partial,
+  };
+}
+
+function makePayload({ overallNotes, entries, goalTemplate }) {
+  return {
+    goalTemplate: goalTemplate ? { name: goalTemplate.goalName || goalTemplate.goal || "", status: goalTemplate.status || "active" } : null,
+    sections: {
+      warmup: entries[0]?.name || "Warmup logged",
+      mainWork: overallNotes || "Workout logged",
+      cooldown: entries.find((e) => e.category === "Mobility")?.name || "Cooldown logged",
+      goalUpdate: "Goal progress updated in session flow.",
+    },
+    exercises: entries.map((entry) => ({
+      name: entry.name,
+      exerciseId: entry.masterExerciseId || null,
+      source: entry.source,
+      goalExerciseId: entry.goalExerciseId,
+      linkedGoalExerciseId: entry.linkedGoalExerciseId,
+      completionStatus: entry.completionStatus || "",
+      skipReason: entry.skipReason || "",
+      note: entry.notes || "",
+      metricRequired: entry.requiredKeys,
+      metrics: { setsData: entry.setLogs ?? [] },
+    })),
+  };
+}
 
 export default function Page() {
+  const [tab, setTab] = useState("live");
   const [clients, setClients] = useState([]);
-  const [clientId, setClientId] = useState("");
-  const [form, setForm] = useState({
-    sessionDate: "",
-    sessionTitle: "Strength + conditioning",
-    warmup: "",
-    mainWork: "",
-    cooldown: "",
-    goalUpdate: "",
-  });
-  const [exercises, setExercises] = useState([]);
-  const [searchQ, setSearchQ] = useState("");
+  const [goalTemplate, setGoalTemplate] = useState(null);
+  const [entries, setEntries] = useState([]);
+  const [entryIndex, setEntryIndex] = useState(0);
+  const [searchModalOpen, setSearchModalOpen] = useState(false);
+  const [editorOpen, setEditorOpen] = useState(false);
+  const [exerciseSearch, setExerciseSearch] = useState("");
   const [searchResults, setSearchResults] = useState([]);
+  const [showPendingGoals, setShowPendingGoals] = useState(false);
+  const [currentSetIndex, setCurrentSetIndex] = useState(0);
+  const [showTimingFields, setShowTimingFields] = useState(false);
+  const [sessionId, setSessionId] = useState("");
+  const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
-  const [saveMessage, setSaveMessage] = useState("");
+  const [showAddClient, setShowAddClient] = useState(false);
+  const [sharedNote, setSharedNote] = useState("");
+  const [sharedNotes, setSharedNotes] = useState([]);
+  const [publishText, setPublishText] = useState("");
+  const [payment, setPayment] = useState({ amountInr: "", upiId: "", note: "" });
+  const [form, setForm] = useState({
+    clientId: "",
+    sessionDate: normalizeDateDisplay(new Date().toISOString()),
+    sessionTitle: `Session on ${normalizeDateDisplay(new Date().toISOString())}`,
+    sessionStartTime: "",
+    sessionEndTime: "",
+    durationMinutes: "",
+    trainerPrivateNotes: "",
+    overallNotes: "",
+  });
+  const [newClient, setNewClient] = useState({
+    name: "", goal: "", mobile: "", age: "", weightKg: "", heightCm: "", gender: "not set", activityLevel: "not set", priorCondition: "",
+  });
+
+  const currentEntry = entries[entryIndex] ?? null;
+  const goalEntries = useMemo(() => entries.filter((e) => e.source === "goal"), [entries]);
+  const pendingGoalEntries = useMemo(() => goalEntries.filter((e) => !e.completionStatus), [goalEntries]);
+  const unresolvedGoalCount = pendingGoalEntries.length;
+  const skippedWithoutReasonCount = goalEntries.filter((e) => e.completionStatus === "skipped" && !e.skipReason).length;
+  const goalChecksPassed = unresolvedGoalCount === 0 && skippedWithoutReasonCount === 0;
+  const readyForFinal = publishText.trim().length > 0 && sharedNotes.length > 0;
 
   useEffect(() => {
-    let cancelled = false;
     (async () => {
       try {
-        const response = await fetch("/api/clients");
-        const result = await response.json();
-        const list = result?.data?.clients ?? [];
-        if (cancelled) return;
+        const res = await fetch("/api/clients");
+        const json = await res.json();
+        const list = json?.data?.clients ?? [];
         setClients(list);
-        if (list[0]?.id) {
-          setClientId(list[0].id);
-        }
+        if (!form.clientId && list[0]?.id) setForm((prev) => ({ ...prev, clientId: list[0].id }));
       } catch {
-        if (!cancelled) setClients([]);
+        setClients([]);
       }
     })();
-    return () => {
-      cancelled = true;
-    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  async function fetchRequiredKeys(masterExerciseId, name) {
+    try {
+      const res = await fetch(`/api/exercises/master/search?withKeys=1&q=${encodeURIComponent(name || "")}`);
+      const json = await res.json();
+      const rows = Array.isArray(json?.data?.exercises) ? json.data.exercises : [];
+      const match = rows.find((row) => String(row?.id) === String(masterExerciseId)) || rows.find((row) => normalizeTextForMatch(row?.name) === normalizeTextForMatch(name));
+      return Array.isArray(match?.requiredKeys) && match.requiredKeys.length > 0 ? match.requiredKeys : ["sets", "reps", "load"];
+    } catch {
+      return ["sets", "reps", "load"];
+    }
+  }
+
   useEffect(() => {
-    const q = searchQ.trim();
-    if (q.length < 2) {
-      setSearchResults([]);
-      return undefined;
-    }
-    const t = setTimeout(async () => {
-      try {
-        const response = await fetch(
-          `/api/exercises/master/search?q=${encodeURIComponent(q)}&withKeys=1`
-        );
-        const result = await response.json();
-        const rows = result?.data?.exercises ?? [];
-        setSearchResults(rows);
-      } catch {
-        setSearchResults([]);
+    if (!form.clientId) return;
+    let cancelled = false;
+    (async () => {
+      const res = await fetch(`/api/clients/${form.clientId}/goal-template`);
+      const json = await res.json();
+      const template = json?.data?.goalTemplate ?? null;
+      if (cancelled) return;
+      if (!template || !Array.isArray(template.exercises) || template.exercises.length === 0) {
+        setGoalTemplate(null);
+        setEntries((prev) => prev.filter((e) => e.source !== "goal"));
+        return;
       }
-    }, 320);
-    return () => clearTimeout(t);
-  }, [searchQ]);
+      setGoalTemplate(template);
+      const goalRows = await Promise.all(template.exercises.map(async (exercise, index) => {
+        const name = String(exercise?.exercise ?? "").trim();
+        const requiredKeys = await fetchRequiredKeys(String(exercise?.masterExerciseId ?? ""), name);
+        return newEntry({
+          name,
+          category: classifyCategory(name),
+          source: "goal",
+          masterExerciseId: String(exercise?.masterExerciseId ?? ""),
+          goalExerciseId: String(exercise?.id ?? `${index + 1}`),
+          target: String(exercise?.target ?? ""),
+          priority: String(exercise?.priority ?? "mandatory"),
+          frequency: String(exercise?.frequency ?? "every_session"),
+          requiredKeys,
+          setLogs: [blankSetFromKeys(requiredKeys)],
+        });
+      }));
+      setEntries((prev) => [...goalRows, ...prev.filter((e) => e.source !== "goal")]);
+    })().catch(() => null);
+    return () => { cancelled = true; };
+  }, [form.clientId]);
 
-  function setField(key, value) {
-    setForm((prev) => ({ ...prev, [key]: value }));
-  }
-
-  function addExercise(row) {
-    const requiredKeys = row.requiredKeys ?? [];
-    const keys = Array.isArray(requiredKeys) ? requiredKeys : [];
-    if (keys.length === 0) {
-      setSaveMessage("This exercise has no required metrics in the catalog yet; choose another.");
-      return;
-    }
-    const metrics = Object.fromEntries(keys.map((k) => [k, ""]));
-    setExercises((prev) => [
-      ...prev,
-      {
-        exerciseId: row.id,
-        name: row.name,
-        metricRequired: keys,
-        metrics,
-      },
-    ]);
-    setSearchQ("");
-    setSearchResults([]);
-  }
-
-  function removeExercise(index) {
-    setExercises((prev) => prev.filter((_, i) => i !== index));
-  }
-
-  function setExerciseMetric(index, metricKey, value) {
-    setExercises((prev) =>
-      prev.map((ex, i) =>
-        i === index ? { ...ex, metrics: { ...ex.metrics, [metricKey]: value } } : ex
-      )
+  function setEntryField(key, value) {
+    setEntries((prev) =>
+      prev.map((entry, i) => {
+        if (i !== entryIndex) return entry;
+        if (key === "name") {
+          return { ...entry, [key]: value, masterExerciseId: "" };
+        }
+        return { ...entry, [key]: value };
+      })
     );
   }
 
-  function parseMetrics(metrics) {
-    const out = {};
-    for (const [k, v] of Object.entries(metrics ?? {})) {
-      if (v === "" || v === null || v === undefined) {
-        out[k] = v;
-        continue;
-      }
-      const n = Number(v);
-      out[k] = Number.isFinite(n) && String(v).trim() !== "" ? n : v;
-    }
-    return out;
+  function setSetMetric(setIndex, key, value) {
+    setEntries((prev) => prev.map((entry, i) => {
+      if (i !== entryIndex) return entry;
+      return { ...entry, setLogs: (entry.setLogs ?? []).map((setRow, idx) => (idx === setIndex ? { ...setRow, [key]: value } : setRow)) };
+    }));
   }
 
-  async function submitSession(status) {
-    setSaveMessage("");
-    const client = clients.find((c) => c.id === clientId);
-    if (!clientId || !client) {
-      setSaveMessage("Select a client.");
+  function addSetRow(duplicate = false) {
+    setEntries((prev) => prev.map((entry, i) => {
+      if (i !== entryIndex) return entry;
+      const base = duplicate && entry.setLogs?.length ? entry.setLogs[entry.setLogs.length - 1] : blankSetFromKeys(entry.requiredKeys || []);
+      return { ...entry, setLogs: [...(entry.setLogs || []), { ...base }] };
+    }));
+    setCurrentSetIndex((prev) => prev + 1);
+  }
+
+  function deleteSetRow(setIndex) {
+    setEntries((prev) => prev.map((entry, i) => {
+      if (i !== entryIndex) return entry;
+      const kept = (entry.setLogs || []).filter((_, idx) => idx !== setIndex);
+      return { ...entry, setLogs: kept.length > 0 ? kept : [blankSetFromKeys(entry.requiredKeys || [])] };
+    }));
+  }
+
+  async function runExerciseSearch(term) {
+    const q = String(term ?? "").trim();
+    if (q.length < 5) {
+      setMessage("Enter at least 5 characters, then tap Search.");
+      setSearchResults([]);
       return;
     }
-    if (!form.sessionTitle?.trim()) {
-      setSaveMessage("Session title is required.");
-      return;
-    }
-
-    if (status !== "draft") {
-      if (!form.warmup?.trim() || !form.mainWork?.trim() || !form.cooldown?.trim() || !form.goalUpdate?.trim()) {
-        setSaveMessage("Please complete all mandatory note sections before completing.");
-        return;
-      }
-      if (exercises.length === 0) {
-        setSaveMessage("Add at least one exercise before completing the session.");
-        return;
-      }
-    }
-
-    setSaving(true);
     try {
-      const payload = {
-        sections: {
-          warmup: form.warmup,
-          mainWork: form.mainWork,
-          cooldown: form.cooldown,
-          goalUpdate: form.goalUpdate,
-        },
-        exercises: exercises.map((ex) => ({
-          exerciseId: ex.exerciseId,
-          name: ex.name,
-          metricRequired: ex.metricRequired,
-          metrics: parseMetrics(ex.metrics),
-        })),
-      };
-
-      const response = await fetch("/api/sessions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          clientId,
-          clientName: client?.name ?? "Client",
-          sessionDate: form.sessionDate || null,
-          sessionTitle: form.sessionTitle.trim(),
-          rawNotes: [form.warmup, form.mainWork, form.cooldown].filter(Boolean).join("\n\n"),
-          summary: form.goalUpdate,
-          status,
-          payload,
-          estimatedCalories: null,
-          durationMinutes: null,
-        }),
-      });
-      const result = await response.json();
-      if (!response.ok || !result?.ok) {
-        setSaveMessage(result?.message ?? "Unable to save session.");
-        return;
-      }
-      setSaveMessage(status === "draft" ? "Draft saved." : "Session completed and saved.");
-    } catch (_error) {
-      setSaveMessage("Unable to save session.");
-    } finally {
-      setSaving(false);
+      const res = await fetch(`/api/exercises/master/search?withKeys=1&q=${encodeURIComponent(q)}`);
+      const json = await res.json();
+      setSearchResults(Array.isArray(json?.data?.exercises) ? json.data.exercises : []);
+    } catch {
+      setSearchResults([]);
     }
+  }
+
+  function startGoalExercise(goalExerciseId) {
+    const idx = entries.findIndex((entry) => entry.goalExerciseId === goalExerciseId);
+    if (idx < 0) return;
+    setEntryIndex(idx);
+    setCurrentSetIndex(Math.max(0, (entries[idx]?.setLogs?.length ?? 1) - 1));
+    setEditorOpen(true);
+  }
+
+  function startAdhocExercise(item) {
+    const requiredKeys = Array.isArray(item?.requiredKeys) && item.requiredKeys.length > 0 ? item.requiredKeys : ["sets", "reps", "load"];
+    const next = newEntry({
+      name: String(item?.name ?? "").trim(),
+      category: classifyCategory(item?.name),
+      source: "adhoc",
+      masterExerciseId: String(item?.id ?? ""),
+      requiredKeys,
+      setLogs: [blankSetFromKeys(requiredKeys)],
+    });
+    setEntries((prev) => [...prev, next]);
+    setEntryIndex(entries.length);
+    setCurrentSetIndex(0);
+    setEditorOpen(true);
+    setSearchModalOpen(false);
+    setExerciseSearch("");
+    setSearchResults([]);
+  }
+
+  function finishCurrentExercise() {
+    if (!currentEntry) return;
+    if (!currentEntry.masterExerciseId) return setMessage("Use Search and select a mapped exercise first.");
+    if (currentEntry.source === "goal" && !currentEntry.completionStatus) return setMessage("Select completion status for this goal exercise.");
+    if (currentEntry.source === "goal" && currentEntry.completionStatus === "skipped" && !currentEntry.skipReason) {
+      return setMessage("Select a skip reason for skipped goal exercise.");
+    }
+    setMessage("Exercise saved to timeline.");
+    setEditorOpen(false);
+    setTab("live");
+  }
+
+  function logCurrentSet() {
+    if (!currentEntry) return;
+    const row = currentEntry.setLogs?.[currentSetIndex] ?? {};
+    const hasValue = Object.values(row).some((v) => String(v ?? "").trim() !== "");
+    if (!hasValue) {
+      setMessage("Enter at least one value for this set.");
+      return;
+    }
+    setMessage(`Set ${currentSetIndex + 1} logged.`);
+  }
+
+  function openSearchForCurrentEntry() {
+    if (!currentEntry) return;
+    setExerciseSearch(currentEntry.name || "");
+    setSearchResults([]);
+    setSearchModalOpen(true);
+  }
+
+  async function mapSelectedExercise(item) {
+    const requiredKeys = Array.isArray(item?.requiredKeys) && item.requiredKeys.length > 0 ? item.requiredKeys : ["sets", "reps", "load"];
+    setEntries((prev) =>
+      prev.map((entry, i) =>
+        i === entryIndex
+          ? {
+              ...entry,
+              name: String(item?.name ?? ""),
+              masterExerciseId: String(item?.id ?? ""),
+              requiredKeys,
+              setLogs: entry.setLogs && entry.setLogs.length > 0 ? entry.setLogs : [blankSetFromKeys(requiredKeys)],
+            }
+          : entry
+      )
+    );
+    setSearchModalOpen(false);
+  }
+
+  async function ensureSession(status = "draft") {
+    const client = clients.find((c) => c.id === form.clientId);
+    if (!client) throw new Error("Select a client first.");
+    const body = {
+      clientId: form.clientId,
+      clientName: client.name,
+      sessionDate: form.sessionDate,
+      sessionTitle: form.sessionTitle,
+      rawNotes: form.overallNotes || form.trainerPrivateNotes,
+      summary: "Draft updated",
+      status,
+      payload: makePayload({ overallNotes: form.overallNotes, entries, goalTemplate }),
+      durationMinutes: Number.isFinite(Number(form.durationMinutes)) ? Number(form.durationMinutes) : null,
+      estimatedCalories: null,
+    };
+    if (!sessionId) {
+      const res = await fetch("/api/sessions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      const json = await res.json();
+      if (!res.ok || !json?.ok) throw new Error(json?.message ?? "Unable to create session.");
+      setSessionId(json?.data?.id ?? "");
+      return json?.data?.id;
+    }
+    const res = await fetch(`/api/sessions/${sessionId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    const json = await res.json();
+    if (!res.ok || !json?.ok) throw new Error(json?.message ?? "Unable to update session.");
+    return sessionId;
+  }
+
+  async function saveDraft() {
+    setSaving(true); setMessage("");
+    try { await ensureSession("draft"); setMessage("Draft updated."); } catch (e) { setMessage(e?.message ?? "Unable to save draft."); } finally { setSaving(false); }
+  }
+
+  async function sendSharedNote() {
+    if (!sharedNote.trim()) return;
+    setSaving(true); setMessage("");
+    try {
+      const id = await ensureSession("draft");
+      const res = await fetch(`/api/sessions/${id}/comments`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: sharedNote, authorRole: "trainer", authorName: "Trainer" }) });
+      const json = await res.json();
+      if (!res.ok || !json?.ok) throw new Error(json?.message ?? "Unable to post shared note.");
+      setSharedNotes((prev) => [sharedNote, ...prev]); setSharedNote(""); setMessage("Shared note added.");
+    } catch (e) { setMessage(e?.message ?? "Unable to post shared note."); } finally { setSaving(false); }
+  }
+
+  async function requestPayment() {
+    setSaving(true); setMessage("");
+    try {
+      const id = await ensureSession("draft");
+      const res = await fetch(`/api/sessions/${id}/payment`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payment) });
+      const json = await res.json();
+      if (!res.ok || !json?.ok) throw new Error(json?.message ?? "Unable to request payment.");
+      setMessage("Payment request saved.");
+    } catch (e) { setMessage(e?.message ?? "Unable to request payment."); } finally { setSaving(false); }
+  }
+
+  async function finalSubmit() {
+    if (!readyForFinal) return;
+    if (!goalChecksPassed) return setMessage("Complete goal exercise statuses and skip reasons first.");
+    setSaving(true); setMessage("");
+    try {
+      const id = await ensureSession("completed");
+      await fetch(`/api/sessions/${id}/share`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ share: true }) });
+      setMessage("Final submitted to client.");
+    } catch (e) { setMessage(e?.message ?? "Unable to submit final session."); } finally { setSaving(false); }
+  }
+
+  async function addClientInline() {
+    if (!newClient.name.trim() || !newClient.mobile.trim()) return setMessage("Client name and mobile are required.");
+    const res = await fetch("/api/clients", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(newClient) });
+    const json = await res.json();
+    if (!res.ok || !json?.ok) return setMessage(json?.message ?? "Unable to add client.");
+    setShowAddClient(false);
+    setNewClient({ name: "", goal: "", mobile: "", age: "", weightKg: "", heightCm: "", gender: "not set", activityLevel: "not set", priorCondition: "" });
+    const listRes = await fetch("/api/clients");
+    const listJson = await listRes.json();
+    const list = listJson?.data?.clients ?? [];
+    setClients(list);
+    if (json?.data?.id) setForm((prev) => ({ ...prev, clientId: json.data.id }));
   }
 
   return (
-    <TrainerShell title="New Session" subtitle="Capture workout details with mandatory sections.">
-      <article className="card panel">
-        <h2>Session details</h2>
-        <div className="form-grid">
-          <label className="field">
-            <span>Client</span>
-            <select value={clientId} onChange={(event) => setClientId(event.target.value)}>
-              <option value="">Select client</option>
-              {clients.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="field">
-            <span>Date</span>
-            <input type="date" value={form.sessionDate} onChange={(event) => setField("sessionDate", event.target.value)} />
-          </label>
-          <label className="field">
-            <span>Session title</span>
-            <input
-              type="text"
-              value={form.sessionTitle}
-              onChange={(event) => setField("sessionTitle", event.target.value)}
-            />
-          </label>
-        </div>
+    <TrainerShell title={form.sessionTitle} subtitle="">
+      <article className="card panel session-wizard-header">
+        <div className="wizard-topline"><h2>{form.sessionTitle}</h2><button className="ghost-button" type="button">Cancel</button></div>
+        <div className="wizard-tabs">{TABS.map((t) => <button key={t} type="button" className={`wizard-tab ${tab === t ? "wizard-tab-active" : ""}`} onClick={() => setTab(t)}>{t[0].toUpperCase() + t.slice(1)}</button>)}</div>
       </article>
 
-      <article className="card panel">
-        <h2>Mandatory note sections</h2>
-        <p className="item-sub">Required when you complete a session (drafts can stay empty).</p>
-        <div className="form-grid">
-          <label className="field full">
-            <span>Warm-up notes *</span>
-            <textarea rows={3} value={form.warmup} onChange={(event) => setField("warmup", event.target.value)} />
-          </label>
-          <label className="field full">
-            <span>Main work notes *</span>
-            <textarea rows={4} value={form.mainWork} onChange={(event) => setField("mainWork", event.target.value)} />
-          </label>
-          <label className="field full">
-            <span>Cool down and recovery *</span>
-            <textarea rows={3} value={form.cooldown} onChange={(event) => setField("cooldown", event.target.value)} />
-          </label>
-          <label className="field full">
-            <span>Goal progress update *</span>
-            <textarea rows={3} value={form.goalUpdate} onChange={(event) => setField("goalUpdate", event.target.value)} />
-          </label>
+      <article className="card panel" style={{ position: "sticky", top: 8, zIndex: 20 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
+          <div>
+            <p className="item-title" style={{ margin: 0 }}>Session Rail</p>
+            <p className="item-sub" style={{ margin: 0 }}>
+              Current: {currentEntry?.name || "None"} · Pending goals: {pendingGoalEntries.length}
+            </p>
+          </div>
+          <button className="ghost-button" type="button" onClick={() => setShowPendingGoals((v) => !v)}>
+            {showPendingGoals ? "Hide Pending" : "Show Pending"}
+          </button>
         </div>
-      </article>
-
-      <article className="card panel">
-        <h2>Exercises from catalog</h2>
-        <p className="item-sub">Search the master library (type at least two letters). Metrics come from each exercise&apos;s required fields.</p>
-        <label className="field full">
-          <span>Search exercises</span>
-          <input
-            type="search"
-            value={searchQ}
-            onChange={(event) => setSearchQ(event.target.value)}
-            placeholder="e.g. treadmill, squat, plank"
-          />
-        </label>
-        {searchResults.length > 0 ? (
-          <ul className="list" style={{ marginTop: "0.75rem" }}>
-            {searchResults.map((row) => (
-              <li key={row.id} className="list-item">
-                <div>
-                  <p className="item-title">{row.name}</p>
-                  <p className="item-sub">
-                    {row.category ?? "Exercise"}
-                    {row.requiredKeys?.length ? ` · ${row.requiredKeys.length} required metrics` : ""}
-                  </p>
-                </div>
-                <button type="button" className="ghost-button" onClick={() => addExercise(row)}>
-                  Add
-                </button>
-              </li>
+        {showPendingGoals ? (
+          <div style={{ display: "grid", gap: 8, marginTop: 8 }}>
+            {pendingGoalEntries.length === 0 ? <p className="item-sub">No pending goals.</p> : pendingGoalEntries.map((entry) => (
+              <button key={`rail-${entry.id}`} type="button" className="ghost-button" style={{ textAlign: "left" }} onClick={() => startGoalExercise(entry.goalExerciseId)}>
+                {entry.name}
+              </button>
             ))}
-          </ul>
+          </div>
         ) : null}
+      </article>
 
-        {exercises.length === 0 ? (
-          <p className="item-sub" style={{ marginTop: "1rem" }}>
-            No exercises added yet. Completed sessions require at least one.
-          </p>
-        ) : (
-          exercises.map((ex, index) => (
-            <div key={`${ex.exerciseId}-${index}`} className="metric-card" style={{ marginTop: "1rem" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", gap: "0.5rem", alignItems: "flex-start" }}>
-                <p className="item-title">{ex.name}</p>
-                <button type="button" className="ghost-button" onClick={() => removeExercise(index)}>
-                  Remove
-                </button>
+      {tab === "live" ? <article className="card panel">
+        <h2>Session HUD</h2>
+        <div className="form-grid">
+          <label className="field"><span>Client</span><select value={form.clientId} onChange={(e) => setForm((prev) => ({ ...prev, clientId: e.target.value }))}><option value="">Select a client</option>{clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
+          <div className="field" style={{ alignSelf: "end", width: "fit-content" }}><button className="ghost-button ghost-button-compact" type="button" onClick={() => setShowAddClient(true)}>+ Add</button></div>
+          <label className="field"><span>Session Date</span><input value={form.sessionDate} onChange={(e) => setForm((prev) => ({ ...prev, sessionDate: e.target.value }))} /></label>
+          <label className="field full"><span>Overall session notes</span><textarea rows={3} value={form.overallNotes} onChange={(e) => setForm((prev) => ({ ...prev, overallNotes: e.target.value }))} /></label>
+        </div>
+        <details style={{ marginTop: 8 }} open={Boolean(form.sessionStartTime || form.sessionEndTime || form.durationMinutes || showTimingFields)}>
+          <summary className="ghost-button" style={{ display: "inline-block", cursor: "pointer" }} onClick={() => setShowTimingFields(true)}>
+            Timing (optional)
+          </summary>
+          <div className="form-grid" style={{ marginTop: 10 }}>
+            <label className="field"><span>Start time (optional)</span><input placeholder="e.g. 06:10 PM" value={form.sessionStartTime} onChange={(e) => setForm((prev) => ({ ...prev, sessionStartTime: e.target.value }))} /></label>
+            <label className="field"><span>End time (optional)</span><input placeholder="e.g. 07:05 PM" value={form.sessionEndTime} onChange={(e) => setForm((prev) => ({ ...prev, sessionEndTime: e.target.value }))} /></label>
+            <label className="field"><span>Duration (min)</span><input placeholder="e.g. 55" value={form.durationMinutes} onChange={(e) => setForm((prev) => ({ ...prev, durationMinutes: e.target.value }))} /></label>
+          </div>
+        </details>
+        {goalEntries.length === 0 ? (
+          <div className="metric-card" style={{ marginTop: 10 }}>
+            <p className="item-sub">No goal exercise template is active for this client yet.</p>
+            {form.clientId ? (
+              <Link href={`/clients/${form.clientId}/goal-template`} className="ghost-button" style={{ display: "inline-block", marginTop: 8 }}>
+                Create goal exercises now
+              </Link>
+            ) : (
+              <p className="item-sub">Select a client first to create goal exercises.</p>
+            )}
+          </div>
+        ) : null}
+        <div className="metric-card" style={{ marginTop: 10 }}>
+          <p className="item-title">Session timeline</p>
+          {entries.length === 0 ? <p className="item-sub">No entries yet.</p> : entries.map((entry, idx) => <button key={entry.id} type="button" className="list-item ghost-button" style={{ width: "100%", textAlign: "left", marginTop: 8 }} onClick={() => { setEntryIndex(idx); setCurrentSetIndex(Math.max(0, (entry.setLogs?.length || 1) - 1)); setEditorOpen(true); }}><span>{entry.name || "Untitled"} {entry.source === "goal" ? "· Goal" : "· Other Exercise"}</span><span>{entry.setLogs?.length || 0} sets</span></button>)}
+          <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 12, marginTop: 10 }}>
+            <button className="ghost-button" type="button" onClick={() => startGoalExercise(pendingGoalEntries[0]?.goalExerciseId)} disabled={pendingGoalEntries.length === 0}>Goal Exercise</button>
+            <button className="mint-button" type="button" onClick={() => { setExerciseSearch(""); setSearchResults([]); setSearchModalOpen(true); }} title="Add exercise">+</button>
+            <button className="ghost-button" type="button" onClick={() => { setExerciseSearch(""); setSearchResults([]); setSearchModalOpen(true); }}>Other Exercise</button>
+          </div>
+        </div>
+      </article> : null}
+
+      {editorOpen && currentEntry ? (
+        <div className="modal-backdrop" onClick={() => setEditorOpen(false)}>
+          <div className="modal-card card" style={{ maxHeight: "100vh", height: "100vh", borderRadius: 0, paddingBottom: 110 }} onClick={(e) => e.stopPropagation()}>
+            <div className="wizard-review-top">
+              <div>
+                <p className="item-title">{currentEntry.name || "Exercise capture"}</p>
+                <p className="item-sub">Set {Math.min(currentSetIndex + 1, currentEntry.setLogs?.length || 1)} of ?</p>
               </div>
-              <div className="form-grid">
-                {ex.metricRequired.map((mk) => (
-                  <label key={mk} className="field">
-                    <span>{labelizeMetricKey(mk)} *</span>
-                    <input
-                      type="text"
-                      inputMode="decimal"
-                      value={ex.metrics[mk] ?? ""}
-                      onChange={(event) => setExerciseMetric(index, mk, event.target.value)}
-                    />
-                  </label>
-                ))}
+              <div className="quick-actions">
+                <button className="ghost-button" type="button" onClick={() => setEditorOpen(false)}>Back</button>
               </div>
             </div>
-          ))
-        )}
-
-        {saveMessage ? <p className="item-sub" style={{ marginTop: "1rem" }}>{saveMessage}</p> : null}
-        <div className="quick-actions" style={{ marginTop: "1rem" }}>
-          <button className="ghost-button" type="button" disabled={saving} onClick={() => submitSession("draft")}>
-            Save draft
-          </button>
-          <button className="mint-button" type="button" disabled={saving} onClick={() => submitSession("completed")}>
-            {saving ? "Saving..." : "Complete session"}
-          </button>
+            <label className="field full">
+              <span>Exercise name</span>
+              <div style={{ display: "flex", gap: 8 }}>
+                <input value={currentEntry.name} onChange={(e) => setEntryField("name", e.target.value)} />
+                <button className="ghost-button" type="button" onClick={openSearchForCurrentEntry}>Search</button>
+              </div>
+            </label>
+            <p className="item-sub">{currentEntry.masterExerciseId ? "Mapped exercise selected." : "Not mapped yet. Search and select canonical exercise."}</p>
+            {currentEntry.source === "goal" ? (
+              <>
+                <p className="item-sub" style={{ color: "#5eead4" }}>Goal Exercise{currentEntry.target ? ` · Target: ${currentEntry.target}` : ""}</p>
+                <div className="form-grid">
+                  <label className="field">
+                    <span>Completion status</span>
+                    <select value={currentEntry.completionStatus || ""} onChange={(e) => setEntryField("completionStatus", e.target.value)}>
+                      <option value="">Select status</option>
+                      <option value="completed">Completed</option>
+                      <option value="partial">Partially completed</option>
+                      <option value="skipped">Skipped</option>
+                    </select>
+                  </label>
+                  {currentEntry.completionStatus === "skipped" ? (
+                    <label className="field">
+                      <span>Skip reason (required)</span>
+                      <select value={currentEntry.skipReason || ""} onChange={(e) => setEntryField("skipReason", e.target.value)}>
+                        <option value="">Select reason</option>
+                        {SKIP_REASONS.map((reason) => <option key={reason.value} value={reason.value}>{reason.label}</option>)}
+                      </select>
+                    </label>
+                  ) : null}
+                </div>
+              </>
+            ) : (
+              <>
+                <p className="item-sub">Other Exercise</p>
+                {goalEntries.filter((goal) => !goal.completionStatus && looksLikeSubstitution(currentEntry.name, goal.name)).slice(0, 1).map((goal) => (
+                  <div key={goal.id} className="metric-card" style={{ marginBottom: 8 }}>
+                    <p className="item-sub">This looks like a variation of "{goal.name}" (Goal Exercise). Link it?</p>
+                    <div className="quick-actions">
+                      <button className="ghost-button" type="button" onClick={() => {
+                        setEntries((prev) => prev.map((entry, i) => {
+                          if (i === entryIndex) return { ...entry, linkedGoalExerciseId: goal.goalExerciseId };
+                          if (entry.id === goal.id) return { ...entry, completionStatus: entry.completionStatus || "completed", skipReason: "" };
+                          return entry;
+                        }));
+                      }}>Yes, link</button>
+                      <button className="ghost-button" type="button" onClick={() => setEntryField("linkedGoalExerciseId", null)}>No, keep separate</button>
+                    </div>
+                  </div>
+                ))}
+              </>
+            )}
+            <div className="quick-actions" style={{ marginBottom: 8 }}>
+              <button className="mint-button" type="button" onClick={logCurrentSet}>Log this set</button>
+              <button className="ghost-button" type="button" onClick={() => addSetRow(false)}>Add next set</button>
+              <button className="continue-btn" type="button" onClick={finishCurrentExercise}>Done with this Exercise</button>
+            </div>
+            {(currentEntry.setLogs ?? []).map((setRow, setIdx) => (
+              <div key={`${currentEntry.id}-set-${setIdx}`} className="metric-card" style={{ marginTop: 8 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <p className="item-sub" style={{ margin: 0 }}>Set {setIdx + 1}</p>
+                  <button className="ghost-button" type="button" onClick={() => deleteSetRow(setIdx)}>Delete</button>
+                </div>
+                <div className="form-grid" style={{ marginTop: 8 }}>
+                  {(currentEntry.requiredKeys || []).map((key) => (
+                    <label key={`${currentEntry.id}-${setIdx}-${key}`} className="field">
+                      <span>{labelizeMetricKey(key)}</span>
+                      <input value={setRow[key] ?? ""} onChange={(e) => setSetMetric(setIdx, key, e.target.value)} />
+                    </label>
+                  ))}
+                </div>
+              </div>
+            ))}
+            <details style={{ marginTop: 8 }}>
+              <summary className="item-sub" style={{ cursor: "pointer" }}>Show details (notes / advanced)</summary>
+              <label className="field full" style={{ marginTop: 8 }}>
+                <span>Exercise note</span>
+                <textarea rows={3} value={currentEntry.notes || ""} onChange={(e) => setEntryField("notes", e.target.value)} />
+              </label>
+            </details>
+          </div>
         </div>
-      </article>
+      ) : null}
+
+      {tab === "review" ? <>
+        <article className="card panel"><h2>Goal Progress Summary</h2>{goalEntries.length === 0 ? <p className="item-sub">No goal exercises.</p> : goalEntries.map((entry) => <div key={entry.id} className="list-item" style={{ marginTop: 8 }}><div><p className="item-title">{entry.name}</p><p className="item-sub">{entry.completionStatus ? `Status: ${entry.completionStatus}` : "Status not marked"}{entry.skipReason ? ` · Reason: ${entry.skipReason}` : ""}</p></div><button className="ghost-button" type="button" onClick={() => { setEntryIndex(entries.findIndex((e) => e.id === entry.id)); setEditorOpen(true); }}>Edit</button></div>)}</article>
+        <article className="card panel"><h2>Additional Exercises</h2>{entries.filter((e) => e.source === "adhoc").length === 0 ? <p className="item-sub">No other exercises.</p> : entries.filter((e) => e.source === "adhoc").map((entry) => <div key={entry.id} className="list-item" style={{ marginTop: 8 }}><span>{entry.name || "Other exercise"}</span><span>{entry.setLogs?.length || 0} sets</span></div>)}</article>
+        <article className="card panel"><h2>Finish Session</h2>{!goalChecksPassed ? <p className="item-sub" style={{ color: "#facc15" }}>Resolve goal statuses before final submit. Missing status: {unresolvedGoalCount}. Missing skip reason: {skippedWithoutReasonCount}.</p> : null}<div className="quick-actions"><button className="mint-button" type="button" onClick={saveDraft} disabled={saving}>Save draft</button><button className="ghost-button" type="button" onClick={() => setTab("live")}>Back to live</button></div></article>
+        <article className="card panel"><h2>Shared Session Notes</h2><div className="form-grid"><input value={sharedNote} onChange={(e) => setSharedNote(e.target.value)} placeholder="Add a shared note for client..." /><button className="ghost-button" type="button" onClick={sendSharedNote}>Reply</button></div></article>
+        <article className="card panel"><h2>Session Payment (UPI)</h2><div className="form-grid"><input placeholder="Amount INR" value={payment.amountInr} onChange={(e) => setPayment((p) => ({ ...p, amountInr: e.target.value }))} /><input placeholder="UPI ID" value={payment.upiId} onChange={(e) => setPayment((p) => ({ ...p, upiId: e.target.value }))} /><input placeholder="Payment note" value={payment.note} onChange={(e) => setPayment((p) => ({ ...p, note: e.target.value }))} /></div><button className="ghost-button" type="button" onClick={requestPayment}>Request payment</button></article>
+        <article className="card panel"><h2>Publish</h2><textarea rows={3} value={publishText} onChange={(e) => setPublishText(e.target.value)} placeholder="Required for first publish: add a note the client should see..." /><button className="continue-btn" type="button" disabled={!readyForFinal || !goalChecksPassed || saving} onClick={finalSubmit}>Final Submit to Client</button></article>
+      </> : null}
+
+      {message ? <p className="item-sub" style={{ color: message.toLowerCase().includes("unable") || message.toLowerCase().includes("select") || message.toLowerCase().includes("resolve") ? "#fca5a5" : "#34d399" }}>{message}</p> : null}
+
+      {searchModalOpen ? (
+        <div className="modal-backdrop" onClick={() => setSearchModalOpen(false)}>
+          <div className="modal-card card" onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <h2 style={{ margin: 0 }}>Search Exercise</h2>
+              <button className="ghost-button" type="button" onClick={() => setSearchModalOpen(false)}>Close</button>
+            </div>
+            <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+              <input value={exerciseSearch} onChange={(e) => setExerciseSearch(e.target.value)} placeholder="Type at least 5 characters" />
+              <button className="ghost-button" type="button" onClick={() => runExerciseSearch(exerciseSearch)}>Search</button>
+            </div>
+            <div style={{ display: "grid", gap: 8, marginTop: 10 }}>
+              {searchResults.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  className="ghost-button"
+                  style={{ textAlign: "left" }}
+                  onClick={() => (editorOpen && currentEntry ? mapSelectedExercise(item) : startAdhocExercise(item))}
+                >
+                  {item.name}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {showAddClient ? (
+        <div className="modal-backdrop" onClick={() => setShowAddClient(false)}>
+          <div className="modal-card card" onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}><h2 style={{ margin: 0 }}>Add Client</h2><button className="ghost-button" type="button" onClick={() => setShowAddClient(false)}>Close</button></div>
+            <div className="form-grid" style={{ marginTop: 12 }}>
+              <label className="field full"><span>Name *</span><input placeholder="Client full name" value={newClient.name} onChange={(e)=>setNewClient((p)=>({...p,name:e.target.value}))} /></label>
+              <label className="field full"><span>Goal</span><input placeholder="e.g. Strength / fat loss / mobility" value={newClient.goal} onChange={(e)=>setNewClient((p)=>({...p,goal:e.target.value}))} /></label>
+              <label className="field full"><span>Mobile *</span><input placeholder="+91 98765 43210" value={newClient.mobile} onChange={(e)=>setNewClient((p)=>({...p,mobile:e.target.value}))} /></label>
+              <label className="field"><span>Age</span><input value={newClient.age} onChange={(e)=>setNewClient((p)=>({...p,age:e.target.value}))} /></label>
+              <label className="field"><span>Weight (kg)</span><input value={newClient.weightKg} onChange={(e)=>setNewClient((p)=>({...p,weightKg:e.target.value}))} /></label>
+              <label className="field"><span>Height (cm)</span><input value={newClient.heightCm} onChange={(e)=>setNewClient((p)=>({...p,heightCm:e.target.value}))} /></label>
+              <label className="field"><span>Sex</span><select value={newClient.gender} onChange={(e)=>setNewClient((p)=>({...p,gender:e.target.value}))}><option value="not set">not set</option><option value="female">female</option><option value="male">male</option><option value="other">other</option></select></label>
+              <label className="field"><span>Activity level</span><select value={newClient.activityLevel} onChange={(e)=>setNewClient((p)=>({...p,activityLevel:e.target.value}))}><option value="not set">not set</option><option value="sedentary">sedentary</option><option value="lightly active">lightly active</option><option value="moderately active">moderately active</option><option value="very active">very active</option></select></label>
+              <label className="field full"><span>Prior conditions / injuries (optional)</span><textarea rows={3} value={newClient.priorCondition} onChange={(e)=>setNewClient((p)=>({...p,priorCondition:e.target.value}))} /></label>
+            </div>
+            <button className="continue-btn" type="button" onClick={addClientInline}>Add Client</button>
+          </div>
+        </div>
+      ) : null}
     </TrainerShell>
   );
 }
+

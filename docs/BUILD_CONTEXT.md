@@ -32,10 +32,10 @@
 
 ## Auth and route protection
 - **Trainer:** `trainer_session` cookie set by `POST /api/auth/otp/verify` (value = normalized phone). `middleware.js` protects `/portal`, `/clients`, `/schedule`, `/profile`, `/sessions`. Unauthenticated users go to `/login?next=…`.
-- **Client:** `client_session` cookie set by `POST /api/client-auth/otp/verify` (JSON with `clientId` + phone). Middleware protects `/my-portal`. Unauthenticated users go to `/client-login?next=…&reason=registration_required`.
+- **Client:** `client_session` cookie set by `POST /api/client-auth/otp/verify` (JSON with `clientId` + phone). Middleware protects `/my-portal`. Unauthenticated users go to `/login?next=…&reason=login_required`.
 - **Client eligibility rule:** client mobile must already exist in the `clients` table (trainer-added record). `POST /api/client-auth/check-phone` and `POST /api/client-auth/otp/send|verify` return a user-facing “talk to your trainer” message if not found.
 - **Recovery / no `DATABASE_URL`:** client auth still uses mobile + OTP, but checks against `mockData.clients`. Trainer/client OTP mock code remains `123456`.
-- **First-time role flow:** `/` lets users choose Trainer or Client. Trainers can go to `/onboard/trainer` (profile details + plan + 3-page walkthrough, including mandatory goal-template messaging) before entering `/portal`. Unknown clients are routed to `/client-onboard` to contact trainer.
+- **First-time role flow:** `/` redirects to `/login`. Phone entry is universal; role is inferred from records. Unknown numbers can start trainer onboarding or are routed to talk-to-trainer messaging for client access.
 
 ## Autonomous Build Constraints
 - Allowed actions: code edits, commits, pushes, deploy attempts.
@@ -48,3 +48,63 @@
 2. Clients detail parity (`/clients/[id]`, goal template, tips).
 3. Profile + my-portal parity.
 4. API POST/PATCH flows for sessions/comments/schedule with DB persistence.
+
+## Latest parity slice (Session wizard)
+- `/sessions/new` now mirrors the 4-step capture flow:
+  - **Details**: client/date/private notes with inline Add Client.
+  - **Notes**: free text capture + quick templates + parse/skip.
+  - **Review**: parsed entry review with prev/next/save actions and metric editing.
+  - **Pre-final**: grouped preview, shared notes requirement, UPI payment request, and final publish guard.
+- Added `POST /api/sessions/[id]/payment` for session payment requests (audit + billing-friendly persistence).
+- Added `POST /api/sessions/[id]/share` for session publish tracking in `session_shares`.
+
+## Session UX contract updates (mobile)
+- Exercise capture is now optimized for mobile:
+  - main session screen stays compact and row-based,
+  - each exercise opens in a full-screen editor,
+  - save returns trainer to the row timeline.
+- Exercise mapping is explicit per entry:
+  - each exercise row has Search initiation,
+  - trainer selects canonical master exercise,
+  - mandatory fields come from mapped master exercise keys.
+- Optional timing metadata is progressive-disclosure:
+  - start/end/duration fields are hidden by default behind `+ Add timing`,
+  - fields appear only when explicitly enabled or already filled.
+- Live session control model:
+  - sticky session rail with current exercise + pending goal count,
+  - quick launcher row (`+ Goal Exercise`, `+ Other Exercise`, `Resume Current`),
+  - reduced transitions: set logging stays in exercise editor until done.
+
+## Milestone 4 behavior (review/share/finalize)
+- Finalized session protection:
+  - `PATCH /api/sessions/[id]` blocks structured payload edits when current status is `completed` or `signed_off`,
+  - trainer must reopen (or move back to draft) before changing structured exercise payload.
+- Client-facing continuity surface:
+  - `GET /api/client/sessions` returns DB-backed session feed scoped to `client_session`,
+  - response now includes goal-oriented rows derived from payload (`target`, `done`, `completionStatus`, `skipReason`, simple progress direction).
+- `/my-portal` now renders goal-plan continuity:
+  - target vs done visibility per goal exercise,
+  - skip reasons where present,
+  - progress indicator vs recent comparable session data.
+
+## Latest parity slice (Schedule + Profile)
+- `/schedule` now implements calendar-style flow with status counters, filters, create appointment form, and grouped appointment cards.
+- Schedule write operations are now enabled via:
+  - `POST /api/schedule/events`,
+  - `PATCH /api/schedule/events/[id]`,
+  - `PATCH /api/schedule/events/[id]/status` (cancel/status updates).
+- `/profile` now matches account/settings/session sections with skill-specialization toggles.
+- `PATCH /api/profile/trainer` persists trainer profile edits (`name`, `specialization`) for the logged-in trainer session.
+
+## Latest parity slice (Visual system + navigation)
+- Global styling now targets closer screenshot fidelity: layered background, elevated cards, and glass bottom navigation container.
+- Trainer + client shells share a consistent **5-tab icon bottom bar** (mobile) with mint active treatment; desktop keeps pill navigation for wide screens.
+- Typography is standardized via `next/font` Inter on the root layout.
+
+## Billing model + limits (enforced)
+- Business rules now include two explicit models:
+  - **Free trial up to X clients** (`trial.clientLimit`),
+  - **Per-client pricing after threshold** (`perClient.perClientCostInr`).
+- `GET /api/auth/pricing` now exposes these model values for all onboarding/profile/dashboard UI.
+- `POST /api/clients` enforces trainer billing limits server-side and rejects additions with a clear 402 payload when the trainer is at capacity.
+- `POST /api/admin/register-trainer` now accepts `billingModel` and persists `billing_status` + `max_clients`, while also preventing role-conflict numbers (client number cannot register as trainer).

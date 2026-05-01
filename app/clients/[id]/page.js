@@ -5,6 +5,21 @@ import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import TrainerShell from "app/_components/TrainerShell";
 
+function safeTime(value) {
+  const d = new Date(value ?? "");
+  return Number.isNaN(d.getTime()) ? 0 : d.getTime();
+}
+
+function sessionStatusChipClass(status) {
+  const s = String(status ?? "").toLowerCase();
+  if (s === "completed" || s === "shared") return "status-chip session-status-completed";
+  if (s === "pending_notes" || s === "client_submitted" || s === "trainer_review") {
+    return "status-chip session-status-pending";
+  }
+  if (s === "cancelled" || s === "rejected") return "status-chip session-status-cancelled";
+  return "status-chip session-status-draft";
+}
+
 export default function Page() {
   const params = useParams();
   const clientId = useMemo(() => String(params?.id ?? ""), [params]);
@@ -39,30 +54,38 @@ export default function Page() {
     };
   }, [clientId]);
 
+  const latestSessions = useMemo(() => {
+    return [...sessions].sort((a, b) => {
+      const ad = safeTime(a.session_date ?? a.date ?? a.updated_at ?? a.created_at);
+      const bd = safeTime(b.session_date ?? b.date ?? b.updated_at ?? b.created_at);
+      return bd - ad;
+    });
+  }, [sessions]);
+
   return (
     <TrainerShell title={client?.name || "Client"} subtitle="Client summary and progress actions">
-      <article className="card panel">
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+      <article className="card panel client-detail-card">
+        <div className="client-detail-head">
           <h2>{client?.name || "Client"}</h2>
           <Link href="/sessions/new" className="mint-button">+ New Session</Link>
         </div>
-        <ul className="list" style={{ marginTop: 10 }}>
-          <li className="list-item"><span>Goal</span><span>{client?.goal || "Not set"}</span></li>
-          <li className="list-item"><span>Mobile</span><span>{client?.mobile || "-"}</span></li>
-          <li className="list-item"><span>Age</span><span>{client?.age ? `${client.age} yrs` : "-"}</span></li>
-          <li className="list-item"><span>Weight</span><span>{client?.weight_kg ? `${client.weight_kg} kg` : "-"}</span></li>
-          <li className="list-item"><span>Height</span><span>{client?.height_cm ? `${client.height_cm} cm` : "-"}</span></li>
-          <li className="list-item"><span>Gender</span><span>{client?.gender || "-"}</span></li>
-        </ul>
+        <div className="client-detail-rows">
+          <div className="client-detail-row"><span>Goal</span><strong>{client?.goal || "Not set"}</strong></div>
+          <div className="client-detail-row"><span>Mobile</span><strong>{client?.mobile || "-"}</strong></div>
+          <div className="client-detail-row"><span>Age</span><strong>{client?.age ? `${client.age} yrs` : "-"}</strong></div>
+          <div className="client-detail-row"><span>Weight</span><strong>{client?.weight_kg ? `${client.weight_kg} kg` : "-"}</strong></div>
+          <div className="client-detail-row"><span>Height</span><strong>{client?.height_cm ? `${client.height_cm} cm` : "-"}</strong></div>
+          <div className="client-detail-row"><span>Gender</span><strong>{client?.gender || "-"}</strong></div>
+        </div>
       </article>
 
-      <article className="card panel">
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+      <article className="card panel client-detail-card">
+        <div className="client-detail-head">
           <h2>Goal progress</h2>
           <Link href={`/clients/${clientId}/goal-template`} className="ghost-button">Edit template</Link>
         </div>
         {!hasTemplate ? (
-          <p className="item-sub" style={{ color: "#facc15" }}>
+          <p className="item-sub client-warning-text">
             No goal template set. Configure to track progress each session.
           </p>
         ) : (
@@ -70,17 +93,46 @@ export default function Page() {
         )}
       </article>
 
-      <article className="card panel">
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+      <article className="card panel client-detail-card">
+        <div className="client-detail-head">
           <h2>Trainer tips</h2>
           <Link href={`/clients/${clientId}/tips`} className="ghost-button">History</Link>
         </div>
         <p className="item-sub">{tips.length === 0 ? "No tips sent yet." : `${tips.length} tips available.`}</p>
       </article>
 
-      <article className="card panel">
+      <article className="card panel client-detail-card">
         <h2>Sessions</h2>
-        <p className="item-sub">{sessions.length === 0 ? "No sessions yet." : `${sessions.length} sessions`}</p>
+        {latestSessions.length === 0 ? (
+          <p className="item-sub">No sessions yet.</p>
+        ) : (
+          <ul className="list" style={{ marginTop: 10 }}>
+            {latestSessions.map((s) => (
+              <li key={s.id} className="list-item" style={{ alignItems: "flex-start" }}>
+                <Link
+                  href={`/sessions/${s.id}`}
+                  style={{ textDecoration: "none", color: "inherit", display: "block", width: "100%" }}
+                >
+                  <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
+                    <p className="item-title">{s.session_title || s.title || "Session"}</p>
+                    <span className={sessionStatusChipClass(s.status)}>
+                      {String(s.status || "draft").replaceAll("_", " ")}
+                    </span>
+                  </div>
+                  <p className="item-sub">{String(s.session_date || s.date || "").slice(0, 10) || "No date"}</p>
+                  {(s.raw_notes_preview || s.summary) ? (
+                    <p className="item-sub" style={{ marginTop: 6 }}>
+                      {String(s.raw_notes_preview || s.summary).slice(0, 120)}
+                    </p>
+                  ) : null}
+                  <p className="item-sub" style={{ marginTop: 8, color: "#5eead4" }}>
+                    Tap to view exercises and notes
+                  </p>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
       </article>
     </TrainerShell>
   );

@@ -12,6 +12,17 @@ function parseJson(value) {
   }
 }
 
+function normalizePriority(value) {
+  const normalized = String(value ?? "").trim().toLowerCase();
+  return normalized === "optional" ? "optional" : "mandatory";
+}
+
+function normalizeFrequency(value) {
+  const normalized = String(value ?? "").trim().toLowerCase();
+  if (!normalized) return "every_session";
+  return normalized;
+}
+
 export async function GET(request, { params }) {
   const { id } = params;
 
@@ -47,8 +58,10 @@ export async function GET(request, { params }) {
       goalTemplate: {
         clientId: clientRows[0].id,
         name: clientRows[0].name,
-        goal: clientRows[0].goal,
-        exercises: saved?.exercises ?? [],
+        goal: saved?.goalName ?? clientRows[0].goal ?? "",
+        goalName: saved?.goalName ?? clientRows[0].goal ?? "",
+        status: saved?.status ?? "active",
+        exercises: Array.isArray(saved?.exercises) ? saved.exercises : [],
       },
       source: "database",
     },
@@ -58,27 +71,40 @@ export async function GET(request, { params }) {
 export async function POST(request, { params }) {
   const { id } = params;
   const body = await request.json();
+  const goalName = String(body?.goalName ?? "").trim();
   const exercises = Array.isArray(body?.exercises) ? body.exercises : [];
+
+  if (!goalName) {
+    return NextResponse.json({ ok: false, message: "Goal template name is required." }, { status: 400 });
+  }
 
   if (exercises.length === 0) {
     return NextResponse.json({ ok: false, message: "Add at least one goal exercise." }, { status: 400 });
   }
 
-  for (const ex of exercises) {
-    if (!String(ex?.exercise ?? "").trim()) {
-      return NextResponse.json({ ok: false, message: "Each goal exercise needs a name." }, { status: 400 });
+  const normalizedExercises = exercises.map((ex) => ({
+    id: String(ex?.id ?? "").trim() || null,
+    masterExerciseId: String(ex?.masterExerciseId ?? "").trim() || null,
+    exercise: String(ex?.exercise ?? "").trim(),
+    variation: String(ex?.variation ?? "").trim(),
+    target: String(ex?.target ?? "").trim(),
+    frequency: normalizeFrequency(ex?.frequency),
+    priority: normalizePriority(ex?.priority),
+    imageUrl: String(ex?.imageUrl ?? "").trim(),
+  }));
+
+  for (const ex of normalizedExercises) {
+    if (!ex.exercise) {
+      return NextResponse.json({ ok: false, message: "Each goal exercise needs a mapped exercise name." }, { status: 400 });
     }
-    const rows = Array.isArray(ex?.metrics) ? ex.metrics : [];
-    if (rows.length === 0) {
-      return NextResponse.json({ ok: false, message: "Each goal exercise needs at least one metric row." }, { status: 400 });
+    if (!ex.target) {
+      return NextResponse.json({ ok: false, message: "Each goal exercise needs a target progression." }, { status: 400 });
     }
-    for (const row of rows) {
-      if (!String(row?.measurement ?? "").trim() || !String(row?.metricName ?? "").trim() || !String(row?.metricValue ?? "").trim()) {
-        return NextResponse.json(
-          { ok: false, message: "Each measurement row must include measurement name, metric name, and metric value." },
-          { status: 400 }
-        );
-      }
+    if (!ex.frequency) {
+      return NextResponse.json({ ok: false, message: "Each goal exercise needs a target frequency." }, { status: 400 });
+    }
+    if (!ex.priority) {
+      return NextResponse.json({ ok: false, message: "Each goal exercise needs a priority." }, { status: 400 });
     }
   }
 
@@ -87,7 +113,11 @@ export async function POST(request, { params }) {
       ok: true,
       recovered: true,
       route: "api/clients/[id]/goal-template",
-      data: { clientId: id, exercises, source: "mock" },
+      data: {
+        clientId: id,
+        goalTemplate: { clientId: id, goalName, status: "active", exercises: normalizedExercises },
+        source: "mock",
+      },
     });
   }
 
@@ -97,7 +127,13 @@ export async function POST(request, { params }) {
   }
 
   const trainerPhone = request.cookies.get("trainer_session")?.value ?? "trainer";
-  const payload = JSON.stringify({ exercises });
+  const payload = JSON.stringify({
+    goalName,
+    status: "active",
+    exercises: normalizedExercises,
+    actorRole: "trainer",
+    actorId: trainerPhone,
+  });
   const rows = await query(
     `
       INSERT INTO audit_events (
@@ -106,9 +142,7 @@ export async function POST(request, { params }) {
         entity_id,
         action,
         payload_json,
-        created_at,
-        actor_role,
-        actor_id
+        created_at
       )
       VALUES (
         md5(random()::text || clock_timestamp()::text),
@@ -116,19 +150,22 @@ export async function POST(request, { params }) {
         $1,
         'goal_template_saved',
         $2::text,
-        NOW(),
-        'trainer',
-        $3
+        NOW()
       )
       RETURNING *
     `,
-    [id, payload, trainerPhone]
+    [id, payload]
   );
 
   return NextResponse.json({
     ok: true,
     recovered: true,
     route: "api/clients/[id]/goal-template",
-    data: { id: rows[0].id, clientId: id, exercises, source: "database" },
+    data: {
+      id: rows[0].id,
+      clientId: id,
+      goalTemplate: { clientId: id, goalName, status: "active", exercises: normalizedExercises },
+      source: "database",
+    },
   });
 }

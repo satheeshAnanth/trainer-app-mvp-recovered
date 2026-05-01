@@ -31,6 +31,7 @@ export async function GET(request) {
     category: row.category,
     equipment: row.equipment,
     importantInputFields: safeParseArray(row.important_input_fields_json),
+    imageUrl: extractImageUrl(row.tracking_json),
   }));
 
   if (withKeys && exercises.length > 0) {
@@ -58,4 +59,48 @@ function safeParseArray(text) {
   } catch {
     return [];
   }
+}
+
+function safeParseObject(text) {
+  if (!text || typeof text !== "string") return null;
+  try {
+    const value = JSON.parse(text);
+    return value && typeof value === "object" ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+function extractImageUrl(trackingJson) {
+  const obj = safeParseObject(trackingJson);
+  if (!obj) return "";
+  const keys = ["imageUrl", "image_url", "thumbnailUrl", "thumbnail_url", "image", "thumbnail"];
+  for (const key of keys) {
+    const value = String(obj[key] ?? "").trim();
+    if (value && /^https?:\/\//i.test(value)) return value;
+  }
+  return deepFindImageUrl(obj);
+}
+
+function deepFindImageUrl(value) {
+  if (!value) return "";
+  if (typeof value === "string") {
+    const text = value.trim();
+    if (/^https?:\/\//i.test(text) && /\.(png|jpe?g|webp|gif|avif)(\?.*)?$/i.test(text)) return text;
+    return "";
+  }
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const found = deepFindImageUrl(item);
+      if (found) return found;
+    }
+    return "";
+  }
+  if (typeof value === "object") {
+    for (const key of Object.keys(value)) {
+      const found = deepFindImageUrl(value[key]);
+      if (found) return found;
+    }
+  }
+  return "";
 }

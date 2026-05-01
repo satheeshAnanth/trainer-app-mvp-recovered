@@ -24,7 +24,7 @@ export function middleware(request) {
     const clientSession = request.cookies.get("client_session")?.value;
     if (!clientSession) {
       const url = request.nextUrl.clone();
-      url.pathname = "/client-login";
+      url.pathname = "/login";
       url.searchParams.set("next", pathname);
       url.searchParams.set("reason", "login_required");
       return NextResponse.redirect(url);
