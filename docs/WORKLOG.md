@@ -74,3 +74,11 @@
 - Rebuilt `/portal` landing UI toward screenshot parity: hero welcome + CTA, KPI cards, pending/ready/most-active insights, schedule request empty-state, and recent sessions with status chips.
 - Wired dashboard values to live APIs (`/api/auth/session`, `/api/clients`, `/api/sessions`) instead of hardcoded stats.
 - Updated trainer shell nav labels and mobile tab structure to `Home / Clients / Log / Schedule / Profile`.
+
+## 2026-05-01 (session 7)
+
+### Completed
+- Rebuilt `/login` into the requested 4-step path flow: phone -> role -> trainer profile/pricing (for new trainers) or client access-check -> OTP verify.
+- Added role-specific OTP handling from `/login`: trainer uses `/api/auth/otp/*`; client uses `/api/client-auth/otp/*`.
+- Added resend OTP timer, change-number path, and client access-required instructions matching the provided mock.
+- Added UI primitives for role cards, specialization chips, and pricing plan cards in `globals.css`.
