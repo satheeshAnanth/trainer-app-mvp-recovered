@@ -35,6 +35,7 @@
 - **Client:** `client_session` cookie set by `POST /api/client-auth/otp/verify` (JSON with `clientId` + phone). Middleware protects `/my-portal`. Unauthenticated users go to `/client-login?next=…&reason=registration_required`.
 - **Client eligibility rule:** client mobile must already exist in the `clients` table (trainer-added record). `POST /api/client-auth/check-phone` and `POST /api/client-auth/otp/send|verify` return a user-facing “talk to your trainer” message if not found.
 - **Recovery / no `DATABASE_URL`:** client auth still uses mobile + OTP, but checks against `mockData.clients`. Trainer/client OTP mock code remains `123456`.
+- **First-time role flow:** `/` lets users choose Trainer or Client. Trainers can go to `/onboard/trainer` (profile details + plan + 3-page walkthrough, including mandatory goal-template messaging) before entering `/portal`. Unknown clients are routed to `/client-onboard` to contact trainer.
 
 ## Autonomous Build Constraints
 - Allowed actions: code edits, commits, pushes, deploy attempts.

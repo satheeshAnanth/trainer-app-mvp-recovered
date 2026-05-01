@@ -38,6 +38,23 @@ export async function POST(request) {
     });
   }
 
+  const digits = phone.replace(/\D/g, "");
+  const trainerRows = await query(
+    `
+      SELECT id
+      FROM trainer_phones
+      WHERE regexp_replace(COALESCE(phone, ''), '[^0-9]', '', 'g') = $1
+      LIMIT 1
+    `,
+    [digits]
+  );
+  if (!trainerRows[0]) {
+    return NextResponse.json(
+      { ok: false, message: "Trainer not found. Please complete trainer onboarding first." },
+      { status: 404 }
+    );
+  }
+
   const code = "123456";
   const rows = await query(
     `

@@ -37,6 +37,7 @@ function ClientLoginForm() {
       const checkJson = await checkRes.json();
       if (!checkRes.ok || !checkJson?.data?.exists) {
         setError(checkJson?.message ?? "This mobile number is not registered. Please talk to your trainer.");
+        router.push(`/client-onboard?phone=${encodeURIComponent(normalizedPhone)}`);
         return;
       }
 
@@ -132,6 +133,9 @@ function ClientLoginForm() {
                 Your account is not active yet. Please talk to your trainer before accessing the app.
               </p>
             ) : null}
+            {blockedReason === "login_required" ? (
+              <p className="auth-subtitle">Please sign in to continue.</p>
+            ) : null}
 
             {error ? <p className="auth-subtitle" style={{ color: "#fca5a5" }}>{error}</p> : null}
 
@@ -159,6 +163,12 @@ function ClientLoginForm() {
               Trainer?{" "}
               <Link href="/login" style={{ color: "var(--mint)" }}>
                 Trainer sign in
+              </Link>
+            </p>
+            <p className="auth-subtitle" style={{ marginTop: 6 }}>
+              Not added yet?{" "}
+              <Link href="/client-onboard" style={{ color: "var(--mint)" }}>
+                Talk to trainer
               </Link>
             </p>
           </div>

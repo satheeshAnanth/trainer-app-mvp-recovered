@@ -38,7 +38,16 @@ export async function POST(request) {
     });
   }
 
-  const rows = await query(`SELECT id, phone, name FROM trainer_phones WHERE phone = $1 LIMIT 1`, [phone]);
+  const digits = phone.replace(/\D/g, "");
+  const rows = await query(
+    `
+      SELECT id, phone, name
+      FROM trainer_phones
+      WHERE regexp_replace(COALESCE(phone, ''), '[^0-9]', '', 'g') = $1
+      LIMIT 1
+    `,
+    [digits]
+  );
   return NextResponse.json({
     ok: true,
     recovered: true,

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useMemo, useState } from "react";
 
@@ -148,6 +149,18 @@ function TrainerLoginForm() {
                 {submitting ? "Please wait..." : "Verify OTP"}
               </button>
             )}
+            <p className="auth-subtitle" style={{ marginTop: 16 }}>
+              New trainer?{" "}
+              <Link href="/onboard/trainer" style={{ color: "var(--mint)" }}>
+                Start onboarding
+              </Link>
+            </p>
+            <p className="auth-subtitle" style={{ marginTop: 6 }}>
+              Client?{" "}
+              <Link href="/client-login" style={{ color: "var(--mint)" }}>
+                Client sign in
+              </Link>
+            </p>
           </div>
         </section>
       </div>

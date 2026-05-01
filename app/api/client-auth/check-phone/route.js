@@ -43,9 +43,15 @@ export async function POST(request) {
     });
   }
 
+  const phoneDigits = phone.replace(/\D/g, "");
   const rows = await query(
-    `SELECT id, name, mobile FROM clients WHERE mobile = $1 LIMIT 1`,
-    [phone]
+    `
+      SELECT id, name, mobile
+      FROM clients
+      WHERE regexp_replace(COALESCE(mobile, ''), '[^0-9]', '', 'g') = $1
+      LIMIT 1
+    `,
+    [phoneDigits]
   );
   if (!rows[0]) {
     return talkToTrainerResponse(phone);

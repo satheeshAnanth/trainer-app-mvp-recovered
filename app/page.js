@@ -1,35 +1,36 @@
-import Link from "next/link";
+"use client";
 
-const routes = [
-  "/login",
-  "/portal",
-  "/clients",
-  "/schedule",
-  "/sessions/new",
-  "/sessions/pending-notes",
-  "/client-login",
-  "/client-onboard",
-  "/my-portal",
-  "/profile",
-];
+import Link from "next/link";
 
 export default function HomePage() {
   return (
-    <main>
-      <h1>Trainer App (Recovered)</h1>
-      <p>
-        Phase 2 reconstruction is now in progress. API routes return structured recovery data
-        and pages provide usable navigation shells.
-      </p>
+    <main className="auth-screen">
+      <div className="auth-container">
+        <section className="card auth-card">
+          <p className="eyebrow">Welcome</p>
+          <h1 className="auth-title">Who are you?</h1>
+          <p className="auth-subtitle">Choose your role to continue.</p>
 
-      <h2>Recovered routes</h2>
-      <ul>
-        {routes.map((route) => (
-          <li key={route}>
-            <Link href={route}>{route}</Link>
-          </li>
-        ))}
-      </ul>
+          <div className="quick-actions" style={{ marginTop: "1.25rem" }}>
+            <Link href="/login" className="mint-button">
+              I am a Trainer
+            </Link>
+            <Link href="/client-login" className="ghost-button">
+              I am a Client
+            </Link>
+          </div>
+
+          <article className="card panel" style={{ marginTop: "1rem" }}>
+            <h2>New trainer?</h2>
+            <p className="item-sub">
+              Complete onboarding with profile, pricing, and a 3-step walkthrough before entering the app.
+            </p>
+            <Link href="/onboard/trainer" className="mint-button">
+              Start trainer onboarding
+            </Link>
+          </article>
+        </section>
+      </div>
     </main>
   );
 }

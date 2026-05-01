@@ -58,3 +58,12 @@
 - Removed legacy email/password client login routes.
 - `GET /api/client-auth/session` now validates against `clients` table and returns mobile/name identity.
 - Client self-log page now reads logged-in client identity from session and `/api/client/sessions` rejects cross-client submissions.
+
+## 2026-05-01 (session 5)
+
+### Completed
+- Added role selector landing page (`/`) with Trainer vs Client entry points and trainer onboarding CTA.
+- Added trainer first-time onboarding flow (`/onboard/trainer`): profile capture, pricing tier, and 3-page walkthrough (including mandatory goal-template guidance), wired to `POST /api/admin/register-trainer`.
+- Extended `POST /api/admin/register-trainer` to persist `trainer_phones` metadata and seed trial billing row (best effort), then set trainer session cookie.
+- Hardened phone matching in trainer/client auth checks with digit-normalized comparisons (`regexp_replace`) to reduce format mismatch login failures.
+- Added `/client-onboard` page and client-login redirect to that page when number is not trainer-added.
