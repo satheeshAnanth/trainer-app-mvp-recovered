@@ -26,9 +26,9 @@
 4. Preserve mock fallbacks only where DB structures are still unclear.
 
 ## Validation rules (trainer sessions)
-- **`draft` / `client_submitted`:** no mandatory-section or exercise validation on `POST /api/sessions`.
-- **Any other status (e.g. `completed`):** API requires `payload.sections` (`warmup`, `mainWork`, `cooldown`, `goalUpdate`), a non-empty `payload.exercises` array, and each exercise must expose all required metrics. Required keys come from `master_exercise_metrics` rows with `metric_value = Primary` plus `important_input_fields_json` on `master_exercises`, merged with any `metricRequired` array sent by the client (used when `DATABASE_URL` is unset). Keys are matched with canonical synonyms (duration, incline, distance, sets, reps, load, etc.).
-- **`PATCH /api/sessions/[id]`:** loads existing row when using the DB; merges `payload` into stored JSON; runs the same checks when the effective status is non-draft.
+- **`draft` / `client_submitted` / `pending_notes` / most in-progress statuses:** no full payload validation on `POST /api/sessions` or `PATCH /api/sessions/[id]`.
+- **`completed` / `signed_off` / `trainer_review`:** API requires `payload.sections` (`warmup`, `mainWork`, `cooldown`, `goalUpdate`), a non-empty `payload.exercises` array, and each exercise must expose all required metrics. Required keys come from `master_exercise_metrics` rows with `metric_value = Primary` plus `important_input_fields_json` on `master_exercises`, merged with any `metricRequired` array sent by the client (used when `DATABASE_URL` is unset). Keys are matched with canonical synonyms (duration, incline, distance, sets, reps, load, etc.).
+- **`PATCH /api/sessions/[id]`:** loads existing row when using the DB; merges `payload` into stored JSON; runs the full checks only when the effective status is one of the completed-style statuses above.
 
 ## Autonomous Build Constraints
 - Allowed actions: code edits, commits, pushes, deploy attempts.

@@ -141,16 +141,36 @@ export async function buildRecoveredPayload(route, params = {}) {
     }
 
     case "api/clients/[id]/goal-template": {
-      const client = mockData.clients.find((item) => item.id === id) ?? null;
+      const rows = await safeQuery(
+        `
+          SELECT id, name, goal
+          FROM clients
+          WHERE id = $1
+          LIMIT 1
+        `,
+        [id]
+      );
+      const fallback = mockData.clients.find((item) => item.id === id) ?? null;
+      const row = rows?.[0] ?? null;
+      const base = row ?? fallback;
+      if (!base) {
+        return { goalTemplate: null, source: rows ? "database" : "mock", table: rows ? "clients" : null };
+      }
       return {
-        goalTemplate: client
-          ? {
-              clientId: client.id,
-              goal: client.goal,
-              plan: client.plan,
-            }
-          : null,
-        source: "mock",
+        goalTemplate: {
+          clientId: base.id,
+          name: base.name,
+          goal: base.goal ?? null,
+          /** Placeholder field defs until a dedicated goal_template table exists */
+          sessionFields: [
+            { key: "bodyweight_kg", label: "Bodyweight (kg)", required: true, input: "number", step: "0.1" },
+            { key: "energy_score", label: "Energy score (1-10)", required: true, input: "number", min: 1, max: 10 },
+            { key: "pain_note", label: "Pain / discomfort note", required: true, input: "text" },
+            { key: "trainer_assessment", label: "Trainer progress assessment", required: true, input: "textarea" },
+          ],
+        },
+        source: row ? "database" : "mock",
+        table: row ? "clients" : null,
       };
     }
 
@@ -172,6 +192,7 @@ export async function buildRecoveredPayload(route, params = {}) {
             status,
             estimated_calories,
             duration_minutes,
+            LEFT(COALESCE(raw_notes, ''), 200) AS raw_notes_preview,
             created_at,
             updated_at
           FROM sessions

@@ -2,14 +2,7 @@
 
 import { useEffect, useState } from "react";
 import TrainerShell from "app/_components/TrainerShell";
-
-function labelizeMetricKey(key) {
-  return String(key)
-    .replace(/([A-Z])/g, " $1")
-    .replace(/_/g, " ")
-    .replace(/^./, (c) => c.toUpperCase())
-    .trim();
-}
+import { labelizeMetricKey } from "app/lib/metricLabels";
 
 export default function Page() {
   const [clients, setClients] = useState([]);

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { buildRecoveredPayload } from "app/lib/apiResponse";
 import { hasDatabaseUrl, query } from "app/lib/db";
 import { mergeSessionPayload } from "app/lib/payloadMerge";
-import { isNonDraftTrainerStatus, validateTrainerSessionBody } from "app/lib/sessionValidation";
+import { requiresFullTrainerPayload, validateTrainerSessionBody } from "app/lib/sessionValidation";
 
 export async function GET(_request, { params }) {
   const payload = await buildRecoveredPayload("api/sessions/[id]", params);
@@ -46,7 +46,7 @@ export async function PATCH(request, { params }) {
   const finalStatus = status ?? existingRow?.status ?? "draft";
   const mergedPayload = mergeSessionPayload(existingRow?.payload_json, payload);
 
-  if (isNonDraftTrainerStatus(finalStatus)) {
+  if (requiresFullTrainerPayload(finalStatus)) {
     const check = await validateTrainerSessionBody(
       { status: finalStatus, payload: mergedPayload },
       { skipDb: !hasDatabaseUrl() }

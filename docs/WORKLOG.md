@@ -31,3 +31,12 @@
 - Real `GET /api/exercises/master/search?q=&withKeys=1` against `master_exercises` + `master_exercise_metrics` / `important_input_fields_json`.
 - `/sessions/new` wired to client picker, catalog search, dynamic metric fields, **Save draft** vs **Complete session**.
 - `PATCH /api/sessions/[id]` merges existing `payload_json` before validating and only overwrites payload when the request includes `payload`.
+
+## 2026-05-01 (session 2)
+
+### Completed
+- Validation scope tightened: full mandatory payload checks only for `completed`, `signed_off`, and `trainer_review` (so `pending_notes` and drafts can save without blocking).
+- `/sessions/[id]` shows and edits structured sections + exercise metrics; save and **Mark complete** send merged `payload`; quick **Mark pending notes** still uses the status endpoint.
+- `/sessions/pending-notes` differentiates client self-log vs trainer work; **Approve** only for `client_submitted`; list shows `raw_notes_preview` from DB-backed session list.
+- `/clients` loads from `/api/clients`; goal template API returns real `clients.goal` plus placeholder `sessionFields`; goal-template page reflects DB goal text.
+- `app/lib/metricLabels.js` shared by new-session and session-detail flows.

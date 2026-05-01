@@ -3,6 +3,20 @@
 import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import TrainerShell from "app/_components/TrainerShell";
+import { labelizeMetricKey } from "app/lib/metricLabels";
+import { parseSessionPayload } from "app/lib/payloadMerge";
+
+const EMPTY_SECTIONS = {
+  warmup: "",
+  mainWork: "",
+  cooldown: "",
+  goalUpdate: "",
+};
+
+function normalizeCommentsPayload(data) {
+  const raw = data?.comments ?? data?.data?.comments ?? [];
+  return Array.isArray(raw) ? raw : [];
+}
 
 export default function Page() {
   const params = useParams();
@@ -11,9 +25,28 @@ export default function Page() {
   const [status, setStatus] = useState("draft");
   const [summary, setSummary] = useState("");
   const [rawNotes, setRawNotes] = useState("");
+  const [sections, setSections] = useState(() => ({ ...EMPTY_SECTIONS }));
+  const [exercises, setExercises] = useState([]);
   const [comments, setComments] = useState([]);
   const [newComment, setNewComment] = useState("");
   const [message, setMessage] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  function hydrateFromRecord(record) {
+    if (!record) return;
+    setStatus(record.status ?? "draft");
+    setSummary(record.summary ?? "");
+    setRawNotes(record.raw_notes ?? record.rawNotes ?? "");
+    const parsed = parseSessionPayload(record.payload_json ?? record.payloadJson);
+    const sec = parsed.sections && typeof parsed.sections === "object" ? parsed.sections : {};
+    setSections({
+      warmup: typeof sec.warmup === "string" ? sec.warmup : "",
+      mainWork: typeof sec.mainWork === "string" ? sec.mainWork : "",
+      cooldown: typeof sec.cooldown === "string" ? sec.cooldown : "",
+      goalUpdate: typeof sec.goalUpdate === "string" ? sec.goalUpdate : (record.summary ?? ""),
+    });
+    setExercises(Array.isArray(parsed.exercises) ? parsed.exercises : []);
+  }
 
   async function loadSession() {
     if (!sessionId) return;
@@ -27,12 +60,8 @@ export default function Page() {
 
     const record = sessionJson?.data?.session ?? sessionJson?.data ?? null;
     setSession(record);
-    setStatus(record?.status ?? "draft");
-    setSummary(record?.summary ?? "");
-    setRawNotes(record?.raw_notes ?? record?.rawNotes ?? "");
-
-    const commentItems = commentsJson?.data?.comments ?? commentsJson?.data?.comments ?? [];
-    setComments(commentItems);
+    hydrateFromRecord(record);
+    setComments(normalizeCommentsPayload(commentsJson?.data ?? commentsJson));
   }
 
   useEffect(() => {
@@ -40,30 +69,71 @@ export default function Page() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId]);
 
-  async function handleSave() {
-    if (!sessionId) return;
-    setMessage("");
-    const res = await fetch(`/api/sessions/${sessionId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        summary,
-        rawNotes,
-        status,
-      }),
-    });
-    const json = await res.json();
-    if (!res.ok || !json?.ok) {
-      setMessage(json?.message ?? "Unable to save session.");
-      return;
-    }
-    setMessage("Session updated.");
-    await loadSession();
+  function setSection(key, value) {
+    setSections((prev) => ({ ...prev, [key]: value }));
   }
 
-  async function handleStatus(nextStatus) {
+  function setExerciseMetric(exIndex, metricKey, value) {
+    setExercises((prev) =>
+      prev.map((ex, i) =>
+        i === exIndex ? { ...ex, metrics: { ...(ex.metrics ?? {}), [metricKey]: value } } : ex
+      )
+    );
+  }
+
+  function buildPayload() {
+    const sectionPayload = {
+      warmup: sections.warmup,
+      mainWork: sections.mainWork,
+      cooldown: sections.cooldown,
+      goalUpdate: sections.goalUpdate,
+    };
+    const notesJoined = [sections.warmup, sections.mainWork, sections.cooldown].filter(Boolean).join("\n\n");
+    return {
+      payload: {
+        sections: sectionPayload,
+        exercises,
+      },
+      rawNotes: notesJoined || rawNotes,
+      summary: sections.goalUpdate || summary,
+    };
+  }
+
+  async function handleSave(nextStatus) {
     if (!sessionId) return;
     setMessage("");
+    setSaving(true);
+    try {
+      const built = buildPayload();
+      const res = await fetch(`/api/sessions/${sessionId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          summary: built.summary,
+          rawNotes: built.rawNotes,
+          status: nextStatus ?? status,
+          payload: built.payload,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json?.ok) {
+        setMessage(json?.message ?? "Unable to save session.");
+        return;
+      }
+      setMessage("Session updated.");
+      await loadSession();
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleQuickStatus(nextStatus) {
+    if (!sessionId) return;
+    setMessage("");
+    if (nextStatus === "completed") {
+      await handleSave("completed");
+      return;
+    }
     const res = await fetch(`/api/sessions/${sessionId}/status`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -101,40 +171,119 @@ export default function Page() {
     await loadSession();
   }
 
+  const metricKeysForExercise = (ex) => {
+    const req = Array.isArray(ex.metricRequired) ? ex.metricRequired : [];
+    const fromMetrics = Object.keys(ex.metrics ?? {});
+    return [...new Set([...req, ...fromMetrics])];
+  };
+
   return (
-    <TrainerShell title="Session Details" subtitle="Review captured notes, metrics, and sharing state.">
+    <TrainerShell title="Session Details" subtitle="Structured notes, catalog metrics, and discussion.">
       <article className="card panel">
         <h2>Session summary</h2>
         <ul className="list">
-          <li className="list-item"><span>Session ID</span><span>{sessionId || "-"}</span></li>
-          <li className="list-item"><span>Client</span><span>{session?.client_name_snapshot ?? "Unknown"}</span></li>
-          <li className="list-item"><span>Status</span><span className="status-chip">{status || "draft"}</span></li>
-          <li className="list-item"><span>Duration</span><span>{session?.duration_minutes ?? "-"} min</span></li>
-          <li className="list-item"><span>Estimated calories</span><span>{session?.estimated_calories ?? "-"} kcal</span></li>
+          <li className="list-item">
+            <span>Session ID</span>
+            <span>{sessionId || "-"}</span>
+          </li>
+          <li className="list-item">
+            <span>Client</span>
+            <span>{session?.client_name_snapshot ?? "Unknown"}</span>
+          </li>
+          <li className="list-item">
+            <span>Status</span>
+            <span className="status-chip">{status || "draft"}</span>
+          </li>
+          <li className="list-item">
+            <span>Duration</span>
+            <span>{session?.duration_minutes ?? "-"} min</span>
+          </li>
+          <li className="list-item">
+            <span>Estimated calories</span>
+            <span>{session?.estimated_calories ?? "-"} kcal</span>
+          </li>
         </ul>
       </article>
 
       <article className="card panel">
-        <h2>Edit notes and summary</h2>
+        <h2>Mandatory note sections</h2>
+        <p className="item-sub">These map to `payload.sections` and sync with raw notes on save.</p>
         <div className="form-grid">
           <label className="field full">
-            <span>Raw notes</span>
-            <textarea rows={6} value={rawNotes} onChange={(event) => setRawNotes(event.target.value)} />
+            <span>Warm-up *</span>
+            <textarea rows={3} value={sections.warmup} onChange={(e) => setSection("warmup", e.target.value)} />
           </label>
           <label className="field full">
-            <span>Summary / goal update</span>
-            <textarea rows={4} value={summary} onChange={(event) => setSummary(event.target.value)} />
+            <span>Main work *</span>
+            <textarea rows={4} value={sections.mainWork} onChange={(e) => setSection("mainWork", e.target.value)} />
           </label>
+          <label className="field full">
+            <span>Cool down *</span>
+            <textarea rows={3} value={sections.cooldown} onChange={(e) => setSection("cooldown", e.target.value)} />
+          </label>
+          <label className="field full">
+            <span>Goal progress update *</span>
+            <textarea rows={3} value={sections.goalUpdate} onChange={(e) => setSection("goalUpdate", e.target.value)} />
+          </label>
+        </div>
+      </article>
+
+      <article className="card panel">
+        <h2>Exercise metrics</h2>
+        {exercises.length === 0 ? (
+          <p className="item-sub">No structured exercises on this session. Edit on create flow or paste details in notes.</p>
+        ) : (
+          exercises.map((ex, exIndex) => (
+            <div key={`${ex.exerciseId ?? ex.name}-${exIndex}`} className="metric-card" style={{ marginTop: "1rem" }}>
+              <p className="item-title">{ex.name ?? ex.exerciseId ?? `Exercise ${exIndex + 1}`}</p>
+              <div className="form-grid">
+                {metricKeysForExercise(ex).map((mk) => (
+                  <label key={mk} className="field">
+                    <span>{labelizeMetricKey(mk)}</span>
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      value={(ex.metrics ?? {})[mk] ?? ""}
+                      onChange={(e) => setExerciseMetric(exIndex, mk, e.target.value)}
+                    />
+                  </label>
+                ))}
+              </div>
+            </div>
+          ))
+        )}
+      </article>
+
+      <article className="card panel">
+        <h2>Raw notes (combined)</h2>
+        <label className="field full">
+          <span>Full text (optional override)</span>
+          <textarea rows={5} value={rawNotes} onChange={(e) => setRawNotes(e.target.value)} />
+        </label>
+      </article>
+
+      <article className="card panel">
+        <h2>Status and save</h2>
+        <div className="form-grid">
           <label className="field">
             <span>Status</span>
-            <input type="text" value={status} onChange={(event) => setStatus(event.target.value)} />
+            <input type="text" value={status} onChange={(e) => setStatus(e.target.value)} />
           </label>
         </div>
         <div className="quick-actions">
-          <button className="mint-button" type="button" onClick={handleSave}>Save changes</button>
-          <button className="ghost-button" type="button" onClick={() => handleStatus("completed")}>Mark complete</button>
-          <button className="ghost-button" type="button" onClick={() => handleStatus("pending_notes")}>Mark pending notes</button>
+          <button className="mint-button" type="button" disabled={saving} onClick={() => handleSave(null)}>
+            {saving ? "Saving…" : "Save changes"}
+          </button>
+          <button className="ghost-button" type="button" disabled={saving} onClick={() => handleQuickStatus("pending_notes")}>
+            Mark pending notes
+          </button>
+          <button className="ghost-button" type="button" disabled={saving} onClick={() => handleQuickStatus("completed")}>
+            Mark complete
+          </button>
         </div>
+        <p className="item-sub" style={{ marginTop: "0.75rem" }}>
+          Mark complete runs a full save with validation (mandatory sections + exercises). Use when the session is ready to close.
+        </p>
       </article>
 
       <article className="card panel">
@@ -142,21 +291,25 @@ export default function Page() {
         <div className="form-grid">
           <label className="field full">
             <span>Add comment</span>
-            <textarea rows={3} value={newComment} onChange={(event) => setNewComment(event.target.value)} />
+            <textarea rows={3} value={newComment} onChange={(e) => setNewComment(e.target.value)} />
           </label>
         </div>
         <div className="quick-actions">
-          <button className="mint-button" type="button" onClick={handleAddComment}>Add comment</button>
+          <button className="mint-button" type="button" onClick={handleAddComment}>
+            Add comment
+          </button>
         </div>
 
         <ul className="list" style={{ marginTop: 12 }}>
           {comments.length === 0 ? (
-            <li className="list-item"><span>No comments yet.</span></li>
+            <li className="list-item">
+              <span>No comments yet.</span>
+            </li>
           ) : (
             comments.map((comment) => (
               <li className="list-item" key={comment.id}>
                 <div>
-                  <p className="item-title">{comment.author_name ?? "Trainer"}</p>
+                  <p className="item-title">{comment.author_name ?? comment.authorName ?? "Trainer"}</p>
                   <p className="item-sub">{comment.text}</p>
                 </div>
               </li>

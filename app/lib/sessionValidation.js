@@ -3,6 +3,13 @@ import { metricsSatisfyRequired } from "./metricKeys";
 
 const SECTION_KEYS = ["warmup", "mainWork", "cooldown", "goalUpdate"];
 
+/** Statuses where mandatory sections + exercise metrics must pass API validation. */
+export function requiresFullTrainerPayload(status) {
+  const s = (status ?? "").toLowerCase();
+  return s === "completed" || s === "signed_off" || s === "trainer_review";
+}
+
+/** @deprecated prefer requiresFullTrainerPayload — kept for clarity in docs */
 export function isNonDraftTrainerStatus(status) {
   const s = (status ?? "draft").toLowerCase();
   return s !== "draft" && s !== "client_submitted";
@@ -36,7 +43,7 @@ function exercisesShapeOk(exercises) {
  */
 export async function validateTrainerSessionBody(body, options = {}) {
   const status = body?.status ?? "draft";
-  if (!isNonDraftTrainerStatus(status)) {
+  if (!requiresFullTrainerPayload(status)) {
     return { ok: true };
   }
 
@@ -93,5 +100,5 @@ export async function validateTrainerSessionBody(body, options = {}) {
 }
 
 export function shouldValidateTrainerSession(body) {
-  return isNonDraftTrainerStatus(body?.status);
+  return requiresFullTrainerPayload(body?.status);
 }
