@@ -1,0 +1,67 @@
+# Reminder to continue trainer-app recovery work (Cursor / human).
+#
+# I (the IDE assistant) cannot email or ping you on a schedule — this workflow is a substitute:
+# it opens or bumps one GitHub Issue with the continuation prompt.
+#
+# Enable schedule: uncomment `schedule` below. Default is manual-only (workflow_dispatch).
+# Issues are matched by title prefix `[Recovery] Continue from docs/WORKLOG` (no label required).
+
+name: Recovery — continue from WORKLOG
+
+on:
+  workflow_dispatch:
+  # Uncomment for weekday reminders (13:00 UTC ≈ morning India; adjust as needed):
+  # schedule:
+  #   - cron: "0 13 * * 1-5"
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  remind:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create or bump recovery issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const titlePrefix = "[Recovery] Continue from docs/WORKLOG.md";
+            const body = [
+              "## Next step for whoever is driving recovery",
+              "",
+              "1. Open \`docs/WORKLOG.md\` → **Next Up** / **In Progress**.",
+              "2. Open \`docs/BUILD_CONTEXT.md\` for product + schema context.",
+              "3. In Cursor, start (or continue) a chat and say: **Continue from docs/WORKLOG.md.**",
+              "",
+              "_This issue was created or updated by \`.github/workflows/recovery-continue-reminder.yml\`._"
+            ].join("\n");
+
+            const { data: open } = await github.rest.issues.listForRepo({
+              owner,
+              repo,
+              state: "open",
+              per_page: 50,
+            });
+            const existing = open.find((i) => i.title.startsWith(titlePrefix));
+
+            if (existing) {
+              await github.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number: existing.number,
+                body: `**Reminder (${new Date().toISOString().slice(0, 10)}):** Continue from \`docs/WORKLOG.md\`.`,
+              });
+              core.info(`Commented on #${existing.number}`);
+              return;
+            }
+
+            await github.rest.issues.create({
+              owner,
+              repo,
+              title: `${titlePrefix} — ${new Date().toISOString().slice(0, 10)}`,
+              body,
+            });
+            core.info("Created new recovery issue");
