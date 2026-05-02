@@ -226,11 +226,22 @@ For this repo, the most useful pieces are:
 - `systematic-debugging` — best when a bug or regression needs root-cause analysis before fixing.
 - `Cursor Agent` — best for the actual implementation work once the design/plan is settled.
 
+For UI/UX agent tooling specifically, the recommended external stack is documented in `docs/UIUX_AGENT_STACK.md`.
+
+Current recommended order for this repo:
+
+- `Figma-Context-MCP` — design-to-code sync
+- `browser-use` — live app flow automation
+- `Midscene` — visual/screenshot-based QA
+- `superdesign` — UI exploration and scaffolding
+- `page-eyes-agent` — fast visual inspection during development
+
 Practical routing rule:
 
 - Use Hermes for analysis, sequencing, and decision-making.
 - Use `dogfood` for UI/UX audits of the live app.
 - Use `claude-design` / `popular-web-designs` / `sketch` for design exploration and recommendations.
+- Use the UI/UX agent stack in `docs/UIUX_AGENT_STACK.md` for design handoff, browser automation, and visual QA.
 - Use Cursor Agent for the actual code changes.
 - Use `requesting-code-review` before commit/push.
 - Use `recovered-project-handoff` whenever the docs need to be refreshed for the next developer.

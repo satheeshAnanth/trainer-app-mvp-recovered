@@ -287,3 +287,10 @@
 - Added `/my-portal/payments` to show outstanding session fees and recent settled sessions, and linked the new pages from the client dashboard.
 - Extended `POST /api/client/sessions` to persist the richer structured self-log payload without breaking legacy fields.
 - Verified the app still builds cleanly with `npm run build`.
+
+## 2026-05-02 (session 27)
+
+### Completed
+- Added `docs/UIUX_AGENT_STACK.md` as the lightweight integration guide for design-to-code and visual QA tooling.
+- Updated `docs/DEVELOPER_GUIDE.md` and `docs/AGENT_HANDOFF.md` with the recommended rollout order: Figma-Context-MCP, browser-use, Midscene, superdesign, and page-eyes-agent.
+- Kept the new tooling framed as developer workflow support rather than runtime app dependencies.

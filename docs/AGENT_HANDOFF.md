@@ -72,6 +72,32 @@ Use this together with `docs/BUILD_CONTEXT.md` and `docs/WORKLOG.md`.
 - Latest push before this handoff: `609240b`
 - Untracked local folder intentionally excluded from git: `tmp-whisper/`
 
+## UI/UX Agent Stack to Use Next
+
+If the next workstream is about developer productivity rather than product features, use this order:
+
+1. `Figma-Context-MCP`
+   - first choice for design-to-code sync and layout fidelity
+2. `browser-use`
+   - first choice for end-to-end flow automation in the live app
+3. `Midscene`
+   - best for screenshot-based visual QA and layout regression checks
+4. `superdesign`
+   - best for fast UI exploration and scaffolding before implementation
+5. `page-eyes-agent`
+   - best for quick visual inspection during local dev
+
+Optional later additions:
+
+- `UI-TARS-desktop` for deeper multimodal desktop/UI automation
+- `nanobrowser` for ad hoc browser-side research workflows
+
+Recommended adoption rule:
+
+- Use these as developer workflow tools, not as runtime app dependencies.
+- Start with docs + workflow guidance, then add scripts/config only when a tool becomes part of the regular process.
+- Keep verification grounded in the running app and clear tool output, not model prose.
+
 ## Immediate Next-Session Checklist
 1. Pull latest `main`.
 2. Run `npm install` (if needed) and `npm run build`.
