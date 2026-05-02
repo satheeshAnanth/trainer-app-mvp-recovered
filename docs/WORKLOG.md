@@ -294,3 +294,11 @@
 - Added `docs/UIUX_AGENT_STACK.md` as the lightweight integration guide for design-to-code and visual QA tooling.
 - Updated `docs/DEVELOPER_GUIDE.md` and `docs/AGENT_HANDOFF.md` with the recommended rollout order: Figma-Context-MCP, browser-use, Midscene, superdesign, and page-eyes-agent.
 - Kept the new tooling framed as developer workflow support rather than runtime app dependencies.
+
+## 2026-05-02 (session 28)
+
+### Completed
+- Created model-specific Hermes profiles for architecture, coding, fast triage, vision, SQL, and deep reasoning.
+- Switched `second-brain` to `glm-4.7-flash:latest` for architecture/planning work and preserved the original qwen reasoning setup in `sbreason`.
+- Added `docs/HERMES_MODEL_ROUTING.md` to document which profile to use for which kind of task.
+- Updated `docs/DEVELOPER_GUIDE.md` to point to the model-routing reference alongside the UI/UX agent stack.

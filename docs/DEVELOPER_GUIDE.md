@@ -228,6 +228,8 @@ For this repo, the most useful pieces are:
 
 For UI/UX agent tooling specifically, the recommended external stack is documented in `docs/UIUX_AGENT_STACK.md`.
 
+For Hermes model routing, the recommended profile map is documented in `docs/HERMES_MODEL_ROUTING.md`.
+
 Current recommended order for this repo:
 
 - `Figma-Context-MCP` — design-to-code sync
