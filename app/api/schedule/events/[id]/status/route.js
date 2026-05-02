@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { buildRecoveredPayload } from "app/lib/apiResponse";
 import { hasDatabaseUrl, query } from "app/lib/db";
+import { getScheduleViewer, sanitizeScheduleStatus } from "app/lib/schedule";
 
-export async function GET(_request, { params }) {
+export async function GET(request, { params }) {
   const payload = await buildRecoveredPayload("api/schedule/events/[id]/status", params);
   return NextResponse.json({
     ok: true,
@@ -13,9 +14,18 @@ export async function GET(_request, { params }) {
 }
 
 export async function PATCH(request, { params }) {
+  const viewer = getScheduleViewer(request);
   const { id } = params;
   const body = await request.json();
-  const { status } = body;
+  const status = sanitizeScheduleStatus(body?.status);
+
+  if (!viewer) {
+    return NextResponse.json({ ok: false, message: "Login required." }, { status: 401 });
+  }
+
+  if (!id) {
+    return NextResponse.json({ ok: false, message: "Event id is required." }, { status: 400 });
+  }
 
   if (!status) {
     return NextResponse.json({ ok: false, message: "status is required." }, { status: 400 });
@@ -26,7 +36,12 @@ export async function PATCH(request, { params }) {
       ok: true,
       recovered: true,
       route: "api/schedule/events/[id]/status",
-      data: { id, status, source: "mock" },
+      data: {
+        id,
+        status,
+        updated_at: new Date().toISOString(),
+        source: "mock",
+      },
     });
   }
 

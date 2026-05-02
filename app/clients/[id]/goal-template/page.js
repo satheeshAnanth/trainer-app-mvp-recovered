@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import TrainerShell from "app/_components/TrainerShell";
+import { buildExerciseWarnings, buildProfileSafetyPlan } from "app/lib/coachSafety";
 
 function newExercise() {
   return {
@@ -47,6 +48,7 @@ export default function Page() {
   const clientId = useMemo(() => String(params?.id ?? ""), [params]);
   const [clientName, setClientName] = useState("Client");
   const [goalName, setGoalName] = useState("");
+  const [clientProfile, setClientProfile] = useState(null);
   const [exercises, setExercises] = useState([newExercise()]);
   const [searchModal, setSearchModal] = useState({ open: false, exIndex: -1, query: "" });
   const [searchResults, setSearchResults] = useState([]);
@@ -60,12 +62,18 @@ export default function Page() {
     if (!clientId) return;
     let cancelled = false;
     (async () => {
-      const response = await fetch(`/api/clients/${clientId}/goal-template`);
-      const json = await response.json();
+      const [profileResponse, templateResponse] = await Promise.all([
+        fetch(`/api/clients/${clientId}`),
+        fetch(`/api/clients/${clientId}/goal-template`),
+      ]);
+      const profileJson = await profileResponse.json();
+      const templateJson = await templateResponse.json();
       if (cancelled) return;
-      const template = json?.data?.goalTemplate;
-      setClientName(template?.name ?? "Client");
-      setGoalName(template?.goalName ?? template?.goal ?? "");
+      const profile = profileJson?.data?.client ?? profileJson?.data?.profile ?? null;
+      const template = templateJson?.data?.goalTemplate;
+      setClientProfile(profile);
+      setClientName(template?.name ?? profile?.name ?? "Client");
+      setGoalName(template?.goalName ?? template?.goal ?? profile?.goal ?? "");
       if (Array.isArray(template?.exercises) && template.exercises.length > 0) {
         setExercises(
           template.exercises.map((exercise) => ({
@@ -87,6 +95,30 @@ export default function Page() {
       cancelled = true;
     };
   }, [clientId]);
+
+  const profileSafety = useMemo(
+    () =>
+      buildProfileSafetyPlan({
+        goalText: goalName || clientProfile?.goal || "",
+        priorCondition: clientProfile?.prior_condition ?? clientProfile?.priorCondition ?? "",
+      }),
+    [goalName, clientProfile]
+  );
+
+  const exerciseWarningsById = useMemo(
+    () =>
+      new Map(
+        exercises.map((exercise) => [
+          exercise.id,
+          buildExerciseWarnings({
+            exerciseName: exercise.exercise,
+            goalText: goalName || clientProfile?.goal || "",
+            priorCondition: clientProfile?.prior_condition ?? clientProfile?.priorCondition ?? "",
+          }),
+        ])
+      ),
+    [exercises, goalName, clientProfile]
+  );
 
   function setExerciseField(index, key, value) {
     setExercises((prev) => prev.map((e, i) => (i === index ? { ...e, [key]: value } : e)));
@@ -212,6 +244,27 @@ export default function Page() {
           </label>
         </div>
 
+        <div className="metric-card" style={{ marginTop: 12, borderLeft: "4px solid var(--mint)" }}>
+          <div className="client-detail-head" style={{ marginBottom: 8 }}>
+            <h2 style={{ margin: 0 }}>Suggested routine</h2>
+            <span className="status-chip">Advisory only</span>
+          </div>
+          <p className="item-title" style={{ marginTop: 0 }}>{profileSafety.title}</p>
+          <p className="item-sub" style={{ marginTop: 6 }}>{profileSafety.note}</p>
+          {profileSafety.blocks.length > 0 ? (
+            <ul className="list" style={{ marginTop: 10 }}>
+              {profileSafety.blocks.map((block) => (
+                <li key={`${block.title}-${block.text}`} className="list-item" style={{ alignItems: "flex-start" }}>
+                  <div>
+                    <p className="item-title">{block.title}</p>
+                    <p className="item-sub" style={{ marginTop: 4 }}>{block.text}</p>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </div>
+
         <div style={{ display: "grid", gap: 12 }}>
           {exercises.map((exercise, exIndex) => (
             <div key={`ex-${exIndex}`} className="metric-card">
@@ -250,6 +303,24 @@ export default function Page() {
                   >
                     View image
                   </button>
+                ) : null}
+                {((exerciseWarningsById.get(exercise.id) ?? [])).length > 0 ? (
+                  <div className="metric-card" style={{ gridColumn: "1 / -1", borderLeft: "4px solid #f59e0b", marginTop: 4 }}>
+                    <p className="item-title" style={{ marginTop: 0 }}>Potential contraindication</p>
+                    <ul className="list" style={{ marginTop: 8 }}>
+                      {(exerciseWarningsById.get(exercise.id) ?? []).map((warning) => (
+                        <li key={`${exercise.id}-${warning.label}`} className="list-item" style={{ alignItems: "flex-start" }}>
+                          <div>
+                            <p className="item-title">{warning.label}</p>
+                            <p className="item-sub" style={{ marginTop: 4 }}>{warning.message}</p>
+                            <p className="item-sub" style={{ marginTop: 4, color: "#94a3b8" }}>
+                              Alternatives: {warning.alternatives.join(", ")}
+                            </p>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
                 ) : null}
                 <label className="field">
                   <span>Variation (optional)</span>

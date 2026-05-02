@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import TrainerShell from "app/_components/TrainerShell";
+import { buildExerciseWarnings, buildProfileSafetyPlan } from "app/lib/coachSafety";
 import { describeMetricKey, getMetricOptions, labelizeMetricKey } from "app/lib/metricLabels";
 import Link from "next/link";
 
@@ -187,6 +188,27 @@ export default function Page() {
   });
 
   const currentEntry = entries[entryIndex] ?? null;
+  const selectedClient = useMemo(
+    () => clients.find((client) => String(client.id) === String(form.clientId)) ?? null,
+    [clients, form.clientId]
+  );
+  const coachingSafety = useMemo(
+    () =>
+      buildProfileSafetyPlan({
+        goalText: goalTemplate?.goalName ?? selectedClient?.goal ?? "",
+        priorCondition: selectedClient?.prior_condition ?? selectedClient?.priorCondition ?? "",
+      }),
+    [goalTemplate, selectedClient]
+  );
+  const currentExerciseWarnings = useMemo(
+    () =>
+      buildExerciseWarnings({
+        exerciseName: currentEntry?.name ?? "",
+        goalText: goalTemplate?.goalName ?? selectedClient?.goal ?? "",
+        priorCondition: selectedClient?.prior_condition ?? selectedClient?.priorCondition ?? "",
+      }),
+    [currentEntry, goalTemplate, selectedClient]
+  );
   const goalEntries = useMemo(() => entries.filter((e) => e.source === "goal"), [entries]);
   const pendingGoalEntries = useMemo(() => goalEntries.filter((e) => !e.completionStatus), [goalEntries]);
   const unresolvedGoalCount = pendingGoalEntries.length;
@@ -643,6 +665,41 @@ export default function Page() {
               <p className="item-sub">Goal exercise name is locked here. Edit it from Client &gt; Goal Template.</p>
             ) : null}
             <p className="item-sub">{currentEntry.masterExerciseId ? "Mapped exercise selected." : "Not mapped yet. Search and select canonical exercise."}</p>
+            <div className="metric-card" style={{ marginTop: 8, borderLeft: "4px solid var(--mint)" }}>
+              <p className="item-title" style={{ marginTop: 0 }}>Suggested routine</p>
+              <p className="item-sub" style={{ marginTop: 4 }}>{coachingSafety.title}</p>
+              <p className="item-sub" style={{ marginTop: 4 }}>{coachingSafety.note}</p>
+              {coachingSafety.blocks.length > 0 ? (
+                <ul className="list" style={{ marginTop: 8 }}>
+                  {coachingSafety.blocks.map((block) => (
+                    <li key={`${block.title}-${block.text}`} className="list-item" style={{ alignItems: "flex-start" }}>
+                      <div>
+                        <p className="item-title">{block.title}</p>
+                        <p className="item-sub" style={{ marginTop: 4 }}>{block.text}</p>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+              {currentExerciseWarnings.length > 0 ? (
+                <div className="metric-card" style={{ marginTop: 10, borderLeft: "4px solid #f59e0b" }}>
+                  <p className="item-title" style={{ marginTop: 0 }}>Safety warning</p>
+                  <ul className="list" style={{ marginTop: 8 }}>
+                    {currentExerciseWarnings.map((warning) => (
+                      <li key={`${warning.label}-${warning.message}`} className="list-item" style={{ alignItems: "flex-start" }}>
+                        <div>
+                          <p className="item-title">{warning.label}</p>
+                          <p className="item-sub" style={{ marginTop: 4 }}>{warning.message}</p>
+                          <p className="item-sub" style={{ marginTop: 4, color: "#94a3b8" }}>
+                            Alternatives: {warning.alternatives.join(", ")}
+                          </p>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+            </div>
             {currentEntry.source === "goal" ? (
               <>
                 <p className="item-sub" style={{ color: "#5eead4" }}>Goal Exercise{currentEntry.target ? ` · Target: ${currentEntry.target}` : ""}</p>

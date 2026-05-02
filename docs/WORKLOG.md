@@ -242,3 +242,48 @@
     - **Publish Session Details** to client,
     - continue two-way discussion and payment request afterward,
     - **Lock Session Notes** only after payment-received confirmation + required final trainer comment.
+
+## 2026-05-02 (session 19)
+
+### Completed
+- Created `docs/DEVELOPER_GUIDE.md` as the repo starting point for continuing development work.
+- Added root `README.md` with a tight architecture review, quick start, and repo navigation notes.
+
+## 2026-05-02 (session 20)
+
+### Completed
+- Documented the Hermes/Cursor operating model in `docs/DEVELOPER_GUIDE.md`.
+
+## 2026-05-02 (session 21)
+
+### Completed
+- Added the recommended UI/UX audit and design-tooling stack to `docs/DEVELOPER_GUIDE.md`.
+
+## 2026-05-02 (session 22)
+
+### Completed
+- Reworked schedule into a simple two-way request/confirmation flow for trainer and client.
+- Added single-note appointment requests plus pending/accepted/declined/cancelled status handling.
+- Added optional browser notification reminders and mirrored schedule views in both trainer and client tabs.
+
+## 2026-05-02 (session 23)
+
+### Completed
+- Added clear pending-confirmation banners in both trainer and client schedule tabs.
+- Added reschedule/edit actions that keep the note and reset to pending when date or time changes.
+- Upgraded reminders to 24h and 1h browser notification windows with local dedupe and reminder-window summaries in the UI.
+
+## 2026-05-02 (session 24)
+
+### Completed
+- Created `docs/plans/client-showcase-portal.md` to define the next client-facing showcase build.
+- Scoped the showcase around home dashboard, structured self-log, progress charting, payments, and schedule requests.
+
+## 2026-05-02 (session 26)
+
+### Completed
+- Upgraded `/my-portal/self-log` into a structured workout submission flow with session metadata, exercise blocks, reflection prompts, and trainer-review payloads.
+- Added `app/lib/clientProgress.js` plus `/my-portal/progress` for a lightweight 7-day trend chart and goal snapshot.
+- Added `/my-portal/payments` to show outstanding session fees and recent settled sessions, and linked the new pages from the client dashboard.
+- Extended `POST /api/client/sessions` to persist the richer structured self-log payload without breaking legacy fields.
+- Verified the app still builds cleanly with `npm run build`.

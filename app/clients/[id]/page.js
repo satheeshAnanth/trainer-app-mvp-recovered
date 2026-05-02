@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import TrainerShell from "app/_components/TrainerShell";
+import { buildProfileSafetyPlan } from "app/lib/coachSafety";
 
 function safeTime(value) {
   const d = new Date(value ?? "");
@@ -62,6 +63,15 @@ export default function Page() {
     });
   }, [sessions]);
 
+  const safetyPlan = useMemo(
+    () =>
+      buildProfileSafetyPlan({
+        goalText: client?.goal ?? "",
+        priorCondition: client?.prior_condition ?? client?.priorCondition ?? "",
+      }),
+    [client]
+  );
+
   return (
     <TrainerShell title={client?.name || "Client"} subtitle="Client summary and progress actions">
       <article className="card panel client-detail-card">
@@ -71,12 +81,52 @@ export default function Page() {
         </div>
         <div className="client-detail-rows">
           <div className="client-detail-row"><span>Goal</span><strong>{client?.goal || "Not set"}</strong></div>
+          <div className="client-detail-row"><span>Prior conditions / injuries</span><strong>{client?.prior_condition || client?.priorCondition || "-"}</strong></div>
           <div className="client-detail-row"><span>Mobile</span><strong>{client?.mobile || "-"}</strong></div>
           <div className="client-detail-row"><span>Age</span><strong>{client?.age ? `${client.age} yrs` : "-"}</strong></div>
           <div className="client-detail-row"><span>Weight</span><strong>{client?.weight_kg ? `${client.weight_kg} kg` : "-"}</strong></div>
           <div className="client-detail-row"><span>Height</span><strong>{client?.height_cm ? `${client.height_cm} cm` : "-"}</strong></div>
           <div className="client-detail-row"><span>Gender</span><strong>{client?.gender || "-"}</strong></div>
         </div>
+      </article>
+
+      <article className="card panel client-detail-card">
+        <div className="client-detail-head">
+          <h2>Suggested routine</h2>
+          <span className="status-chip">Coach guidance</span>
+        </div>
+        <p className="item-title" style={{ marginTop: 0 }}>{safetyPlan.title}</p>
+        <p className="item-sub" style={{ marginTop: 6 }}>{safetyPlan.note}</p>
+        {safetyPlan.blocks.length > 0 ? (
+          <ul className="list" style={{ marginTop: 12 }}>
+            {safetyPlan.blocks.map((block) => (
+              <li key={`${block.title}-${block.text}`} className="list-item" style={{ alignItems: "flex-start" }}>
+                <div>
+                  <p className="item-title">{block.title}</p>
+                  <p className="item-sub" style={{ marginTop: 4 }}>{block.text}</p>
+                </div>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+        {safetyPlan.warnings.length > 0 ? (
+          <div className="metric-card" style={{ marginTop: 12, borderLeft: "4px solid #f59e0b" }}>
+            <p className="item-title" style={{ marginTop: 0 }}>Exercise caution</p>
+            <ul className="list" style={{ marginTop: 8 }}>
+              {safetyPlan.warnings.map((warning) => (
+                <li key={warning.label} className="list-item" style={{ alignItems: "flex-start" }}>
+                  <div>
+                    <p className="item-title">{warning.label}</p>
+                    <p className="item-sub" style={{ marginTop: 4 }}>{warning.message}</p>
+                    <p className="item-sub" style={{ marginTop: 4, color: "#94a3b8" }}>
+                      Alternatives: {warning.alternatives.join(", ")}
+                    </p>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
       </article>
 
       <article className="card panel client-detail-card">

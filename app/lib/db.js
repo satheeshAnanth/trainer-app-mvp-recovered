@@ -2,6 +2,7 @@ import { Pool } from "pg";
 
 let pool;
 let cachedTables;
+let cachedColumnsByTable;
 
 function isSafeIdentifier(value) {
   return typeof value === "string" && /^[a-zA-Z_][a-zA-Z0-9_]*$/.test(value);
@@ -61,6 +62,38 @@ export async function getPublicTables() {
 
   cachedTables = rows.map((row) => row.table_name);
   return cachedTables;
+}
+
+export async function getTableColumns(table) {
+  if (!table) return [];
+
+  if (!cachedColumnsByTable) {
+    cachedColumnsByTable = new Map();
+  }
+
+  if (cachedColumnsByTable.has(table)) {
+    return cachedColumnsByTable.get(table);
+  }
+
+  const rows = await query(
+    `
+      SELECT column_name
+      FROM information_schema.columns
+      WHERE table_schema = 'public' AND table_name = $1
+      ORDER BY ordinal_position
+    `,
+    [table]
+  );
+
+  const columns = rows.map((row) => row.column_name);
+  cachedColumnsByTable.set(table, columns);
+  return columns;
+}
+
+export async function hasTableColumn(table, column) {
+  if (!table || !column) return false;
+  const columns = await getTableColumns(table);
+  return columns.includes(column);
 }
 
 export async function resolveTable(candidates = []) {

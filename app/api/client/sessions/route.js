@@ -65,15 +65,22 @@ export async function POST(request) {
   }
 
   const body = await request.json();
-  const {
+  const clientId = String(body?.clientId ?? "").trim();
+  const clientName = String(body?.clientName ?? "Client").trim() || "Client";
+  const sessionDate = body?.sessionDate ?? null;
+  const sessionTitle = String(body?.sessionTitle ?? body?.workoutTitle ?? "").trim();
+  const details = String(body?.details ?? body?.workoutSummary ?? "").trim();
+  const discomfort = String(body?.discomfort ?? body?.payload?.discomfort ?? "").trim();
+  const durationMinutes = body?.durationMinutes ?? body?.payload?.durationMinutes ?? null;
+  const payload = buildStructuredPayload(body, {
     clientId,
     clientName,
     sessionDate,
     sessionTitle,
     details,
-    discomfort = "",
-    durationMinutes = null,
-  } = body;
+    discomfort,
+    durationMinutes,
+  });
 
   if (!clientId || !sessionTitle || !details) {
     return NextResponse.json(
@@ -88,12 +95,6 @@ export async function POST(request) {
       { status: 403 }
     );
   }
-
-  const payload = {
-    source: "client_self_log",
-    details,
-    discomfort,
-  };
 
   if (!hasDatabaseUrl()) {
     return NextResponse.json(
@@ -148,7 +149,7 @@ export async function POST(request) {
     `,
     [
       clientId,
-      clientName ?? "Client",
+      clientName,
       sessionDate ?? null,
       sessionTitle,
       details,
@@ -228,4 +229,51 @@ function extractLoad(metrics) {
   const setRows = Array.isArray(metrics?.setsData) ? metrics.setsData : [];
   const load = Number(setRows?.[0]?.load);
   return Number.isFinite(load) ? load : null;
+}
+
+function buildStructuredPayload(body, fallback) {
+  const sourcePayload = body?.payload && typeof body.payload === "object" ? body.payload : {};
+  const exercisesSource = Array.isArray(sourcePayload.exercises)
+    ? sourcePayload.exercises
+    : Array.isArray(body?.exercises)
+      ? body.exercises
+      : [];
+
+  const exercises = exercisesSource
+    .map((exercise, index) => normalizeExercise(exercise, index))
+    .filter((exercise) => exercise.name || exercise.actual || exercise.notes || exercise.target);
+
+  return {
+    source: String(sourcePayload.source ?? body?.source ?? "client_self_log"),
+    workoutTitle: String(sourcePayload.workoutTitle ?? fallback.sessionTitle ?? "").trim(),
+    sessionDate: sourcePayload.sessionDate ?? fallback.sessionDate ?? null,
+    durationMinutes: normalizeNumber(sourcePayload.durationMinutes ?? fallback.durationMinutes),
+    workoutSummary: String(sourcePayload.workoutSummary ?? body?.workoutSummary ?? "").trim(),
+    wins: String(sourcePayload.wins ?? body?.wins ?? "").trim(),
+    challenges: String(sourcePayload.challenges ?? body?.challenges ?? "").trim(),
+    discomfort: String(sourcePayload.discomfort ?? fallback.discomfort ?? "").trim(),
+    goalTemplateName: String(sourcePayload.goalTemplateName ?? body?.goalTemplateName ?? "").trim(),
+    exercises,
+    details: fallback.details,
+    clientId: fallback.clientId,
+    clientName: fallback.clientName,
+  };
+}
+
+function normalizeExercise(exercise, index) {
+  return {
+    id: String(exercise?.id ?? `exercise-${index}`),
+    name: String(exercise?.name ?? exercise?.exercise ?? `Exercise ${index + 1}`).trim(),
+    target: String(exercise?.target ?? "").trim(),
+    actual: String(exercise?.actual ?? exercise?.done ?? "").trim(),
+    notes: String(exercise?.notes ?? exercise?.variation ?? "").trim(),
+    effort: String(exercise?.effort ?? "").trim(),
+    completionStatus: String(exercise?.completionStatus ?? "planned").trim() || "planned",
+    source: String(exercise?.source ?? "client_log"),
+  };
+}
+
+function normalizeNumber(value) {
+  const number = Number(value);
+  return Number.isFinite(number) && number > 0 ? number : null;
 }

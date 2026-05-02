@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { buildRecoveredPayload } from "app/lib/apiResponse";
-import { hasDatabaseUrl, query } from "app/lib/db";
+import { hasDatabaseUrl, hasTableColumn, query } from "app/lib/db";
 
 function parseJson(value) {
   if (!value) return null;
@@ -31,8 +31,9 @@ export async function GET(request, { params }) {
     return NextResponse.json({ ok: true, recovered: true, route: "api/clients/[id]/goal-template", data: payload });
   }
 
+  const hasPriorCondition = await hasTableColumn("clients", "prior_condition");
   const [clientRows, templateRows] = await Promise.all([
-    query(`SELECT id, name, goal FROM clients WHERE id = $1 LIMIT 1`, [id]),
+    query(`SELECT id, name, goal${hasPriorCondition ? ", prior_condition" : ""} FROM clients WHERE id = $1 LIMIT 1`, [id]),
     query(
       `
         SELECT payload_json, created_at
@@ -55,14 +56,15 @@ export async function GET(request, { params }) {
     recovered: true,
     route: "api/clients/[id]/goal-template",
     data: {
-      goalTemplate: {
-        clientId: clientRows[0].id,
-        name: clientRows[0].name,
-        goal: saved?.goalName ?? clientRows[0].goal ?? "",
-        goalName: saved?.goalName ?? clientRows[0].goal ?? "",
-        status: saved?.status ?? "active",
-        exercises: Array.isArray(saved?.exercises) ? saved.exercises : [],
-      },
+        goalTemplate: {
+          clientId: clientRows[0].id,
+          name: clientRows[0].name,
+          goal: saved?.goalName ?? clientRows[0].goal ?? "",
+          goalName: saved?.goalName ?? clientRows[0].goal ?? "",
+          priorCondition: clientRows[0].prior_condition ?? null,
+          status: saved?.status ?? "active",
+          exercises: Array.isArray(saved?.exercises) ? saved.exercises : [],
+        },
       source: "database",
     },
   });

@@ -1,5 +1,5 @@
 import { mockData } from "./mockData";
-import { hasDatabaseUrl, query } from "./db";
+import { hasDatabaseUrl, hasTableColumn, query } from "./db";
 
 async function safeQuery(text, params = []) {
   if (!hasDatabaseUrl()) {
@@ -52,6 +52,7 @@ export async function buildRecoveredPayload(route, params = {}) {
       };
 
     case "api/clients": {
+      const hasPriorCondition = await hasTableColumn("clients", "prior_condition");
       const rows = await safeQuery(
         `
           SELECT
@@ -64,6 +65,7 @@ export async function buildRecoveredPayload(route, params = {}) {
             height_cm,
             gender,
             activity_level,
+            ${hasPriorCondition ? "prior_condition," : ""}
             created_by_trainer,
             created_at,
             updated_at
@@ -78,6 +80,7 @@ export async function buildRecoveredPayload(route, params = {}) {
     }
 
     case "api/clients/[id]": {
+      const hasPriorCondition = await hasTableColumn("clients", "prior_condition");
       const rows = await safeQuery(
         `
           SELECT
@@ -90,6 +93,7 @@ export async function buildRecoveredPayload(route, params = {}) {
             height_cm,
             gender,
             activity_level,
+            ${hasPriorCondition ? "prior_condition," : ""}
             created_by_trainer,
             created_at,
             updated_at
@@ -108,6 +112,7 @@ export async function buildRecoveredPayload(route, params = {}) {
     }
 
     case "api/clients/[id]/profile": {
+      const hasPriorCondition = await hasTableColumn("clients", "prior_condition");
       const rows = await safeQuery(
         `
           SELECT
@@ -120,6 +125,7 @@ export async function buildRecoveredPayload(route, params = {}) {
             c.height_cm,
             c.gender,
             c.activity_level,
+            ${hasPriorCondition ? "c.prior_condition," : ""}
             c.created_by_trainer,
             c.created_at,
             c.updated_at,
@@ -141,9 +147,10 @@ export async function buildRecoveredPayload(route, params = {}) {
     }
 
     case "api/clients/[id]/goal-template": {
+      const hasPriorCondition = await hasTableColumn("clients", "prior_condition");
       const rows = await safeQuery(
         `
-          SELECT id, name, goal
+          SELECT id, name, goal${hasPriorCondition ? ", prior_condition" : ""}
           FROM clients
           WHERE id = $1
           LIMIT 1
@@ -161,6 +168,7 @@ export async function buildRecoveredPayload(route, params = {}) {
           clientId: base.id,
           name: base.name,
           goal: base.goal ?? null,
+          priorCondition: base.prior_condition ?? null,
           /** Placeholder field defs until a dedicated goal_template table exists */
           sessionFields: [
             { key: "bodyweight_kg", label: "Bodyweight (kg)", required: true, input: "number", step: "0.1" },
