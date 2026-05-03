@@ -22,6 +22,13 @@
 1. Persist per-client goal-template metrics (schema or JSON column) and wire Save on goal-template page.
 2. Harden middleware + session checks (role claims in cookie vs server session store).
 3. Add client-facing “talk to trainer” onboarding route from blocked login state.
+4. Consider a durable client store for mock/no-DB deployments so new clients survive cold starts.
+
+## 2026-05-03
+
+### Completed
+- Fixed `POST /api/clients` mock-mode behavior so newly added clients are inserted into the in-memory recovered store and appear in subsequent trainer/client lookups during the same runtime.
+- Verified the DB-backed add-client flow against the recovered database on localhost; newly created clients now show up in `/api/clients` immediately.
 
 ## 2026-05-01
 

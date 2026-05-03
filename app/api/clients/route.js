@@ -119,24 +119,31 @@ export async function POST(request) {
       );
     }
 
+    const mockClient = {
+      id: `mock-client-${Date.now()}`,
+      name,
+      goal,
+      mobile,
+      age,
+      weight_kg: weightKg,
+      height_cm: heightCm,
+      gender,
+      activity_level: activityLevel,
+      prior_condition: priorCondition,
+      created_by_trainer: trainerPhone,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      source: "mock",
+    };
+
+    mockData.clients = [mockClient, ...(mockData.clients ?? [])];
+
     return NextResponse.json(
       {
         ok: true,
         recovered: true,
         route: "api/clients",
-        data: {
-          id: `mock-client-${Date.now()}`,
-          name,
-          goal,
-          mobile,
-          age,
-          weight_kg: weightKg,
-          height_cm: heightCm,
-          gender,
-          activity_level: activityLevel,
-          prior_condition: priorCondition,
-          source: "mock",
-        },
+        data: mockClient,
       },
       { status: 201 }
     );
