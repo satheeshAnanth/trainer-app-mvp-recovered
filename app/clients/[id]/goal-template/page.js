@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import TrainerShell from "app/_components/TrainerShell";
@@ -376,11 +377,16 @@ export default function Page() {
               <p className="item-title" style={{ margin: 0 }}>Exercise preview</p>
               <button type="button" className="ghost-button" onClick={() => setPreviewImageUrl("")}>Close</button>
             </div>
-            <img
-              src={previewImageUrl}
-              alt="Selected exercise preview"
-              style={{ width: "100%", borderRadius: 12, border: "1px solid rgba(148,163,184,0.25)" }}
-            />
+            <div style={{ position: "relative", width: "100%", aspectRatio: "16 / 9", borderRadius: 12, overflow: "hidden", border: "1px solid rgba(148,163,184,0.25)" }}>
+              <Image
+                src={previewImageUrl}
+                alt="Selected exercise preview"
+                fill
+                unoptimized
+                sizes="100vw"
+                style={{ objectFit: "contain", background: "rgba(15,23,42,0.12)" }}
+              />
+            </div>
           </div>
         ) : null}
         {searchModal.open ? (
