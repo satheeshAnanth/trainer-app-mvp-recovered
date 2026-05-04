@@ -44,6 +44,17 @@ export function IconAudit({ className }) {
   );
 }
 
+export function IconInsights({ className }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" width="22" height="22" aria-hidden>
+      <path
+        fill="currentColor"
+        d="M4 19h16v2H3a1 1 0 0 1-1-1V4h2v15Zm4-3h2V9H8v7Zm4 0h2V5h-2v11Zm4 0h2v-5h-2v5Z"
+      />
+    </svg>
+  );
+}
+
 export function IconSchedule({ className }) {
   return (
     <svg className={className} viewBox="0 0 24 24" width="22" height="22" aria-hidden>

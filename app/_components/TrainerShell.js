@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { IconAudit, IconClients, IconHome, IconLog, IconProfile, IconSchedule } from "app/_components/NavIcons";
+import { IconAudit, IconClients, IconHome, IconInsights, IconLog, IconProfile, IconSchedule } from "app/_components/NavIcons";
 
 const navItems = [
   { href: "/portal", label: "Home", Icon: IconHome },
   { href: "/clients", label: "Clients", Icon: IconClients },
   { href: "/sessions/new", label: "Log", Icon: IconLog },
   { href: "/audit", label: "Audit", Icon: IconAudit },
+  { href: "/insights", label: "Insights", Icon: IconInsights },
   { href: "/schedule", label: "Schedule", Icon: IconSchedule },
   { href: "/profile", label: "Profile", Icon: IconProfile },
 ];

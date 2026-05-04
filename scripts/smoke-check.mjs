@@ -61,6 +61,13 @@ const auditPage = await fetchText("/audit", {
 assert.equal(auditPage.response.status, 200, "authenticated /audit should load");
 assert(auditPage.text.includes("Audit Trail"), "audit page should render audit heading");
 
+const insightsPage = await fetchText("/insights", {
+  headers: { Cookie: trainerCookie },
+  redirect: "manual",
+});
+assert.equal(insightsPage.response.status, 200, "authenticated /insights should load");
+assert(insightsPage.text.includes("Insights"), "insights page should render insights heading");
+
 const auditApi = await fetchJson("/api/audit?limit=25", {
   headers: { Cookie: trainerCookie },
 });
