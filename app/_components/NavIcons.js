@@ -33,6 +33,17 @@ export function IconLog({ className }) {
   );
 }
 
+export function IconAudit({ className }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" width="22" height="22" aria-hidden>
+      <path
+        fill="currentColor"
+        d="M6 3h9l5 5v13a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Zm8 1.5V9h4.5L14 4.5ZM8 12h8v2H8v-2Zm0 4h8v2H8v-2Z"
+      />
+    </svg>
+  );
+}
+
 export function IconSchedule({ className }) {
   return (
     <svg className={className} viewBox="0 0 24 24" width="22" height="22" aria-hidden>

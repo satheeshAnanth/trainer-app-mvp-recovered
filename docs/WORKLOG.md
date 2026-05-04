@@ -78,6 +78,12 @@
 ## 2026-05-01 (session 6)
 
 ### Completed
+- Added a real ESLint config so `npm run lint` is non-interactive and CI-friendly.
+- Added a smoke test script for route/auth/client-persistence checks, with optional mutation mode for manual verification.
+- Added GitHub Actions CI workflow for build/lint on push and pull request, plus a production smoke-verify step on main pushes.
+- Hardened production smoke checks to default to read-only so CI can verify live DATABASE_URL-backed behavior without creating extra clients.
+- Added an `/audit` activity feed page plus `/api/audit` backend support to surface recent client/session/payment changes in both database and recovered mock modes.
+
 - Rebuilt `/portal` landing UI toward screenshot parity: hero welcome + CTA, KPI cards, pending/ready/most-active insights, schedule request empty-state, and recent sessions with status chips.
 - Wired dashboard values to live APIs (`/api/auth/session`, `/api/clients`, `/api/sessions`) instead of hardcoded stats.
 - Updated trainer shell nav labels and mobile tab structure to `Home / Clients / Log / Schedule / Profile`.

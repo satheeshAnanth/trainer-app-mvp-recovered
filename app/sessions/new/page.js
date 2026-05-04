@@ -729,7 +729,7 @@ export default function Page() {
                 <p className="item-sub">Other Exercise</p>
                 {goalEntries.filter((goal) => !goal.completionStatus && looksLikeSubstitution(currentEntry.name, goal.name)).slice(0, 1).map((goal) => (
                   <div key={goal.id} className="metric-card" style={{ marginBottom: 8 }}>
-                    <p className="item-sub">This looks like a variation of "{goal.name}" (Goal Exercise). Link it?</p>
+                    <p className="item-sub">This looks like a variation of &quot;{goal.name}&quot; (Goal Exercise). Link it?</p>
                     <div className="quick-actions">
                       <button className="ghost-button" type="button" onClick={() => {
                         setEntries((prev) => prev.map((entry, i) => {

@@ -96,6 +96,45 @@ const pricing = {
   online: 800,
 };
 
+const auditEvents = [
+  {
+    id: "a1",
+    entityType: "system",
+    entityId: "bootstrap",
+    action: "recovery_bootstrap",
+    actor: "system",
+    createdAt: "2026-05-04T07:00:00.000Z",
+    payload: { source: "mock", note: "Recovered baseline started" },
+  },
+  {
+    id: "a2",
+    entityType: "client",
+    entityId: "c1",
+    action: "client_created",
+    actor: "Coach Sat",
+    createdAt: "2026-05-04T07:02:00.000Z",
+    payload: { clientName: "Ananya Rao" },
+  },
+  {
+    id: "a3",
+    entityType: "session",
+    entityId: "s2",
+    action: "session_completed",
+    actor: "Coach Sat",
+    createdAt: "2026-04-28T09:30:00.000Z",
+    payload: { sessionTitle: "Mobility Session" },
+  },
+  {
+    id: "a4",
+    entityType: "payment",
+    entityId: "s2",
+    action: "payment_marked_paid",
+    actor: "Coach Sat",
+    createdAt: "2026-04-28T09:45:00.000Z",
+    payload: { amount: 1000, currency: "INR" },
+  },
+];
+
 const trainerProfile = {
   id: "t1",
   name: "Coach Sat",
@@ -110,4 +149,5 @@ export const mockData = {
   invitationTokens,
   pricing,
   trainerProfile,
+  auditEvents,
 };

@@ -688,13 +688,7 @@ export async function buildRecoveredPayload(route, params = {}) {
 
     case "api/audit":
       return {
-        records: [
-          {
-            id: "a1",
-            action: "recovery_bootstrap",
-            by: "system",
-          },
-        ],
+        records: mockData.auditEvents,
         source: "mock",
       };
 

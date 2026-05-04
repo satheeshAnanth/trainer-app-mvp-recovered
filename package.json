@@ -6,12 +6,18 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "smoke:test": "node scripts/smoke-check.mjs",
+    "smoke:mutate": "SMOKE_MUTATE_CLIENTS=true node scripts/smoke-check.mjs"
   },
   "dependencies": {
     "next": "14.2.35",
     "pg": "^8.20.0",
     "react": "18.2.0",
     "react-dom": "18.2.0"
+  },
+  "devDependencies": {
+    "eslint": "^8.57.1",
+    "eslint-config-next": "^14.2.35"
   }
 }
