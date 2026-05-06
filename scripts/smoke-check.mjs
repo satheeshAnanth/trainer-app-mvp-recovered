@@ -53,6 +53,8 @@ const portalPage = await fetchText("/portal", {
 });
 assert.equal(portalPage.response.status, 200, "authenticated /portal should load");
 assert(portalPage.text.includes("Trainer dashboard"), "portal page should render dashboard heading");
+assert(!portalPage.text.includes(">Audit<"), "trainer nav should not render audit tab");
+assert(!portalPage.text.includes(">Insights<"), "trainer nav should not render insights tab");
 
 const auditPage = await fetchText("/audit", {
   headers: { Cookie: trainerCookie },
@@ -65,8 +67,14 @@ const insightsPage = await fetchText("/insights", {
   headers: { Cookie: trainerCookie },
   redirect: "manual",
 });
-assert.equal(insightsPage.response.status, 200, "authenticated /insights should load");
-assert(insightsPage.text.includes("Insights"), "insights page should render insights heading");
+expectRedirect(insightsPage.response, "/profile", "authenticated /insights redirect");
+
+const profilePage = await fetchText("/profile", {
+  headers: { Cookie: trainerCookie },
+  redirect: "manual",
+});
+assert.equal(profilePage.response.status, 200, "authenticated /profile should load");
+assert(profilePage.text.includes("Progress overview"), "profile should render embedded insights overview");
 
 const auditApi = await fetchJson("/api/audit?limit=25", {
   headers: { Cookie: trainerCookie },

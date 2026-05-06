@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import TrainerShell from "app/_components/TrainerShell";
+import TrainerInsightsPanel from "app/_components/TrainerInsightsPanel";
 
 const ALL_SKILLS = [
   "Strength Training",
@@ -146,6 +147,12 @@ export default function Page() {
           <span className="status-chip">{Math.max(0, maxClients - clientCount)} slots left</span>
         </div>
       </article>
+
+      <article className="card panel">
+        <h2>Insights</h2>
+        <p className="item-sub" style={{ marginBottom: 12 }}>Progress snapshot is now part of your profile workspace.</p>
+      </article>
+      <TrainerInsightsPanel />
 
       <article className="card panel">
         <h2>Settings</h2>

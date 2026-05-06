@@ -31,8 +31,9 @@ When `DATABASE_URL` is missing, the app falls back to empty-query / mock behavio
 
 This app is a single Next.js App Router codebase with two user surfaces:
 
-- trainer portal: `/portal`, `/clients`, `/sessions`, `/schedule`, `/profile`
+- trainer portal: `/portal`, `/clients`, `/sessions`, `/schedule`, `/profile` (includes insights)
 - client portal: `/my-portal/**`
+- support/internal surface: `/audit` (kept out of trainer primary navigation)
 
 Core architectural choices:
 

@@ -123,6 +123,11 @@ Trainer surfaces:
 - `/sessions/pending-notes`
 - `/schedule`
 - `/profile`
+  - includes the trainer insights snapshot surface
+
+Support/internal surface:
+
+- `/audit` (not part of trainer primary navigation)
 
 Client surfaces:
 

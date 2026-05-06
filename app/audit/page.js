@@ -45,7 +45,7 @@ export default function AuditPage() {
   }, [events]);
 
   return (
-    <TrainerShell title="Audit Trail" subtitle="Track recent changes to clients, sessions, and payments.">
+    <TrainerShell title="Support Audit Trail" subtitle="Internal support feed for recent client, session, and payment changes.">
       <article className="card panel">
         <div className="list-item" style={{ alignItems: "center" }}>
           <div>

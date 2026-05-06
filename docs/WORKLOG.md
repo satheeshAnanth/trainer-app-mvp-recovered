@@ -1,5 +1,12 @@
 # Recovery Worklog
 
+## 2026-05-06
+
+### Completed
+- Removed `/audit` and `/insights` from trainer primary navigation while keeping both routes and APIs operational.
+- Moved the trainer insights snapshot into `/profile` so profile now contains the progress overview and recent activity surface.
+- Updated smoke checks and docs to reflect the new navigation and surface placement.
+
 ## 2026-04-30
 
 ### Completed
