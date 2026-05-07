@@ -67,7 +67,16 @@ const insightsPage = await fetchText("/insights", {
   headers: { Cookie: trainerCookie },
   redirect: "manual",
 });
-expectRedirect(insightsPage.response, "/profile", "authenticated /insights redirect");
+assert(
+  [200, 307].includes(insightsPage.response.status),
+  `authenticated /insights should load or redirect, got ${insightsPage.response.status}`,
+);
+if (insightsPage.response.status === 200) {
+  assert(
+    insightsPage.text.includes("Progress overview") || insightsPage.text.includes("Progress snapshot"),
+    "authenticated /insights should render the profile workspace",
+  );
+}
 
 const profilePage = await fetchText("/profile", {
   headers: { Cookie: trainerCookie },

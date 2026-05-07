@@ -56,6 +56,9 @@ export default function Page() {
   const isTrial = billing.status === "trial";
   const slotsLeft = Math.max(0, Number(billing.maxClients || 0) - clients.length);
   const atCapacity = slotsLeft <= 0;
+  const capacityMessage = isTrial
+    ? "Trial client limit reached. Switch plan from Profile to add more clients."
+    : "Client limit reached for current plan. Contact support to increase your limit.";
 
   useEffect(() => {
     loadClients();
@@ -113,8 +116,14 @@ export default function Page() {
       <article className="card panel">
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
           <h2 style={{ margin: 0 }}>Clients</h2>
-          <button className="mint-button" type="button" onClick={() => setShowModal(true)}>
-            + Add Client
+          <button
+            className="mint-button"
+            type="button"
+            onClick={() => setShowModal(true)}
+            disabled={atCapacity}
+            title={atCapacity ? capacityMessage : "Add a new client"}
+          >
+            {atCapacity ? "Plan full" : "+ Add Client"}
           </button>
         </div>
         <p className="item-sub" style={{ marginTop: 8 }}>
@@ -122,6 +131,13 @@ export default function Page() {
             ? `Free trial up to X clients: ${clients.length}/${billing.maxClients} used (${slotsLeft} slots left).`
             : `Per-client pricing after threshold: INR ${billing.perClientCostInr} per active client / month.`}
         </p>
+
+        {atCapacity ? (
+          <div className="metric-card" style={{ marginTop: 12, borderColor: "rgba(252,165,165,0.25)", background: "rgba(127,29,29,0.18)" }}>
+            <p className="item-title" style={{ marginBottom: 6 }}>No client slots left</p>
+            <p className="item-sub" style={{ margin: 0 }}>{capacityMessage}</p>
+          </div>
+        ) : null}
 
         {error ? <p className="item-sub" style={{ color: "#fca5a5" }}>{error}</p> : null}
 
