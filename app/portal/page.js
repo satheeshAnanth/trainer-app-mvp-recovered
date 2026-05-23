@@ -29,6 +29,7 @@ export default function Page() {
   const [trainerName, setTrainerName] = useState("Coach");
   const [sessions, setSessions] = useState([]);
   const [clients, setClients] = useState([]);
+  const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -48,6 +49,7 @@ export default function Page() {
       if (trainer?.name) setTrainerName(trainer.name);
       setSessions(sessionsJson?.data?.sessions ?? []);
       setClients(clientsJson?.data?.clients ?? []);
+      setLoaded(true);
     })();
     return () => {
       cancelled = true;
@@ -103,11 +105,21 @@ export default function Page() {
       })
       .slice(0, 2);
 
+    const pendingBillable = sessions.filter((s) => {
+      try {
+        const payload = typeof s.payload_json === "string" ? JSON.parse(s.payload_json) : (s.payload_json ?? {});
+        const amount = payload?.payment?.amountInr;
+        return amount && Number(amount) > 0 && !payload?.paymentReceived;
+      } catch {
+        return false;
+      }
+    }).length;
+
     return {
       clientsCount: clients.length,
       sessionsCount: sessions.length,
       thisWeek,
-      pendingBillable: 0,
+      pendingBillable,
       pendingReview,
       readyToShare,
       mostActiveClient,
@@ -165,13 +177,48 @@ export default function Page() {
         </article>
       </div>
 
+      {loaded && clients.length === 0 && sessions.length === 0 ? (
+        <article className="card panel" style={{ borderLeft: "4px solid var(--mint)", background: "linear-gradient(135deg, rgba(45,212,191,0.08), transparent)" }}>
+          <p className="eyebrow" style={{ marginTop: 0 }}>Get started</p>
+          <h2 style={{ marginBottom: 4 }}>Welcome to your trainer portal</h2>
+          <p className="item-sub" style={{ marginBottom: 16 }}>Three steps to get your practice running:</p>
+          <div style={{ display: "grid", gap: 10 }}>
+            {[
+              { step: "1", title: "Add your first client", sub: "Enter their name, goal, and mobile number.", href: "/clients", label: "Add client" },
+              { step: "2", title: "Log a session", sub: "Record exercises, sets, and coach notes.", href: "/sessions/new", label: "New session" },
+              { step: "3", title: "Invite the client", sub: "Send a link so they can view their own portal.", href: "/clients", label: "Go to clients" },
+            ].map(({ step, title, sub, href, label }) => (
+              <div key={step} className="list-item" style={{ alignItems: "flex-start", gap: 14 }}>
+                <span className="status-chip" style={{ color: "var(--mint)", borderColor: "rgba(45,212,191,0.35)", minWidth: 28, textAlign: "center", fontWeight: 700 }}>{step}</span>
+                <div style={{ flex: 1 }}>
+                  <p className="item-title">{title}</p>
+                  <p className="item-sub">{sub}</p>
+                </div>
+                <Link href={href} className="ghost-button ghost-button-sm">{label}</Link>
+              </div>
+            ))}
+          </div>
+        </article>
+      ) : null}
+
       <article className="card panel">
-        <h2>Schedule requests</h2>
-        <p className="panel-value" style={{ fontSize: 40 }}>No pending requests</p>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+          <h2 style={{ margin: 0 }}>Schedule requests</h2>
+          <Link href="/schedule" className="ghost-button ghost-button-sm">Open schedule</Link>
+        </div>
+        {computed.pendingReview > 0 ? (
+          <p className="panel-value" style={{ fontSize: 36, color: "#facc15" }}>{computed.pendingReview} pending</p>
+        ) : (
+          <p className="panel-value" style={{ fontSize: 36 }}>All clear</p>
+        )}
+        <p className="item-sub">Go to Schedule to confirm or reschedule appointments.</p>
       </article>
 
       <article className="card panel">
-        <h2>Recent sessions</h2>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+          <h2 style={{ margin: 0 }}>Recent sessions</h2>
+          <Link href="/sessions" className="ghost-button ghost-button-sm">All sessions</Link>
+        </div>
         <div className="list">
           {computed.recentSessions.length === 0 ? (
             <p className="item-sub">No sessions yet.</p>

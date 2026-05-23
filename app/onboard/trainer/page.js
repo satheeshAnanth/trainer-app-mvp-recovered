@@ -107,7 +107,7 @@ function TrainerOnboardForm() {
     setSaving(true);
     setError("");
     try {
-      const response = await fetch("/api/admin/register-trainer", {
+      const response = await fetch("/api/auth/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

@@ -18,6 +18,42 @@ import {
 const FILTERS = ["all", "pending", "accepted", "declined", "cancelled", "completed"];
 const REMINDER_KEY = "trainer-schedule-reminders-enabled";
 const NOTIFIED_KEY = "trainer-schedule-notified";
+const RECURRENCE_OPTIONS = [
+  { value: "none", label: "No repeat" },
+  { value: "weekly", label: "Weekly" },
+  { value: "biweekly", label: "Every 2 weeks" },
+  { value: "monthly", label: "Monthly" },
+];
+const WEEK_DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+function getWeekDates(pivot) {
+  const d = new Date(pivot);
+  const day = d.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  d.setHours(0, 0, 0, 0);
+  d.setDate(d.getDate() + diff);
+  return Array.from({ length: 7 }, (_, i) => {
+    const copy = new Date(d);
+    copy.setDate(d.getDate() + i);
+    return copy;
+  });
+}
+
+function isoDate(d) {
+  return d.toISOString().slice(0, 10);
+}
+
+function addDays(dateStr, n) {
+  const d = new Date(dateStr);
+  d.setDate(d.getDate() + n);
+  return isoDate(d);
+}
+
+function addMonths(dateStr, n) {
+  const d = new Date(dateStr);
+  d.setMonth(d.getMonth() + n);
+  return isoDate(d);
+}
 
 function statusTone(status) {
   const value = String(status || "").toLowerCase();
@@ -38,6 +74,8 @@ function defaultForm() {
     time: "12:30",
     clientId: "",
     note: "",
+    recurrence: "none",
+    recurrenceCount: 4,
   };
 }
 
@@ -50,6 +88,8 @@ export default function Page() {
   const [saving, setSaving] = useState(false);
   const [remindersEnabled, setRemindersEnabled] = useState(false);
   const [form, setForm] = useState(defaultForm());
+  const [calView, setCalView] = useState("list");
+  const [weekPivot, setWeekPivot] = useState(new Date().toISOString().slice(0, 10));
 
   async function load() {
     const [eventsRes, clientsRes] = await Promise.all([fetch("/api/schedule/events"), fetch("/api/clients")]);
@@ -141,6 +181,17 @@ export default function Page() {
       .slice(0, 3);
   }, [events]);
 
+  const weekDates = useMemo(() => getWeekDates(weekPivot), [weekPivot]);
+
+  const weekEventsByDay = useMemo(() => {
+    const map = new Map(weekDates.map((d) => [isoDate(d), []]));
+    for (const event of events) {
+      const key = event.scheduled_date;
+      if (map.has(key)) map.get(key).push(event);
+    }
+    return map;
+  }, [events, weekDates]);
+
   async function enableReminders() {
     if (typeof window === "undefined" || !("Notification" in window)) {
       setMessage("This browser does not support notifications.");
@@ -168,32 +219,52 @@ export default function Page() {
     setSaving(true);
     try {
       const selectedClient = clients.find((c) => String(c.id) === String(form.clientId));
-      const body = {
-        scheduledDate: normalizeScheduleDate(form.date),
+      if (!selectedClient) throw new Error("Choose a client before saving the appointment.");
+
+      const baseDate = normalizeScheduleDate(form.date);
+      const baseBody = {
         scheduledTime: normalizeScheduleTime(form.time),
-        clientId: selectedClient?.id || null,
-        clientName: selectedClient?.name || "Client session",
+        clientId: selectedClient.id,
+        clientName: selectedClient.name,
         notes: form.note,
         createdByName: "Trainer",
       };
 
-      if (!body.clientId) {
-        throw new Error("Choose a client before saving the appointment.");
+      if (editingId) {
+        const res = await fetch(`/api/schedule/events/${editingId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ...baseBody, scheduledDate: baseDate }),
+        });
+        const json = await res.json();
+        if (!res.ok || !json?.ok) throw new Error(json?.message ?? "Unable to update appointment.");
+        setMessage("Appointment updated. Time changes go back to pending confirmation.");
+        setEditingId("");
+        setForm(defaultForm());
+        await load();
+        return;
       }
 
-      const url = editingId ? `/api/schedule/events/${editingId}` : "/api/schedule/events";
-      const method = editingId ? "PATCH" : "POST";
+      // Build list of dates for recurring
+      const count = form.recurrence !== "none" ? Math.max(1, Math.min(24, Number(form.recurrenceCount) || 4)) : 1;
+      const dates = [baseDate];
+      for (let i = 1; i < count; i++) {
+        const prev = dates[dates.length - 1];
+        if (form.recurrence === "weekly") dates.push(addDays(prev, 7));
+        else if (form.recurrence === "biweekly") dates.push(addDays(prev, 14));
+        else if (form.recurrence === "monthly") dates.push(addMonths(prev, 1));
+        else break;
+      }
 
-      const res = await fetch(url, {
-        method,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      const json = await res.json();
-      if (!res.ok || !json?.ok) throw new Error(json?.message ?? "Unable to save appointment.");
+      await Promise.all(dates.map((d) =>
+        fetch("/api/schedule/events", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ...baseBody, scheduledDate: d }),
+        })
+      ));
 
-      setMessage(editingId ? "Appointment updated. Time changes go back to pending confirmation." : "Appointment request sent.");
-      setEditingId("");
+      setMessage(dates.length > 1 ? `${dates.length} recurring appointments created.` : "Appointment request sent.");
       setForm(defaultForm());
       await load();
     } catch (error) {
@@ -237,20 +308,64 @@ export default function Page() {
           <span className="status-chip" style={{ color: "#facc15" }}>Pending {counts.pending}</span>
           <span className="status-chip" style={{ color: "#34d399" }}>Accepted {counts.accepted}</span>
           <span className="status-chip" style={{ color: "#93c5fd" }}>Completed {counts.completed}</span>
+          <div style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
+            <button type="button" className={calView === "list" ? "mint-button mint-button-sm" : "ghost-button ghost-button-sm"} onClick={() => setCalView("list")}>List</button>
+            <button type="button" className={calView === "week" ? "mint-button mint-button-sm" : "ghost-button ghost-button-sm"} onClick={() => setCalView("week")}>Week</button>
+          </div>
         </div>
-        <div className="filter-chip-row">
-          {FILTERS.map((f) => (
-            <button
-              key={f}
-              type="button"
-              className={f === filter ? "mint-button mint-button-sm" : "ghost-button ghost-button-sm"}
-              onClick={() => setFilter(f)}
-            >
-              {f === "all" ? "All statuses" : f[0].toUpperCase() + f.slice(1)}
-            </button>
-          ))}
-        </div>
+        {calView === "list" ? (
+          <div className="filter-chip-row">
+            {FILTERS.map((f) => (
+              <button
+                key={f}
+                type="button"
+                className={f === filter ? "mint-button mint-button-sm" : "ghost-button ghost-button-sm"}
+                onClick={() => setFilter(f)}
+              >
+                {f === "all" ? "All statuses" : f[0].toUpperCase() + f.slice(1)}
+              </button>
+            ))}
+          </div>
+        ) : null}
       </article>
+
+      {calView === "week" ? (
+        <article className="card panel">
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+            <button className="ghost-button ghost-button-sm" type="button" onClick={() => setWeekPivot(addDays(isoDate(weekDates[0]), -7))}>← Prev</button>
+            <p className="item-title" style={{ margin: 0 }}>
+              {weekDates[0].toLocaleDateString("en-IN", { day: "numeric", month: "short" })} – {weekDates[6].toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
+            </p>
+            <button className="ghost-button ghost-button-sm" type="button" onClick={() => setWeekPivot(addDays(isoDate(weekDates[0]), 7))}>Next →</button>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4 }}>
+            {WEEK_DAYS.map((d, i) => {
+              const date = weekDates[i];
+              const key = isoDate(date);
+              const dayEvents = weekEventsByDay.get(key) ?? [];
+              const isToday = key === new Date().toISOString().slice(0, 10);
+              return (
+                <div key={key} style={{ minHeight: 80, borderRadius: 6, border: isToday ? "1px solid var(--mint)" : "1px solid rgba(255,255,255,0.08)", padding: "6px 4px" }}>
+                  <p className="item-sub" style={{ margin: "0 0 4px", textAlign: "center", color: isToday ? "var(--mint)" : "#94a3b8", fontSize: 11, fontWeight: 600 }}>
+                    {d}<br />{date.getDate()}
+                  </p>
+                  {dayEvents.slice(0, 3).map((event) => {
+                    const tone = statusTone(event.status);
+                    return (
+                      <div key={event.id} style={{ background: "rgba(255,255,255,0.05)", borderLeft: `3px solid ${tone.color}`, borderRadius: 3, padding: "3px 5px", marginBottom: 3 }}>
+                        <p style={{ margin: 0, fontSize: 10, color: "#e2e8f0", lineHeight: 1.3, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>
+                          {formatScheduleTimeLabel(event.scheduled_time)} {event.client_name || "Client"}
+                        </p>
+                      </div>
+                    );
+                  })}
+                  {dayEvents.length > 3 ? <p className="item-sub" style={{ margin: 0, fontSize: 10, textAlign: "center" }}>+{dayEvents.length - 3}</p> : null}
+                </div>
+              );
+            })}
+          </div>
+        </article>
+      ) : null}
 
       <article className="card panel">
         <div className="section-header" style={{ marginBottom: 10 }}>
@@ -363,10 +478,32 @@ export default function Page() {
               placeholder="A short request note. No chat thread, just the context needed for this session."
             />
           </label>
+          {!editingId ? (
+            <>
+              <label className="field">
+                <span>Repeat</span>
+                <select value={form.recurrence} onChange={(e) => setForm((p) => ({ ...p, recurrence: e.target.value }))}>
+                  {RECURRENCE_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                </select>
+              </label>
+              {form.recurrence !== "none" ? (
+                <label className="field">
+                  <span>Occurrences (max 24)</span>
+                  <input
+                    type="number"
+                    min={2}
+                    max={24}
+                    value={form.recurrenceCount}
+                    onChange={(e) => setForm((p) => ({ ...p, recurrenceCount: e.target.value }))}
+                  />
+                </label>
+              ) : null}
+            </>
+          ) : null}
         </div>
         <div className="quick-actions" style={{ marginTop: 12, flexWrap: "wrap" }}>
           <button className="continue-btn" type="button" onClick={createOrUpdate} disabled={saving}>
-            {editingId ? "Update request" : "Send request"}
+            {saving ? "Saving…" : editingId ? "Update request" : form.recurrence !== "none" ? `Create ${Math.min(24, Number(form.recurrenceCount) || 4)} appointments` : "Send request"}
           </button>
           {editingId ? (
             <button

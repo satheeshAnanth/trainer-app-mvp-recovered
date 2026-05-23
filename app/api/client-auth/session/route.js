@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { hasDatabaseUrl, query } from "app/lib/db";
 import { mockData } from "app/lib/mockData";
+import { readClientSession } from "app/lib/session";
 
 const COOKIE = "client_session";
 
@@ -20,7 +21,7 @@ function parseCookie(raw) {
 
 export async function GET(request) {
   const raw = request.cookies.get(COOKIE)?.value;
-  const parsed = parseCookie(raw);
+  const parsed = readClientSession(raw) ?? parseCookie(raw);
 
   if (!parsed?.clientId) {
     return NextResponse.json({

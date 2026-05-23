@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { hasDatabaseUrl, query } from "app/lib/db";
 import { mockData } from "app/lib/mockData";
+import { checkOtpVerifyLimit } from "app/lib/rateLimit";
+import { createClientToken } from "app/lib/session";
 
 const COOKIE = "client_session";
 
@@ -42,6 +44,14 @@ export async function POST(request) {
     return NextResponse.json({ ok: false, message: "phone and code are required." }, { status: 400 });
   }
 
+  const limit = await checkOtpVerifyLimit(phone);
+  if (limit.limited) {
+    return NextResponse.json(
+      { ok: false, message: `Too many verification attempts. Please wait ${limit.retryAfterSeconds}s.` },
+      { status: 429, headers: { "Retry-After": String(limit.retryAfterSeconds) } }
+    );
+  }
+
   if (!hasDatabaseUrl()) {
     const client = mockData.clients.find((c) => normalizePhone(c.mobile ?? c.phone) === phone);
     if (!client) {
@@ -56,7 +66,7 @@ export async function POST(request) {
       route: "api/client-auth/otp/verify",
       data: { verified: true, client, source: "mock" },
     });
-    response.cookies.set(COOKIE, JSON.stringify({ clientId: client.id, phone }), cookieOptions());
+    response.cookies.set(COOKIE, createClientToken(client.id, phone), cookieOptions());
     return response;
   }
 
@@ -107,6 +117,6 @@ export async function POST(request) {
     route: "api/client-auth/otp/verify",
     data: { verified: true, client, source: "database" },
   });
-  response.cookies.set(COOKIE, JSON.stringify({ clientId: client.id, phone }), cookieOptions());
+  response.cookies.set(COOKIE, createClientToken(client.id, phone), cookieOptions());
   return response;
 }

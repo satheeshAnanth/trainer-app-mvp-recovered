@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
 import { buildRecoveredPayload } from "app/lib/apiResponse";
 import { hasDatabaseUrl, query } from "app/lib/db";
+import { readTrainerPhone } from "app/lib/session";
+import { getTrainerBillingStatus } from "app/lib/billingGuard";
 
 export async function GET(request) {
-  const phone = request.cookies.get("trainer_session")?.value;
+  const phone = readTrainerPhone(request.cookies.get("trainer_session")?.value);
   if (!phone) {
     return NextResponse.json({
       ok: true,
@@ -26,17 +28,37 @@ export async function GET(request) {
     });
   }
 
-  const rows = await query(`SELECT id, phone, name FROM trainer_phones WHERE phone = $1 LIMIT 1`, [phone]);
-  return NextResponse.json({
+  const rows = await query(
+    `SELECT id, phone, name, billing_status, trial_ends_at, max_clients FROM trainer_phones WHERE phone = $1 LIMIT 1`,
+    [phone]
+  );
+  const trainer = rows[0] ?? null;
+
+  const billing = await getTrainerBillingStatus(phone);
+
+  const response = NextResponse.json({
     ok: true,
     recovered: true,
     route: "api/auth/session",
     data: {
-      authenticated: rows.length > 0,
-      user: rows[0] ?? null,
+      authenticated: Boolean(trainer),
+      user: trainer,
+      billing,
       source: "database",
     },
   });
+
+  // Refresh the billing status cookie so middleware can enforce it at the edge.
+  // Short TTL: 1 hour. Refreshed on every page load via the portal layout.
+  response.cookies.set("trainer_billing_status", billing.status, {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    maxAge: 60 * 60,
+    path: "/",
+  });
+
+  return response;
 }
 
 export async function DELETE() {

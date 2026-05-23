@@ -3,19 +3,33 @@ import { buildRecoveredPayload } from "app/lib/apiResponse";
 import { hasDatabaseUrl, query } from "app/lib/db";
 import { mergeSessionPayload } from "app/lib/payloadMerge";
 import { requiresFullTrainerPayload, validateTrainerSessionBody } from "app/lib/sessionValidation";
+import { readTrainerPhone } from "app/lib/session";
+import { requireTrainerOwnsSession } from "app/lib/ownership";
 
-export async function GET(_request, { params }) {
-  const payload = await buildRecoveredPayload("api/sessions/[id]", params);
-  return NextResponse.json({
-    ok: true,
-    recovered: true,
-    route: "api/sessions/[id]",
-    data: payload,
-  });
+export async function GET(request, { params }) {
+  const { id } = params;
+  const phone = readTrainerPhone(request.cookies.get("trainer_session")?.value);
+
+  if (!phone || !hasDatabaseUrl()) {
+    const payload = await buildRecoveredPayload("api/sessions/[id]", params);
+    return NextResponse.json({ ok: true, recovered: true, route: "api/sessions/[id]", data: payload });
+  }
+
+  const session = await requireTrainerOwnsSession(phone, id);
+  if (!session) {
+    return NextResponse.json({ ok: false, message: "Session not found." }, { status: 404 });
+  }
+
+  return NextResponse.json({ ok: true, data: { session } });
 }
 
 export async function PATCH(request, { params }) {
   const { id } = params;
+  const phone = readTrainerPhone(request.cookies.get("trainer_session")?.value);
+  if (!phone) {
+    return NextResponse.json({ ok: false, message: "Login required." }, { status: 401 });
+  }
+
   const body = await request.json();
   const {
     sessionTitle,
@@ -33,9 +47,14 @@ export async function PATCH(request, { params }) {
 
   let existingRow = null;
   if (hasDatabaseUrl()) {
+    // ownership: session must belong to a client owned by this trainer
     const existingRows = await query(
-      `SELECT status, payload_json FROM sessions WHERE id = $1 LIMIT 1`,
-      [id]
+      `SELECT s.id, s.status, s.payload_json
+       FROM sessions s
+       JOIN clients c ON c.id = s.client_id
+       WHERE s.id = $1 AND c.created_by_trainer = $2
+       LIMIT 1`,
+      [id, phone]
     );
     existingRow = existingRows[0] ?? null;
     if (!existingRow) {

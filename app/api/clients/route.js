@@ -3,6 +3,7 @@ import { buildRecoveredPayload } from "app/lib/apiResponse";
 import { hasDatabaseUrl, query } from "app/lib/db";
 import { mockData } from "app/lib/mockData";
 import { normalizeBillingModel, PRICING_MODEL } from "app/lib/pricingModel";
+import { readTrainerPhone } from "app/lib/session";
 
 function normalizePhone(phone = "") {
   const digits = String(phone).replace(/\D/g, "");
@@ -63,7 +64,7 @@ export async function POST(request) {
   const gender = normalizeGender(body?.gender);
   const activityLevel = normalizeActivityLevel(body?.activityLevel);
   const priorCondition = String(body?.priorCondition ?? "").trim() || null;
-  const trainerPhone = request.cookies.get("trainer_session")?.value ?? null;
+  const trainerPhone = readTrainerPhone(request.cookies.get("trainer_session")?.value) ?? null;
 
   if (!name || !mobile) {
     return NextResponse.json({ ok: false, message: "Name and mobile are required." }, { status: 400 });

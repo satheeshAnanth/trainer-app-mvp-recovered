@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { buildRecoveredPayload } from "app/lib/apiResponse";
 import { hasDatabaseUrl, query } from "app/lib/db";
+import { checkOtpVerifyLimit } from "app/lib/rateLimit";
+import { createTrainerToken } from "app/lib/session";
 
 export async function GET() {
   const payload = await buildRecoveredPayload("api/auth/otp/verify");
@@ -30,6 +32,14 @@ export async function POST(request) {
     return NextResponse.json({ ok: false, message: "phone and code are required." }, { status: 400 });
   }
 
+  const limit = await checkOtpVerifyLimit(phone);
+  if (limit.limited) {
+    return NextResponse.json(
+      { ok: false, message: `Too many verification attempts. Please wait ${limit.retryAfterSeconds}s.` },
+      { status: 429, headers: { "Retry-After": String(limit.retryAfterSeconds) } }
+    );
+  }
+
   if (!hasDatabaseUrl()) {
     const response = NextResponse.json({
       ok: true,
@@ -38,11 +48,11 @@ export async function POST(request) {
       data: { verified: code === "123456", token: "mock-trainer-session", source: "mock" },
     });
     if (code === "123456") {
-      response.cookies.set("trainer_session", phone, {
+      response.cookies.set("trainer_session", createTrainerToken(phone), {
         httpOnly: true,
         sameSite: "lax",
         secure: process.env.NODE_ENV === "production",
-        maxAge: 60 * 60 * 24,
+        maxAge: 60 * 60 * 24 * 7,
         path: "/",
       });
     }
@@ -84,11 +94,11 @@ export async function POST(request) {
     route: "api/auth/otp/verify",
     data: { verified: true, token: "trainer-session", source: "database" },
   });
-  response.cookies.set("trainer_session", phone, {
+  response.cookies.set("trainer_session", createTrainerToken(phone), {
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
-    maxAge: 60 * 60 * 24,
+    maxAge: 60 * 60 * 24 * 7,
     path: "/",
   });
   return response;

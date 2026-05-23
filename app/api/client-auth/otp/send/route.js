@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { hasDatabaseUrl, query } from "app/lib/db";
 import { mockData } from "app/lib/mockData";
+import { generateOtpCode, sendOtpViaMSG91 } from "app/lib/msg91";
+import { checkOtpSendLimit } from "app/lib/rateLimit";
 
 function normalizePhone(phone = "") {
   const digits = String(phone).replace(/\D/g, "");
@@ -25,59 +27,56 @@ function talkToTrainerResponse(phone, status = 403) {
 export async function POST(request) {
   const body = await request.json();
   const phone = normalizePhone(body?.phone);
+
   if (!phone) {
     return NextResponse.json({ ok: false, message: "phone is required." }, { status: 400 });
   }
 
   if (!hasDatabaseUrl()) {
     const exists = mockData.clients.some((c) => normalizePhone(c.mobile ?? c.phone) === phone);
-    if (!exists) {
-      return talkToTrainerResponse(phone);
-    }
-    return NextResponse.json({
-      ok: true,
-      recovered: true,
-      route: "api/client-auth/otp/send",
-      data: { sent: true, phone, code: "123456", source: "mock" },
-    });
+    if (!exists) return talkToTrainerResponse(phone);
+    return NextResponse.json({ ok: true, data: { sent: true, phone, source: "mock" } });
+  }
+
+  const limit = await checkOtpSendLimit(phone);
+  if (limit.limited) {
+    return NextResponse.json(
+      { ok: false, message: `Too many OTP requests. Please wait ${limit.retryAfterSeconds}s before trying again.` },
+      { status: 429, headers: { "Retry-After": String(limit.retryAfterSeconds) } }
+    );
   }
 
   const phoneDigits = phone.replace(/\D/g, "");
   const clientRows = await query(
-    `
-      SELECT id
-      FROM clients
-      WHERE regexp_replace(COALESCE(mobile, ''), '[^0-9]', '', 'g') = $1
-      LIMIT 1
-    `,
+    `SELECT id FROM clients
+     WHERE regexp_replace(COALESCE(mobile, ''), '[^0-9]', '', 'g') = $1
+     LIMIT 1`,
     [phoneDigits]
   );
   if (!clientRows[0]) {
     return talkToTrainerResponse(phone);
   }
 
-  const code = "123456";
-  const rows = await query(
-    `
-      INSERT INTO otp_codes (id, phone, code, attempts, max_attempts, expires_at, created_at)
-      VALUES (
-        md5(random()::text || clock_timestamp()::text),
-        $1,
-        $2,
-        0,
-        5,
-        NOW() + INTERVAL '10 minutes',
-        NOW()
-      )
-      RETURNING id, phone, expires_at
-    `,
+  const code = generateOtpCode();
+
+  await query(
+    `INSERT INTO otp_codes (id, phone, code, attempts, max_attempts, expires_at, created_at)
+     VALUES (
+       md5(random()::text || clock_timestamp()::text),
+       $1, $2, 0, 5,
+       NOW() + INTERVAL '10 minutes',
+       NOW()
+     )`,
     [phone, code]
   );
 
-  return NextResponse.json({
-    ok: true,
-    recovered: true,
-    route: "api/client-auth/otp/send",
-    data: { sent: true, otp: rows[0], code, source: "database" },
-  });
+  const sms = await sendOtpViaMSG91(phone, code);
+  if (!sms.ok) {
+    return NextResponse.json(
+      { ok: false, message: "Failed to send OTP. Please try again." },
+      { status: 502 }
+    );
+  }
+
+  return NextResponse.json({ ok: true, data: { sent: true, phone } });
 }

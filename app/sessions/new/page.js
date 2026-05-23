@@ -11,6 +11,7 @@ const TAB_LABELS = {
   live: "Draft",
   review: "Final",
 };
+const DRAFT_STORAGE_KEY = "trainer-session-draft-v1";
 const SKIP_REASONS = [
   { value: "time_constraint", label: "Time constraint" },
   { value: "client_fatigue", label: "Client fatigue" },
@@ -186,6 +187,38 @@ export default function Page() {
   const [newClient, setNewClient] = useState({
     name: "", goal: "", mobile: "", age: "", weightKg: "", heightCm: "", gender: "not set", activityLevel: "not set", priorCondition: "",
   });
+  const [draftRestored, setDraftRestored] = useState(false);
+
+  // Restore draft on first mount
+  useEffect(() => {
+    try {
+      const raw = typeof window !== "undefined" ? window.localStorage.getItem(DRAFT_STORAGE_KEY) : null;
+      if (!raw) return;
+      const saved = JSON.parse(raw);
+      if (saved?.form) setForm((prev) => ({ ...prev, ...saved.form }));
+      if (Array.isArray(saved?.entries) && saved.entries.length > 0) setEntries(saved.entries);
+      if (saved?.sessionId) setSessionId(saved.sessionId);
+      setDraftRestored(true);
+    } catch {
+      // corrupt draft — ignore
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Autosave draft on every form/entries change
+  useEffect(() => {
+    try {
+      if (typeof window === "undefined") return;
+      window.localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify({ form, entries, sessionId }));
+    } catch {
+      // storage full or unavailable — ignore
+    }
+  }, [form, entries, sessionId]);
+
+  function clearDraft() {
+    try { window.localStorage.removeItem(DRAFT_STORAGE_KEY); } catch { /* ignore */ }
+    setDraftRestored(false);
+  }
 
   const currentEntry = entries[entryIndex] ?? null;
   const selectedClient = useMemo(
@@ -329,7 +362,7 @@ export default function Page() {
   async function runExerciseSearch(term) {
     const q = String(term ?? "").trim();
     if (q.length < 4) {
-      setMessage("Enter at least 4 characters, then tap o.");
+      setMessage("Enter at least 4 characters and press Enter to search.");
       setSearchResults([]);
       return;
     }
@@ -461,6 +494,11 @@ export default function Page() {
         ...makePayload({ overallNotes: form.overallNotes, entries, goalTemplate }),
         assessment: assessment ?? null,
         paymentReceived: Boolean(paymentReceived),
+        payment: {
+          amountInr: payment.amountInr ? Number(payment.amountInr) : null,
+          upiId: payment.upiId || null,
+          note: payment.note || null,
+        },
       },
       durationMinutes: Number.isFinite(Number(form.durationMinutes)) ? Number(form.durationMinutes) : null,
       estimatedCalories: null,
@@ -550,6 +588,7 @@ export default function Page() {
       if (!res.ok || !json?.ok) throw new Error(json?.message ?? "Unable to add final trainer comment.");
       setFinalComment("");
       await ensureSession("completed");
+      clearDraft();
       setMessage("Session notes locked.");
     } catch (e) { setMessage(e?.message ?? "Unable to lock session notes."); } finally { setSaving(false); }
   }
@@ -570,8 +609,14 @@ export default function Page() {
 
   return (
     <TrainerShell title={form.sessionTitle} subtitle="">
+      {draftRestored ? (
+        <div className="metric-card" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderLeft: "4px solid #facc15", marginBottom: 0 }}>
+          <p className="item-sub" style={{ margin: 0, color: "#facc15" }}>Draft restored from your last session.</p>
+          <button className="ghost-button ghost-button-sm" type="button" onClick={clearDraft}>Discard draft</button>
+        </div>
+      ) : null}
       <article className="card panel session-wizard-header">
-        <div className="wizard-topline"><h2>{form.sessionTitle}</h2><button className="ghost-button" type="button">Cancel</button></div>
+        <div className="wizard-topline"><h2>{form.sessionTitle}</h2><button className="ghost-button" type="button" onClick={clearDraft}>Cancel</button></div>
         <div className="wizard-tabs">{TABS.map((t) => <button key={t} type="button" className={`wizard-tab ${tab === t ? "wizard-tab-active" : ""}`} onClick={() => setTab(t)}>{TAB_LABELS[t]}</button>)}</div>
       </article>
 
@@ -643,23 +688,13 @@ export default function Page() {
             </div>
             <label className="field full">
               <span>Exercise name</span>
-              <div style={{ display: "flex", gap: 8 }}>
-                <input
-                  value={currentEntry.name}
-                  onChange={(e) => setEntryField("name", e.target.value)}
-                  disabled={currentEntry.source === "goal"}
-                />
-                <button
-                  className="ghost-button"
-                  type="button"
-                  onClick={openSearchForCurrentEntry}
-                  disabled={currentEntry.source === "goal"}
-                  style={{ width: 36, minWidth: 36, padding: "8px 0", textAlign: "center" }}
-                  title="Search"
-                >
-                  o
-                </button>
-              </div>
+              <input
+                value={currentEntry.name}
+                onChange={(e) => setEntryField("name", e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter" && !currentEntry.source === "goal") openSearchForCurrentEntry(); }}
+                disabled={currentEntry.source === "goal"}
+                placeholder={currentEntry.source === "goal" ? "Locked — edit from Goal Template" : "Type name then press Enter to search"}
+              />
             </label>
             {currentEntry.source === "goal" ? (
               <p className="item-sub">Goal exercise name is locked here. Edit it from Client &gt; Goal Template.</p>
@@ -925,16 +960,13 @@ export default function Page() {
               <button className="ghost-button" type="button" onClick={() => setSearchModalOpen(false)}>Close</button>
             </div>
             <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
-              <input value={exerciseSearch} onChange={(e) => setExerciseSearch(e.target.value)} placeholder="Type at least 4 characters" />
-              <button
-                className="ghost-button"
-                type="button"
-                onClick={() => runExerciseSearch(exerciseSearch)}
-                style={{ width: 36, minWidth: 36, padding: "8px 0", textAlign: "center" }}
-                title="Search"
-              >
-                o
-              </button>
+              <input
+                value={exerciseSearch}
+                onChange={(e) => setExerciseSearch(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") runExerciseSearch(exerciseSearch); }}
+                placeholder="Type at least 4 characters and press Enter"
+                autoFocus
+              />
             </div>
             <div style={{ display: "grid", gap: 8, marginTop: 10 }}>
               {searchResults.map((item) => (

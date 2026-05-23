@@ -2,8 +2,12 @@ import { NextResponse } from "next/server";
 import { buildRecoveredPayload } from "app/lib/apiResponse";
 import { hasDatabaseUrl, query } from "app/lib/db";
 import { normalizeBillingModel, PRICING_MODEL } from "app/lib/pricingModel";
+import { requireAdminSecret } from "app/lib/adminAuth";
+import { createTrainerToken } from "app/lib/session";
 
-export async function GET() {
+export async function GET(request) {
+  const denied = requireAdminSecret(request);
+  if (denied) return denied;
   const payload = await buildRecoveredPayload("api/admin/register-trainer");
   return NextResponse.json({
     ok: true,
@@ -23,6 +27,9 @@ function normalizePhone(phone = "") {
 }
 
 export async function POST(request) {
+  const denied = requireAdminSecret(request);
+  if (denied) return denied;
+
   const body = await request.json();
   const phone = normalizePhone(body?.phone);
   const name = String(body?.name ?? "").trim();
@@ -56,11 +63,11 @@ export async function POST(request) {
         source: "mock",
       },
     });
-    response.cookies.set("trainer_session", phone, {
+    response.cookies.set("trainer_session", createTrainerToken(phone), {
       httpOnly: true,
       sameSite: "lax",
       secure: process.env.NODE_ENV === "production",
-      maxAge: 60 * 60 * 24,
+      maxAge: 60 * 60 * 24 * 7,
       path: "/",
     });
     return response;
@@ -177,11 +184,11 @@ export async function POST(request) {
     route: "api/admin/register-trainer",
     data: { trainer: rows[0], source: "database" },
   });
-  response.cookies.set("trainer_session", phone, {
+  response.cookies.set("trainer_session", createTrainerToken(phone), {
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
-    maxAge: 60 * 60 * 24,
+    maxAge: 60 * 60 * 24 * 7,
     path: "/",
   });
   return response;

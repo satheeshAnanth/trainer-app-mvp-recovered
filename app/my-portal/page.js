@@ -377,6 +377,84 @@ export default function Page() {
           </ul>
         )}
       </article>
+
+      <article className="card panel">
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+          <h2 style={{ margin: 0 }}>Session history</h2>
+          <Link className="ghost-button ghost-button-sm" href="/my-portal/progress">All sessions</Link>
+        </div>
+        {loading ? (
+          <p className="item-sub">Loading…</p>
+        ) : sessions.length === 0 ? (
+          <p className="item-sub">Your trainer&apos;s session logs will appear here once they share them.</p>
+        ) : (
+          <ul className="list">
+            {[...sessions]
+              .sort((a, b) => {
+                const ad = new Date(a.session_date ?? a.date ?? 0).getTime();
+                const bd = new Date(b.session_date ?? b.date ?? 0).getTime();
+                return bd - ad;
+              })
+              .slice(0, 8)
+              .map((raw) => {
+                const s = normalizeClientSession(raw);
+                const exerciseCount = Array.isArray(s.payload?.exercises) ? s.payload.exercises.length : null;
+                const score = s.payload?.assessment?.score ?? null;
+                return (
+                  <li key={s.id} className="list-item" style={{ alignItems: "flex-start", padding: "10px 0" }}>
+                    <div style={{ flex: 1 }}>
+                      <p className="item-title">{s.sessionTitle}</p>
+                      <p className="item-sub">
+                        {formatSessionDateShort(s.sessionDate)}
+                        {exerciseCount ? ` · ${exerciseCount} exercise${exerciseCount !== 1 ? "s" : ""}` : ""}
+                        {score ? ` · Quality ${score}/5` : ""}
+                      </p>
+                      {s.payload?.sections?.mainWork && (
+                        <p className="item-sub" style={{ marginTop: 4, color: "#cbd5e1" }}>{String(s.payload.sections.mainWork).slice(0, 80)}{String(s.payload.sections.mainWork).length > 80 ? "…" : ""}</p>
+                      )}
+                    </div>
+                    <span className="status-chip" style={{ color: s.status === "completed" ? "#34d399" : s.status === "pending_notes" ? "#facc15" : "#94a3b8" }}>
+                      {String(s.status ?? "draft").replace(/_/g, " ")}
+                    </span>
+                  </li>
+                );
+              })}
+          </ul>
+        )}
+      </article>
+
+      {!loading && sessions.length > 0 ? (() => {
+        const allExercises = sessions.flatMap((raw) => {
+          const s = normalizeClientSession(raw);
+          return Array.isArray(s.payload?.exercises) ? s.payload.exercises.map((ex) => ({ ...ex, sessionDate: s.sessionDate })) : [];
+        });
+        const uniqueNames = [...new Map(allExercises.map((ex) => [String(ex.name ?? "").toLowerCase(), ex])).values()].slice(0, 10);
+        if (uniqueNames.length === 0) return null;
+        return (
+          <article className="card panel">
+            <h2>Exercise history</h2>
+            <p className="item-sub" style={{ marginBottom: 12 }}>Exercises your trainer has logged for you across all sessions.</p>
+            <ul className="list">
+              {uniqueNames.map((ex, idx) => (
+                <li key={`${ex.name}-${idx}`} className="list-item" style={{ padding: "8px 0" }}>
+                  <div>
+                    <p className="item-title">{ex.name || "Exercise"}</p>
+                    <p className="item-sub">
+                      {ex.completionStatus ? `Status: ${ex.completionStatus}` : ""}
+                      {ex.note ? ` · ${String(ex.note).slice(0, 60)}` : ""}
+                    </p>
+                  </div>
+                  {ex.completionStatus === "completed" ? (
+                    <span className="status-chip" style={{ color: "#34d399" }}>Done</span>
+                  ) : ex.completionStatus === "skipped" ? (
+                    <span className="status-chip" style={{ color: "#f87171" }}>Skipped</span>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          </article>
+        );
+      })() : null}
     </ClientShell>
   );
 }

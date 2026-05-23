@@ -1,15 +1,10 @@
 import { NextResponse } from "next/server";
 import { buildRecoveredPayload } from "app/lib/apiResponse";
 import { hasDatabaseUrl, query } from "app/lib/db";
+import { readClientSession } from "app/lib/session";
 
 export async function GET(request) {
-  const sessionRaw = request.cookies.get("client_session")?.value;
-  let sessionClientId = null;
-  try {
-    sessionClientId = JSON.parse(sessionRaw ?? "{}")?.clientId ?? null;
-  } catch {
-    sessionClientId = sessionRaw ?? null;
-  }
+  const sessionClientId = readClientSession(request.cookies.get("client_session")?.value)?.clientId ?? null;
 
   if (!hasDatabaseUrl() || !sessionClientId) {
     const payload = await buildRecoveredPayload("api/client/sessions");
@@ -56,13 +51,7 @@ export async function GET(request) {
 }
 
 export async function POST(request) {
-  const sessionRaw = request.cookies.get("client_session")?.value;
-  let sessionClientId = null;
-  try {
-    sessionClientId = JSON.parse(sessionRaw ?? "{}")?.clientId ?? null;
-  } catch {
-    sessionClientId = sessionRaw ?? null;
-  }
+  const sessionClientId = readClientSession(request.cookies.get("client_session")?.value)?.clientId ?? null;
 
   const body = await request.json();
   const clientId = String(body?.clientId ?? "").trim();

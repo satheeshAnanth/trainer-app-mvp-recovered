@@ -24,18 +24,14 @@ export function normalizeScheduleTime(value = "") {
 
 export function parseClientSession(raw) {
   if (!raw) return null;
-  try {
-    const parsed = JSON.parse(raw);
-    if (parsed && typeof parsed === "object" && parsed.clientId) return parsed;
-  } catch {
-    /* plain client id */
-  }
-  return typeof raw === "string" && raw ? { clientId: raw } : null;
+  const { readClientSession } = require("app/lib/session");
+  return readClientSession(raw) ?? null;
 }
 
 export function parseTrainerSession(raw) {
   if (!raw) return null;
-  return typeof raw === "string" && raw ? raw : null;
+  const { readTrainerPhone } = require("app/lib/session");
+  return readTrainerPhone(raw) ?? null;
 }
 
 export function getScheduleViewer(request) {

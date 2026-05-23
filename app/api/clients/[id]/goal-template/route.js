@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { buildRecoveredPayload } from "app/lib/apiResponse";
 import { hasDatabaseUrl, hasTableColumn, query } from "app/lib/db";
+import { readTrainerPhone } from "app/lib/session";
 
 function parseJson(value) {
   if (!value) return null;
@@ -128,7 +129,7 @@ export async function POST(request, { params }) {
     return NextResponse.json({ ok: false, message: "Client not found." }, { status: 404 });
   }
 
-  const trainerPhone = request.cookies.get("trainer_session")?.value ?? "trainer";
+  const trainerPhone = readTrainerPhone(request.cookies.get("trainer_session")?.value) ?? "trainer";
   const payload = JSON.stringify({
     goalName,
     status: "active",

@@ -35,15 +35,20 @@ export default function TrainerShell({ title, subtitle, children }) {
         </header>
 
         <nav className="trainer-nav card surface-elevated trainer-nav-desktop" aria-label="Trainer sections">
-          {navItems.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`nav-pill ${pathname === item.href ? "nav-pill-active" : ""}`}
-            >
-              {item.label}
-            </Link>
-          ))}
+          {navItems.map((item) => {
+            const active = item.href === "/sessions/new"
+              ? pathname.startsWith("/sessions")
+              : pathname === item.href;
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`nav-pill ${active ? "nav-pill-active" : ""}`}
+              >
+                {item.label}
+              </Link>
+            );
+          })}
         </nav>
 
         <section className="trainer-content">{children}</section>
@@ -51,7 +56,9 @@ export default function TrainerShell({ title, subtitle, children }) {
         <nav className="mobile-tabbar" aria-label="Primary">
           <div className="mobile-tabbar-inner card surface-glass">
             {navItems.map((item) => {
-              const active = pathname === item.href;
+              const active = item.href === "/sessions/new"
+                ? pathname.startsWith("/sessions")
+                : pathname === item.href;
               const Icon = item.Icon;
               return (
                 <Link

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { buildRecoveredPayload } from "app/lib/apiResponse";
 import { hasDatabaseUrl, query } from "app/lib/db";
+import { readTrainerPhone } from "app/lib/session";
 
 export async function GET() {
   const payload = await buildRecoveredPayload("api/profile/trainer");
@@ -14,7 +15,7 @@ export async function GET() {
 
 export async function PATCH(request) {
   const body = await request.json();
-  const phone = request.cookies.get("trainer_session")?.value ?? null;
+  const phone = readTrainerPhone(request.cookies.get("trainer_session")?.value) ?? null;
   const name = String(body?.name ?? "").trim();
   const specialization = String(body?.specialization ?? "").trim() || null;
 
