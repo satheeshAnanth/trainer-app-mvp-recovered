@@ -1,13 +1,21 @@
--- Enable pg_trgm extension (required for GIN trigram index)
--- This allows fast ILIKE / partial-string searches on text columns.
+-- Migration 003: Fast exercise search via GIN trigram index
+-- Idempotent — safe if master_exercises does not yet exist (indexes skipped).
+
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
 
--- GIN trigram index on master_exercises.name
--- Turns ILIKE '%squat%' from a full-table scan into an index lookup.
-CREATE INDEX IF NOT EXISTS master_exercises_name_trgm_idx
-  ON master_exercises USING GIN (name gin_trgm_ops);
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT FROM information_schema.tables
+    WHERE table_schema = 'public' AND table_name = 'master_exercises'
+  ) THEN
+    EXECUTE 'CREATE INDEX IF NOT EXISTS master_exercises_name_trgm_idx
+             ON master_exercises USING GIN (name gin_trgm_ops)';
 
--- B-tree index on category for filtered listing queries
-CREATE INDEX IF NOT EXISTS master_exercises_category_idx
-  ON master_exercises (category)
-  WHERE COALESCE(is_active, 1) = 1;
+    EXECUTE 'CREATE INDEX IF NOT EXISTS master_exercises_category_idx
+             ON master_exercises (category)
+             WHERE COALESCE(is_active, 1) = 1';
+  ELSE
+    RAISE NOTICE 'master_exercises table not found — skipping search indexes';
+  END IF;
+END $$;
