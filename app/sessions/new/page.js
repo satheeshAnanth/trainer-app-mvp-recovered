@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
 import TrainerShell from "app/_components/TrainerShell";
 import { buildExerciseWarnings, buildProfileSafetyPlan } from "app/lib/coachSafety";
@@ -870,11 +871,13 @@ export default function Page() {
                 {(currentEntry.photos ?? []).length > 0 ? (
                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8 }}>
                     {(currentEntry.photos ?? []).map((url) => (
-                      <img
+                      <Image
                         key={url}
                         src={url}
                         alt="Attached"
-                        style={{ width: 72, height: 72, objectFit: "cover", borderRadius: 6, border: "1px solid rgba(255,255,255,0.1)" }}
+                        width={72}
+                        height={72}
+                        style={{ objectFit: "cover", borderRadius: 6, border: "1px solid rgba(255,255,255,0.1)" }}
                       />
                     ))}
                   </div>

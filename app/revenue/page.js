@@ -110,7 +110,7 @@ export default function Page() {
         </article>
       ) : !loading && rev.billedCount === 0 ? (
         <article className="card panel">
-          <p className="item-sub">No billed sessions yet. Open a session, enter a payment amount under "Session Payment (UPI)", and click "Request payment" to start tracking here.</p>
+          <p className="item-sub">No billed sessions yet. Open a session, enter a payment amount under &ldquo;Session Payment (UPI)&rdquo;, and click &ldquo;Request payment&rdquo; to start tracking here.</p>
           <Link href="/sessions/new" className="mint-button mint-button-sm" style={{ marginTop: 10, display: "inline-block" }}>New session</Link>
         </article>
       ) : null}
