@@ -24,22 +24,29 @@ export default function Page() {
   const [clientCount, setClientCount] = useState(0);
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
+  const [referralCode, setReferralCode] = useState(null);
+  const [referredCount, setReferredCount] = useState(0);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     (async () => {
       try {
-        const [profileRes, sessionRes, pricingRes, clientsRes] = await Promise.all([
+        const [profileRes, sessionRes, pricingRes, clientsRes, referralRes] = await Promise.all([
           fetch("/api/profile/trainer"),
           fetch("/api/auth/session"),
           fetch("/api/auth/pricing"),
           fetch("/api/clients"),
+          fetch("/api/referrals"),
         ]);
         const profileJson = await profileRes.json();
         const sessionJson = await sessionRes.json();
         const pricingJson = await pricingRes.json();
         const clientsJson = await clientsRes.json();
+        const referralJson = await referralRes.json().catch(() => null);
         const trainer = profileJson?.data?.trainer ?? null;
         const sessionUser = sessionJson?.data?.user ?? {};
+        if (referralJson?.data?.referralCode) setReferralCode(referralJson.data.referralCode);
+        if (typeof referralJson?.data?.referredCount === "number") setReferredCount(referralJson.data.referredCount);
         setProfile(trainer);
         setName(trainer?.name ?? sessionUser?.name ?? "");
         setMobile(trainer?.phone ?? sessionUser?.phone ?? "");
@@ -146,6 +153,62 @@ export default function Page() {
           </div>
           <span className="status-chip">{Math.max(0, maxClients - clientCount)} slots left</span>
         </div>
+      </article>
+
+      <article className="card panel">
+        <h2>Share &amp; Grow</h2>
+        {referralCode ? (
+          <>
+            <div className="list-item" style={{ alignItems: "flex-start", flexDirection: "column", gap: 10 }}>
+              <div style={{ width: "100%" }}>
+                <p className="item-title">Your referral link</p>
+                <p className="item-sub" style={{ marginBottom: 8 }}>
+                  Share this link — when another trainer signs up through it, they&apos;ll be linked to you.
+                  {referredCount > 0 ? ` You&apos;ve referred ${referredCount} trainer${referredCount !== 1 ? "s" : ""} so far.` : ""}
+                </p>
+                <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                  <code style={{
+                    flex: 1, minWidth: 0, padding: "8px 12px",
+                    background: "rgba(255,255,255,0.05)", borderRadius: 6,
+                    fontSize: 13, color: "#cbd5e1", wordBreak: "break-all",
+                    border: "1px solid #1e293b",
+                  }}>
+                    {typeof window !== "undefined" ? window.location.origin : ""}/join?ref={referralCode}
+                  </code>
+                  <button
+                    type="button"
+                    className="ghost-button ghost-button-sm"
+                    onClick={() => {
+                      const url = `${window.location.origin}/join?ref=${referralCode}`;
+                      navigator.clipboard.writeText(url).then(() => {
+                        setCopied(true);
+                        setTimeout(() => setCopied(false), 2000);
+                      });
+                    }}
+                  >
+                    {copied ? "Copied!" : "Copy"}
+                  </button>
+                </div>
+              </div>
+            </div>
+            <div className="list-item" style={{ marginTop: 12 }}>
+              <div>
+                <p className="item-title">Your public profile</p>
+                <p className="item-sub">Shareable link for potential clients to find and connect with you.</p>
+              </div>
+              <a
+                href={`/t/${referralCode}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="ghost-button ghost-button-sm"
+              >
+                View
+              </a>
+            </div>
+          </>
+        ) : (
+          <p className="item-sub">Referral link will appear here once the referrals feature is enabled (requires migration 004).</p>
+        )}
       </article>
 
       <article className="card panel">

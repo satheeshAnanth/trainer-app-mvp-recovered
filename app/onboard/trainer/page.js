@@ -52,17 +52,22 @@ function TrainerOnboardForm() {
   });
   const [walkIndex, setWalkIndex] = useState(0);
   const [phoneLocked, setPhoneLocked] = useState(false);
+  const [referralRef, setReferralRef] = useState("");
 
   const isValidPhone = useMemo(() => form.phone.replace(/\D/g, "").length === 10, [form.phone]);
 
   useEffect(() => {
     const rawPhone = String(searchParams.get("phone") ?? "").trim();
-    if (!rawPhone) return;
-    const digits = rawPhone.replace(/\D/g, "");
-    const local10 = digits.length >= 10 ? digits.slice(-10) : "";
-    if (!local10) return;
-    setForm((prev) => ({ ...prev, phone: local10 }));
-    setPhoneLocked(true);
+    if (rawPhone) {
+      const digits = rawPhone.replace(/\D/g, "");
+      const local10 = digits.length >= 10 ? digits.slice(-10) : "";
+      if (local10) {
+        setForm((prev) => ({ ...prev, phone: local10 }));
+        setPhoneLocked(true);
+      }
+    }
+    const ref = String(searchParams.get("ref") ?? "").trim().toUpperCase();
+    if (ref) setReferralRef(ref);
   }, [searchParams]);
 
   async function loadPricing() {
@@ -114,6 +119,7 @@ function TrainerOnboardForm() {
           ...form,
           specialization: Array.isArray(form.specialization) ? form.specialization.join(", ") : "",
           yearsExperience: Number(form.yearsExperience || 0),
+          referredBy: referralRef || undefined,
         }),
       });
       const json = await response.json();

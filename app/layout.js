@@ -5,7 +5,19 @@ const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 
 export const metadata = {
   title: "Trainer App - Session Capture & Client Management",
-  description: "Recovered baseline from Vercel deployment metadata",
+  description: "Session capture and client management for fitness trainers",
+  manifest: "/manifest.json",
+  themeColor: "#2dd4bf",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "Trainer App",
+  },
+  viewport: {
+    width: "device-width",
+    initialScale: 1,
+    maximumScale: 1,
+  },
 };
 
 export default function RootLayout({ children }) {

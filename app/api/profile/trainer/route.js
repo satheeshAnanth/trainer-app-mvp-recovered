@@ -1,16 +1,38 @@
 import { NextResponse } from "next/server";
-import { buildRecoveredPayload } from "app/lib/apiResponse";
 import { hasDatabaseUrl, query } from "app/lib/db";
 import { readTrainerPhone } from "app/lib/session";
+import { mockData } from "app/lib/mockData";
 
-export async function GET() {
-  const payload = await buildRecoveredPayload("api/profile/trainer");
-  return NextResponse.json({
-    ok: true,
-    recovered: true,
-    route: "api/profile/trainer",
-    data: payload,
-  });
+export async function GET(request) {
+  if (!hasDatabaseUrl()) {
+    return NextResponse.json({
+      ok: true,
+      data: { trainer: mockData.trainerProfile ?? null, source: "mock" },
+    });
+  }
+
+  const phone = readTrainerPhone(request.cookies.get("trainer_session")?.value) ?? null;
+
+  try {
+    const rows = await query(
+      `SELECT id, phone, name, gym_name, specialization, years_experience, location,
+              pricing_tier, billing_status, trial_ends_at, max_clients, is_active,
+              referral_code, referred_by, created_at, updated_at
+       FROM trainer_phones
+       WHERE regexp_replace(COALESCE(phone, ''), '[^0-9]', '', 'g') = regexp_replace(COALESCE($1, ''), '[^0-9]', '', 'g')
+       LIMIT 1`,
+      [phone]
+    );
+    return NextResponse.json({
+      ok: true,
+      data: { trainer: rows[0] ?? null, source: "database" },
+    });
+  } catch {
+    return NextResponse.json({
+      ok: true,
+      data: { trainer: null, source: "database-error" },
+    });
+  }
 }
 
 export async function PATCH(request) {

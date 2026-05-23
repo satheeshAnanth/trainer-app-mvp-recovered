@@ -59,10 +59,24 @@ Run once against your Neon database. Paste file contents into the Neon SQL edito
 | `db/migrations/001_client_messages.sql` | `client_messages` table for two-way messaging |
 | `db/migrations/002_invitations.sql` | `invitations` table for client invitation flow |
 | `db/migrations/003_exercise_search_index.sql` | GIN trigram index on `master_exercises.name` for fast search |
+| `db/migrations/004_referrals.sql` | `referral_code` + `referred_by` columns on `trainer_phones`; back-fills existing rows |
 
 ---
 
-## 4. Sentry Setup
+## 4. PWA Icons
+
+The `public/manifest.json` references two icon files that must be created before the PWA install prompt works:
+
+| File | Size | Purpose |
+|---|---|---|
+| `public/icon-192.png` | 192×192 px | Android home screen icon |
+| `public/icon-512.png` | 512×512 px | Splash screen + maskable icon |
+
+Use a square logo or app icon — the background should be `#0f1117` (dark) or transparent. Export as PNG and drop into the `public/` folder.
+
+---
+
+## 5. Sentry Setup
 
 1. Create a project at sentry.io (platform: **Next.js**)
 2. Copy the DSN into `NEXT_PUBLIC_SENTRY_DSN` and `SENTRY_DSN`

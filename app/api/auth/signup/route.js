@@ -12,6 +12,12 @@ function normalizePhone(phone = "") {
   return `+${digits}`;
 }
 
+function genReferralCode() {
+  // Avoids visually ambiguous chars (0/O, 1/I/l)
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  return Array.from({ length: 6 }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
+}
+
 function cookieOptions() {
   return {
     httpOnly: true,
@@ -35,6 +41,7 @@ export async function POST(request) {
   const location = String(body?.location ?? "").trim();
   const pricingTier = String(body?.pricingTier ?? "starter").trim();
   const billingModel = normalizeBillingModel(body?.billingModel ?? "trial");
+  const referredBy = String(body?.referredBy ?? "").trim().toUpperCase() || null;
 
   if (!phone || !name) {
     return NextResponse.json({ ok: false, message: "name and phone are required." }, { status: 400 });
@@ -48,6 +55,7 @@ export async function POST(request) {
         phone,
         name,
         billing_status: "trial",
+        referral_code: genReferralCode(),
         source: "mock",
       },
     });
@@ -118,6 +126,17 @@ export async function POST(request) {
      VALUES (md5(random()::text || clock_timestamp()::text), $1, $2, 0, 0, 'trial', NOW())
      ON CONFLICT (trainer_phone, month_year) DO NOTHING`,
     [phone, monthYear]
+  ).catch(() => null);
+
+  // Generate referral code (migration 004 required); ignore if column not yet added
+  const referralCode = genReferralCode();
+  await query(
+    `UPDATE trainer_phones
+     SET referral_code = COALESCE(referral_code, $2),
+         referred_by   = COALESCE(referred_by,   $3),
+         updated_at    = NOW()
+     WHERE regexp_replace(COALESCE(phone, ''), '[^0-9]', '', 'g') = regexp_replace(COALESCE($1, ''), '[^0-9]', '', 'g')`,
+    [phone, referralCode, referredBy]
   ).catch(() => null);
 
   const response = NextResponse.json({ ok: true, data: { trainer: rows[0] } });
