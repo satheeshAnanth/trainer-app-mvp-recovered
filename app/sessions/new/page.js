@@ -162,6 +162,7 @@ export default function Page() {
   const [searchResults, setSearchResults] = useState([]);
   const [currentSetIndex, setCurrentSetIndex] = useState(0);
   const [showTimingFields, setShowTimingFields] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [sessionId, setSessionId] = useState("");
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
@@ -593,6 +594,29 @@ export default function Page() {
     } catch (e) { setMessage(e?.message ?? "Unable to lock session notes."); } finally { setSaving(false); }
   }
 
+  async function uploadPhoto(file) {
+    if (!file) return;
+    setUploading(true);
+    setMessage("");
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch("/api/upload", { method: "POST", body: fd });
+      const json = await res.json();
+      if (!res.ok || !json?.ok) throw new Error(json?.message ?? "Upload failed.");
+      setEntries((prev) =>
+        prev.map((entry, i) =>
+          i !== entryIndex ? entry : { ...entry, photos: [...(entry.photos ?? []), json.url] }
+        )
+      );
+      setMessage("Photo attached.");
+    } catch (e) {
+      setMessage(e?.message ?? "Upload failed.");
+    } finally {
+      setUploading(false);
+    }
+  }
+
   async function addClientInline() {
     if (!newClient.name.trim() || !newClient.mobile.trim()) return setMessage("Client name and mobile are required.");
     const res = await fetch("/api/clients", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(newClient) });
@@ -824,11 +848,38 @@ export default function Page() {
               </div>
             ))}
             <details style={{ marginTop: 8 }}>
-              <summary className="item-sub" style={{ cursor: "pointer" }}>Show details (notes / advanced)</summary>
+              <summary className="item-sub" style={{ cursor: "pointer" }}>Notes &amp; photos</summary>
               <label className="field full" style={{ marginTop: 8 }}>
                 <span>Exercise note</span>
                 <textarea rows={3} value={currentEntry.notes || ""} onChange={(e) => setEntryField("notes", e.target.value)} />
               </label>
+              <div style={{ marginTop: 10 }}>
+                <p className="item-sub" style={{ marginBottom: 6 }}>Attach photo (progress / form)</p>
+                <label style={{ display: "inline-block", cursor: "pointer" }}>
+                  <span className="ghost-button ghost-button-sm" style={{ display: "inline-block" }}>
+                    {uploading ? "Uploading…" : "+ Add photo"}
+                  </span>
+                  <input
+                    type="file"
+                    accept="image/*,video/mp4"
+                    style={{ display: "none" }}
+                    disabled={uploading}
+                    onChange={(e) => uploadPhoto(e.target.files?.[0])}
+                  />
+                </label>
+                {(currentEntry.photos ?? []).length > 0 ? (
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8 }}>
+                    {(currentEntry.photos ?? []).map((url) => (
+                      <img
+                        key={url}
+                        src={url}
+                        alt="Attached"
+                        style={{ width: 72, height: 72, objectFit: "cover", borderRadius: 6, border: "1px solid rgba(255,255,255,0.1)" }}
+                      />
+                    ))}
+                  </div>
+                ) : null}
+              </div>
             </details>
           </div>
         </div>

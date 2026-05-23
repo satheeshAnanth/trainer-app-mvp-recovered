@@ -24,6 +24,7 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 | `MSG91_TEMPLATE_ID` | DLT-approved OTP SMS template ID | MSG91 dashboard → DLT (see template body below) |
 | `MSG91_INVITE_TEMPLATE_ID` | DLT-approved invite SMS template ID | MSG91 dashboard → DLT (see template body below) |
 | `NEXT_PUBLIC_APP_URL` | Live app URL, used in invitation SMS links | Your Vercel deployment URL e.g. `https://your-app.vercel.app` |
+| `BLOB_READ_WRITE_TOKEN` | Vercel Blob for session photo uploads | Vercel dashboard → your project → Storage → Blob → Create store → copy token |
 | `NEXT_PUBLIC_SENTRY_DSN` | Sentry error reporting (browser) | sentry.io → your project → Settings → Client Keys |
 | `SENTRY_DSN` | Sentry error reporting (server) | Same DSN as above |
 | `SENTRY_ORG` | Sentry organisation slug | Your Sentry org slug |
@@ -57,6 +58,7 @@ Run once against your Neon database. Paste file contents into the Neon SQL edito
 |---|---|
 | `db/migrations/001_client_messages.sql` | `client_messages` table for two-way messaging |
 | `db/migrations/002_invitations.sql` | `invitations` table for client invitation flow |
+| `db/migrations/003_exercise_search_index.sql` | GIN trigram index on `master_exercises.name` for fast search |
 
 ---
 

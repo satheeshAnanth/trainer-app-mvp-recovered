@@ -54,7 +54,9 @@ export async function GET(request) {
     );
   }
 
-  return NextResponse.json({ ok: true, data: { sessions: rows } });
+  const response = NextResponse.json({ ok: true, data: { sessions: rows } });
+  response.headers.set("Cache-Control", "private, no-cache, stale-while-revalidate=30");
+  return response;
 }
 
 export async function POST(request) {

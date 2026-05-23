@@ -115,6 +115,32 @@ export default function Page() {
       }
     }).length;
 
+    // Retention signals
+    const now = Date.now();
+    const STALE_MS = 14 * 24 * 60 * 60 * 1000;
+    const STUCK_MS = 7 * 24 * 60 * 60 * 1000;
+
+    const lastSessionByClientId = new Map();
+    for (const s of sessions) {
+      const cid = String(s.client_id ?? "");
+      if (!cid) continue;
+      const d = safeDate(s.session_date ?? s.updated_at)?.getTime() ?? 0;
+      if (!lastSessionByClientId.has(cid) || d > lastSessionByClientId.get(cid)) {
+        lastSessionByClientId.set(cid, d);
+      }
+    }
+    const staleClients = clients.filter((c) => {
+      const last = lastSessionByClientId.get(String(c.id ?? ""));
+      return last && now - last > STALE_MS;
+    });
+    const noSessionClients = clients.filter((c) => !lastSessionByClientId.has(String(c.id ?? "")));
+    const stuckSessions = sessions.filter((s) => {
+      const status = String(s.status ?? "").toLowerCase();
+      if (!["draft", "pending_notes"].includes(status)) return false;
+      const updated = safeDate(s.updated_at ?? s.created_at)?.getTime() ?? now;
+      return now - updated > STUCK_MS;
+    });
+
     return {
       clientsCount: clients.length,
       sessionsCount: sessions.length,
@@ -125,6 +151,9 @@ export default function Page() {
       mostActiveClient,
       mostActiveCount,
       recentSessions,
+      staleClients,
+      noSessionClients,
+      stuckSessions,
     };
   }, [clients, sessions]);
   return (
@@ -153,9 +182,12 @@ export default function Page() {
           <p className="kpi-label">This week</p>
           <p className="kpi-value">{computed.thisWeek}</p>
         </article>
-        <article className="kpi-card">
-          <p className="kpi-label">Pending billable sessions</p>
-          <p className="kpi-value">{computed.pendingBillable}</p>
+        <article className="kpi-card" style={{ cursor: "pointer" }}>
+          <Link href="/revenue" style={{ textDecoration: "none", display: "block" }}>
+            <p className="kpi-label">Pending billable</p>
+            <p className="kpi-value" style={{ color: computed.pendingBillable > 0 ? "#facc15" : undefined }}>{computed.pendingBillable}</p>
+            <p className="item-sub" style={{ marginTop: 4, color: "var(--mint)", fontSize: 11 }}>Open revenue →</p>
+          </Link>
         </article>
       </div>
 
@@ -176,6 +208,56 @@ export default function Page() {
           <p className="item-sub">{computed.mostActiveCount} logged sessions</p>
         </article>
       </div>
+
+      {loaded && (computed.staleClients.length > 0 || computed.noSessionClients.length > 0 || computed.stuckSessions.length > 0) ? (
+        <article className="card panel" style={{ borderLeft: "4px solid #f59e0b" }}>
+          <h2 style={{ marginBottom: 12 }}>Needs attention</h2>
+          {computed.staleClients.length > 0 ? (
+            <div className="metric-card" style={{ marginBottom: 10 }}>
+              <p className="item-title">No session in 14+ days</p>
+              <div className="list" style={{ marginTop: 8 }}>
+                {computed.staleClients.slice(0, 5).map((c) => (
+                  <div key={c.id} className="list-item">
+                    <p className="item-title">{c.name}</p>
+                    <Link href={`/clients/${c.id}`} className="ghost-button ghost-button-sm">View</Link>
+                  </div>
+                ))}
+                {computed.staleClients.length > 5 ? <p className="item-sub">+{computed.staleClients.length - 5} more</p> : null}
+              </div>
+            </div>
+          ) : null}
+          {computed.noSessionClients.length > 0 ? (
+            <div className="metric-card" style={{ marginBottom: 10 }}>
+              <p className="item-title">Added but no sessions yet</p>
+              <div className="list" style={{ marginTop: 8 }}>
+                {computed.noSessionClients.slice(0, 3).map((c) => (
+                  <div key={c.id} className="list-item">
+                    <p className="item-title">{c.name}</p>
+                    <Link href="/sessions/new" className="ghost-button ghost-button-sm">Log session</Link>
+                  </div>
+                ))}
+                {computed.noSessionClients.length > 3 ? <p className="item-sub">+{computed.noSessionClients.length - 3} more</p> : null}
+              </div>
+            </div>
+          ) : null}
+          {computed.stuckSessions.length > 0 ? (
+            <div className="metric-card">
+              <p className="item-title">Sessions stuck in draft/pending for 7+ days</p>
+              <div className="list" style={{ marginTop: 8 }}>
+                {computed.stuckSessions.slice(0, 3).map((s) => (
+                  <div key={s.id} className="list-item">
+                    <div>
+                      <p className="item-title">{s.session_title || "Untitled"}</p>
+                      <p className="item-sub">{s.client_name_snapshot || "Client"} · {String(s.status ?? "").replace("_", " ")}</p>
+                    </div>
+                    <Link href={`/sessions/${s.id}`} className="ghost-button ghost-button-sm">Open</Link>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
+        </article>
+      ) : null}
 
       {loaded && clients.length === 0 && sessions.length === 0 ? (
         <article className="card panel" style={{ borderLeft: "4px solid var(--mint)", background: "linear-gradient(135deg, rgba(45,212,191,0.08), transparent)" }}>

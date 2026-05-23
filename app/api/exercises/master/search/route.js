@@ -47,12 +47,14 @@ export async function GET(request) {
     );
   }
 
-  return NextResponse.json({
+  const response = NextResponse.json({
     ok: true,
     recovered: true,
     route: "api/exercises/master/search",
     data: { exercises, source: "database", count: exercises.length, limit },
   });
+  response.headers.set("Cache-Control", "public, s-maxage=300, stale-while-revalidate=3600");
+  return response;
 }
 
 function normalizeExerciseName(rawName) {

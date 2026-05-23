@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@sentry/nextjs": "^10.53.1",
+    "@vercel/blob": "^2.4.0",
     "next": "14.2.35",
     "pg": "^8.20.0",
     "react": "18.2.0",

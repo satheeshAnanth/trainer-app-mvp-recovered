@@ -45,12 +45,14 @@ function normalizeActivityLevel(value = "") {
 
 export async function GET() {
   const payload = await buildRecoveredPayload("api/clients");
-  return NextResponse.json({
+  const response = NextResponse.json({
     ok: true,
     recovered: true,
     route: "api/clients",
     data: payload,
   });
+  response.headers.set("Cache-Control", "private, no-cache, stale-while-revalidate=30");
+  return response;
 }
 
 export async function POST(request) {
