@@ -128,6 +128,8 @@ function TrainerOnboardForm() {
         return;
       }
       setStep(3);
+    } catch (e) {
+      setError(e?.message ?? "Something went wrong. Please try again.");
     } finally {
       setSaving(false);
     }
