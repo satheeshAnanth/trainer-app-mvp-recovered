@@ -32,7 +32,7 @@ export async function sendOtpViaMSG91(phone, code) {
       body: JSON.stringify({
         template_id: templateId,
         short_url: "0",
-        recipients: [{ mobiles: toMsg91Phone(phone), otp: code }],
+        recipients: [{ mobiles: toMsg91Phone(phone), VAR: code }],
       }),
     });
   } catch (err) {
