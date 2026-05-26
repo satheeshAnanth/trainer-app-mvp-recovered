@@ -1,6 +1,6 @@
 import { randomInt } from "crypto";
 
-const MSG91_OTP_API = "https://control.msg91.com/api/v5/otp";
+const MSG91_SMS_API = "https://control.msg91.com/api/v5/flow/";
 
 // MSG91 expects the number without +, e.g. 919876543210
 function toMsg91Phone(phone) {
@@ -23,7 +23,7 @@ export async function sendOtpViaMSG91(phone, code) {
 
   let res;
   try {
-    res = await fetch(MSG91_OTP_API, {
+    res = await fetch(MSG91_SMS_API, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -31,9 +31,8 @@ export async function sendOtpViaMSG91(phone, code) {
       },
       body: JSON.stringify({
         template_id: templateId,
-        mobile: toMsg91Phone(phone),
-        otp: code,
-        otp_expiry: 10,
+        short_url: "0",
+        recipients: [{ mobiles: toMsg91Phone(phone), otp: code }],
       }),
     });
   } catch (err) {
