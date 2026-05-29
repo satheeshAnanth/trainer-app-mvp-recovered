@@ -1,4 +1,4 @@
-package in.raakadvisory.trainerapp;
+package in.trainer.fitness;
 
 import com.getcapacitor.BridgeActivity;
 

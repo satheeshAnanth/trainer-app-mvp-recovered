@@ -1,7 +1,7 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'in.raakadvisory.trainerapp',
+  appId: 'in.trainer.fitness',
   appName: 'TrainerApp',
   webDir: 'out',
   server: {

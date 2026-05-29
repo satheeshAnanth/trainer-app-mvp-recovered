@@ -8,10 +8,10 @@ if (keystorePropertiesFile.exists()) {
 }
 
 android {
-    namespace = "in.raakadvisory.trainerapp"
+    namespace = "in.trainer.fitness"
     compileSdk = rootProject.ext.compileSdkVersion
     defaultConfig {
-        applicationId "in.raakadvisory.trainerapp"
+        applicationId "in.trainer.fitness"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
