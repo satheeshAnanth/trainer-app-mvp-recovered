@@ -8,6 +8,7 @@ const config: CapacitorConfig = {
     // Point to live Vercel deployment — no static export needed.
     // Set CAPACITOR_SERVER_URL env var to override for local dev.
     url: process.env.CAPACITOR_SERVER_URL ?? 'https://trainer-app-mvp-recovered.vercel.app',
+    hostname: 'trainer-app-mvp-recovered.vercel.app',
     androidScheme: 'https',
     cleartext: false,
   },
