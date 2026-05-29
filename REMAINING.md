@@ -6,11 +6,11 @@ _P0, P1, and P2.1–P2.5 are complete. Items below are what's left._
 
 ## P2 — Capacitor Setup (1 item left)
 
-- [ ] **2.6 App icons & splash screen**
-  - Need a 1024×1024 PNG source icon
-  - Run `npx @capacitor/assets generate` to produce all Android density variants
-  - Replaces the Capacitor placeholder icons currently in `android/app/src/main/res/mipmap-*/`
-  - After this, the APK is ready to build in Android Studio (`npx cap open android`)
+- [x] **2.6 App icons & splash screen** ✅
+  - Temporary dark-navy + mint "T" icon generated at `public/icon-1024.png`
+  - All 25 Android density variants generated via `@capacitor/assets generate`
+  - Replace `assets/icon-only.png` and `assets/splash.png` with final brand art and re-run to update
+  - **APK is now ready to build** — open in Android Studio with `npx cap open android`
 
 ---
 
