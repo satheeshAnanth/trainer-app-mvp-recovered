@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
 import TrainerShell from "app/_components/TrainerShell";
+import TipBanner from "app/_components/TipBanner";
 import { buildExerciseWarnings, buildProfileSafetyPlan } from "app/lib/coachSafety";
 import { describeMetricKey, getMetricOptions, labelizeMetricKey } from "app/lib/metricLabels";
 import Link from "next/link";
@@ -634,6 +635,16 @@ export default function Page() {
 
   return (
     <TrainerShell title={form.sessionTitle} subtitle="">
+      <TipBanner
+        storageKey="tip-session-log-v1"
+        title="How to log a session"
+        steps={[
+          "Select a client — their goal exercises load automatically from the template you created.",
+          "Tap each exercise in the timeline to open the editor. Add sets and log metrics (reps, load, RPE).",
+          "Mark each goal exercise as Completed, Partial, or Skipped before closing the editor.",
+          "Switch to the Final tab when done. Confirm payment received, add a closing note, then Lock Session.",
+        ]}
+      />
       {draftRestored ? (
         <div className="metric-card" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderLeft: "4px solid #facc15", marginBottom: 0 }}>
           <p className="item-sub" style={{ margin: 0, color: "#facc15" }}>Draft restored from your last session.</p>

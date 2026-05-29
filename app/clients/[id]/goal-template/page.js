@@ -6,6 +6,7 @@ import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import TrainerShell from "app/_components/TrainerShell";
 import { buildExerciseWarnings, buildProfileSafetyPlan } from "app/lib/coachSafety";
+import TipBanner from "app/_components/TipBanner";
 
 function newExercise() {
   return {
@@ -216,6 +217,7 @@ export default function Page() {
       }
       setMessage("Goal template saved.");
       setSaveSuccessModalOpen(true);
+      try { localStorage.setItem("trainer-goal-template-saved", "1"); } catch { /* ignore */ }
     } catch {
       setMessage("Could not save goal template.");
     } finally {
@@ -225,6 +227,16 @@ export default function Page() {
 
   return (
     <TrainerShell title={clientName} subtitle="Client goal setup">
+      <TipBanner
+        storageKey="tip-goal-template-v1"
+        title="What is a goal template?"
+        steps={[
+          "A goal template is the exercise plan you design for this client — the moves, targets, and frequencies.",
+          "Every time you log a session for them, these exercises auto-load as mandatory items to review.",
+          "Search an exercise by name, set a target (e.g. '3×8 at 60kg') and a frequency, then Save.",
+          "You can update the template any time — changes apply from the next session onwards.",
+        ]}
+      />
       <article className="card panel">
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div>
