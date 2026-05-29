@@ -179,6 +179,105 @@ export default function Page() {
         </Link>
       </article>
 
+      {loaded && !onboardingDismissed ? (() => {
+        const hasGoalTemplate = typeof window !== "undefined" && localStorage.getItem("trainer-goal-template-saved") === "1";
+        const steps = [
+          {
+            id: "client",
+            title: "Add your first client",
+            desc: "Go to Clients → Add Client. Enter their name, mobile, and training goal.",
+            href: "/clients",
+            cta: "Add client →",
+            done: clients.length > 0,
+          },
+          {
+            id: "template",
+            title: "Create a goal template",
+            desc: "Open the client → Goal Template. Add the exercises and targets that load automatically in every session.",
+            href: clients[0] ? `/clients/${clients[0].id}/goal-template` : "/clients",
+            cta: "Create template →",
+            done: hasGoalTemplate,
+          },
+          {
+            id: "session",
+            title: "Log your first session",
+            desc: "Tap + New Session. Select the client, open each exercise, add sets, mark completion, then lock the session.",
+            href: "/sessions/new",
+            cta: "New session →",
+            done: sessions.length > 0,
+          },
+          {
+            id: "schedule",
+            title: "Schedule your first appointment",
+            desc: "Go to Schedule → Create appointment. Pick a client, date, and time — they get notified.",
+            href: "/schedule",
+            cta: "Open schedule →",
+            done: scheduleEvents.length > 0,
+          },
+        ];
+        const completedCount = steps.filter((s) => s.done).length;
+        const allDone = completedCount === steps.length;
+
+        return (
+          <article className="card panel" style={{ borderLeft: "4px solid var(--mint)", background: "linear-gradient(135deg, rgba(45,212,191,0.07), transparent)" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+              <div>
+                <p className="eyebrow" style={{ marginTop: 0, color: "var(--mint)" }}>Getting started</p>
+                <h2 style={{ margin: "4px 0 2px" }}>
+                  {allDone ? "You\'re all set!" : `${completedCount} of ${steps.length} complete`}
+                </h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  try { localStorage.setItem(ONBOARDING_KEY, "1"); } catch { /* ignore */ }
+                  setOnboardingDismissed(true);
+                }}
+                style={{ background: "none", border: "none", color: "#64748b", cursor: "pointer", fontSize: 20, padding: 0 }}
+                aria-label="Dismiss"
+              >
+                ×
+              </button>
+            </div>
+            <div style={{ margin: "4px 0 14px", height: 6, borderRadius: 999, background: "#1e293b", overflow: "hidden" }}>
+              <div style={{ width: `${(completedCount / steps.length) * 100}%`, height: "100%", background: "var(--mint)", transition: "width 0.4s ease" }} />
+            </div>
+            <div style={{ display: "grid", gap: 8 }}>
+              {steps.map(({ id, title, desc, href, cta, done }) => (
+                <div key={id} className="metric-card" style={{
+                  opacity: done ? 0.55 : 1,
+                  borderLeft: done ? "3px solid #34d399" : "3px solid rgba(45,212,191,0.3)",
+                }}>
+                  <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+                    <span style={{
+                      width: 22, height: 22, borderRadius: "50%", flexShrink: 0, display: "flex",
+                      alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700,
+                      background: done ? "#34d399" : "rgba(45,212,191,0.15)",
+                      color: done ? "#052e1a" : "var(--mint)",
+                      marginTop: 2,
+                    }}>
+                      {done ? "✓" : null}
+                    </span>
+                    <div style={{ flex: 1 }}>
+                      <p className="item-title" style={{ margin: 0, textDecoration: done ? "line-through" : "none", color: done ? "#64748b" : "#e2e8f0" }}>{title}</p>
+                      {!done ? <p className="item-sub" style={{ marginTop: 4 }}>{desc}</p> : null}
+                    </div>
+                    {!done ? (
+                      <Link href={href} className="mint-button mint-button-sm" style={{ flexShrink: 0 }}>{cta}</Link>
+                    ) : null}
+                  </div>
+                </div>
+              ))}
+            </div>
+            {allDone ? (
+              <p className="item-sub" style={{ marginTop: 12, textAlign: "center", color: "#34d399" }}>
+                Your practice is live. Dismiss this card when you&apos;re ready.
+              </p>
+            ) : null}
+          </article>
+        );
+      })() : null}
+
       <div className="kpi-grid">
         <article className="kpi-card">
           <p className="kpi-label">Clients</p>
@@ -268,108 +367,6 @@ export default function Page() {
           ) : null}
         </article>
       ) : null}
-
-      {loaded && !onboardingDismissed ? (() => {
-        const hasGoalTemplate = typeof window !== "undefined" && localStorage.getItem("trainer-goal-template-saved") === "1";
-        const steps = [
-          {
-            id: "client",
-            title: "Add your first client",
-            desc: "Go to Clients → Add Client. Enter their name, mobile, and training goal.",
-            href: "/clients",
-            cta: "Add client →",
-            done: clients.length > 0,
-          },
-          {
-            id: "template",
-            title: "Create a goal template",
-            desc: "Open the client → Goal Template. Add the exercises and targets that load automatically in every session.",
-            href: clients[0] ? `/clients/${clients[0].id}/goal-template` : "/clients",
-            cta: "Create template →",
-            done: hasGoalTemplate,
-          },
-          {
-            id: "session",
-            title: "Log your first session",
-            desc: "Tap + New Session. Select the client, open each exercise, add sets, mark completion, then lock the session.",
-            href: "/sessions/new",
-            cta: "New session →",
-            done: sessions.length > 0,
-          },
-          {
-            id: "schedule",
-            title: "Schedule your first appointment",
-            desc: "Go to Schedule → Create appointment. Pick a client, date, and time — they get notified.",
-            href: "/schedule",
-            cta: "Open schedule →",
-            done: scheduleEvents.length > 0,
-          },
-        ];
-        const completedCount = steps.filter((s) => s.done).length;
-        const allDone = completedCount === steps.length;
-
-        return (
-          <article className="card panel" style={{ borderLeft: "4px solid var(--mint)", background: "linear-gradient(135deg, rgba(45,212,191,0.07), transparent)" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-              <div>
-                <p className="eyebrow" style={{ marginTop: 0, color: "var(--mint)" }}>Getting started</p>
-                <h2 style={{ margin: "4px 0 2px" }}>
-                  {allDone ? "You\'re all set!" : `${completedCount} of ${steps.length} complete`}
-                </h2>
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  try { localStorage.setItem(ONBOARDING_KEY, "1"); } catch { /* ignore */ }
-                  setOnboardingDismissed(true);
-                }}
-                style={{ background: "none", border: "none", color: "#64748b", cursor: "pointer", fontSize: 20, padding: 0 }}
-                aria-label="Dismiss"
-              >
-                ×
-              </button>
-            </div>
-
-            <div style={{ margin: "4px 0 14px", height: 6, borderRadius: 999, background: "#1e293b", overflow: "hidden" }}>
-              <div style={{ width: `${(completedCount / steps.length) * 100}%`, height: "100%", background: "var(--mint)", transition: "width 0.4s ease" }} />
-            </div>
-
-            <div style={{ display: "grid", gap: 8 }}>
-              {steps.map(({ id, title, desc, href, cta, done }) => (
-                <div key={id} className="metric-card" style={{
-                  opacity: done ? 0.55 : 1,
-                  borderLeft: done ? "3px solid #34d399" : "3px solid rgba(45,212,191,0.3)",
-                }}>
-                  <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
-                    <span style={{
-                      width: 22, height: 22, borderRadius: "50%", flexShrink: 0, display: "flex",
-                      alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 700,
-                      background: done ? "#34d399" : "rgba(45,212,191,0.15)",
-                      color: done ? "#052e1a" : "var(--mint)",
-                      marginTop: 2,
-                    }}>
-                      {done ? "✓" : null}
-                    </span>
-                    <div style={{ flex: 1 }}>
-                      <p className="item-title" style={{ margin: 0, textDecoration: done ? "line-through" : "none", color: done ? "#64748b" : "#e2e8f0" }}>{title}</p>
-                      {!done ? <p className="item-sub" style={{ marginTop: 4 }}>{desc}</p> : null}
-                    </div>
-                    {!done ? (
-                      <Link href={href} className="mint-button mint-button-sm" style={{ flexShrink: 0 }}>{cta}</Link>
-                    ) : null}
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            {allDone ? (
-              <p className="item-sub" style={{ marginTop: 12, textAlign: "center", color: "#34d399" }}>
-                Your practice is live. Dismiss this card when you&apos;re ready.
-              </p>
-            ) : null}
-          </article>
-        );
-      })() : null}
 
       <article className="card panel">
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
