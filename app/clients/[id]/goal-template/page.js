@@ -390,7 +390,7 @@ export default function Page() {
           </div>
         ) : null}
         {searchModal.open ? (
-          <div className="modal-backdrop" onClick={() => setSearchModal({ open: false, exIndex: -1, query: "" })}>
+          <div className="modal-backdrop">
             <div
               className="modal-card card"
               style={{ width: "100vw", maxWidth: "100vw", minHeight: "100vh", borderRadius: 0 }}
@@ -412,7 +412,7 @@ export default function Page() {
                   style={{ width: 36, minWidth: 36, padding: "8px 0", textAlign: "center" }}
                   onClick={() => searchExercises(searchModal.query)}
                 >
-                  o
+                  Search
                 </button>
               </div>
               <div style={{ display: "grid", gap: 8, marginTop: 10 }}>

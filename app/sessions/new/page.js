@@ -1012,7 +1012,7 @@ export default function Page() {
       {message ? <p className="item-sub" style={{ color: message.toLowerCase().includes("unable") || message.toLowerCase().includes("select") || message.toLowerCase().includes("resolve") ? "#fca5a5" : "#34d399" }}>{message}</p> : null}
 
       {searchModalOpen ? (
-        <div className="modal-backdrop" onClick={() => setSearchModalOpen(false)}>
+        <div className="modal-backdrop">
           <div className="modal-card card" onClick={(e) => e.stopPropagation()}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <h2 style={{ margin: 0 }}>Search Exercise</h2>
