@@ -52,31 +52,26 @@ export async function buildRecoveredPayload(route, params = {}) {
       };
 
     case "api/clients": {
+      const trainerPhone = params?.trainerPhone ?? null;
       const hasPriorCondition = await hasTableColumn("clients", "prior_condition");
-      const rows = await safeQuery(
-        `
-          SELECT
-            id,
-            name,
-            goal,
-            mobile,
-            age,
-            weight_kg,
-            height_cm,
-            gender,
-            activity_level,
-            ${hasPriorCondition ? "prior_condition," : ""}
-            created_by_trainer,
-            created_at,
-            updated_at
-          FROM clients
-          ORDER BY created_at DESC
-          LIMIT 200
-        `
+      const rows = trainerPhone
+        ? await safeQuery(
+            `SELECT id, name, goal, mobile, age, weight_kg, height_cm, gender, activity_level,
+                    ${hasPriorCondition ? "prior_condition," : ""}
+                    created_by_trainer, created_at, updated_at
+             FROM clients
+             WHERE regexp_replace(COALESCE(created_by_trainer, ''), '[^0-9]', '', 'g')
+                 = regexp_replace(COALESCE($1, ''), '[^0-9]', '', 'g')
+             ORDER BY created_at DESC LIMIT 200`,
+            [trainerPhone]
+          )
+        : null;
+      const fallback = (mockData.clients ?? []).filter(
+        (c) => !trainerPhone || !c.created_by_trainer || c.created_by_trainer === trainerPhone
       );
       return rows
         ? { clients: rows, source: "database", table: "clients" }
-        : { clients: mockData.clients, source: "mock", table: null };
+        : { clients: fallback, source: "mock", table: null };
     }
 
     case "api/clients/[id]": {
@@ -329,28 +324,19 @@ export async function buildRecoveredPayload(route, params = {}) {
     }
 
     case "api/profile/trainer": {
-      const rows = await safeQuery(
-        `
-          SELECT
-            id,
-            phone,
-            name,
-            gym_name,
-            specialization,
-            years_experience,
-            location,
-            pricing_tier,
-            billing_status,
-            trial_ends_at,
-            max_clients,
-            is_active,
-            created_at,
-            updated_at
-          FROM trainer_phones
-          ORDER BY updated_at DESC
-          LIMIT 1
-        `
-      );
+      const trainerPhone = params?.trainerPhone ?? null;
+      const rows = trainerPhone
+        ? await safeQuery(
+            `SELECT id, phone, name, gym_name, specialization, years_experience, location,
+                    pricing_tier, billing_status, trial_ends_at, max_clients, is_active,
+                    created_at, updated_at
+             FROM trainer_phones
+             WHERE regexp_replace(COALESCE(phone, ''), '[^0-9]', '', 'g')
+                 = regexp_replace(COALESCE($1, ''), '[^0-9]', '', 'g')
+             LIMIT 1`,
+            [trainerPhone]
+          )
+        : null;
       return rows
         ? { trainer: rows[0] ?? null, source: "database", table: "trainer_phones" }
         : { trainer: mockData.trainerProfile, source: "mock", table: null };

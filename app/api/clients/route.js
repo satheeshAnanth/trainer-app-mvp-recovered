@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { buildRecoveredPayload } from "app/lib/apiResponse";
-import { hasDatabaseUrl, query } from "app/lib/db";
+import { hasDatabaseUrl, hasTableColumn, query } from "app/lib/db";
 import { mockData } from "app/lib/mockData";
 import { normalizeBillingModel, PRICING_MODEL } from "app/lib/pricingModel";
 import { readTrainerPhone } from "app/lib/session";
@@ -43,14 +42,34 @@ function normalizeActivityLevel(value = "") {
   return allowed.has(normalized) ? normalized : null;
 }
 
-export async function GET() {
-  const payload = await buildRecoveredPayload("api/clients");
-  const response = NextResponse.json({
-    ok: true,
-    recovered: true,
-    route: "api/clients",
-    data: payload,
-  });
+export async function GET(request) {
+  const trainerPhone = readTrainerPhone(request.cookies.get("trainer_session")?.value) ?? null;
+
+  if (!trainerPhone) {
+    return NextResponse.json({ ok: false, message: "Login required." }, { status: 401 });
+  }
+
+  if (!hasDatabaseUrl()) {
+    const filtered = (mockData.clients ?? []).filter(
+      (c) => !c.created_by_trainer || c.created_by_trainer === trainerPhone
+    );
+    return NextResponse.json({ ok: true, data: { clients: filtered, source: "mock" } });
+  }
+
+  const hasPriorCondition = await hasTableColumn("clients", "prior_condition");
+  const rows = await query(
+    `SELECT id, name, goal, mobile, age, weight_kg, height_cm, gender, activity_level,
+            ${hasPriorCondition ? "prior_condition," : ""}
+            created_by_trainer, created_at, updated_at
+     FROM clients
+     WHERE regexp_replace(COALESCE(created_by_trainer, ''), '[^0-9]', '', 'g')
+         = regexp_replace(COALESCE($1, ''), '[^0-9]', '', 'g')
+     ORDER BY created_at DESC
+     LIMIT 200`,
+    [trainerPhone]
+  );
+
+  const response = NextResponse.json({ ok: true, data: { clients: rows, source: "database" } });
   response.headers.set("Cache-Control", "private, no-cache, stale-while-revalidate=30");
   return response;
 }
