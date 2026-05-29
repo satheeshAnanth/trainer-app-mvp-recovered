@@ -875,8 +875,11 @@ code {
 
 .dashboard-hero-title {
   margin: 4px 0 0;
-  font-size: 42px;
+  font-size: clamp(24px, 8vw, 42px);
   line-height: 1.05;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .dashboard-hero-sub {
@@ -907,9 +910,12 @@ code {
 
 .kpi-value {
   margin: 8px 0 0;
-  font-size: 44px;
+  font-size: clamp(28px, 9vw, 44px);
   line-height: 1;
   font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .recent-session-row {

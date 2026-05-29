@@ -78,6 +78,7 @@ export default function Page() {
         <div className="client-detail-head">
           <h2>{client?.name || "Client"}</h2>
           <Link href="/sessions/new" className="mint-button">+ New Session</Link>
+          <Link href={`/clients/${clientId}/week`} className="ghost-button ghost-button-sm">This week</Link>
         </div>
         <div className="client-detail-rows">
           <div className="client-detail-row"><span>Goal</span><strong>{client?.goal || "Not set"}</strong></div>

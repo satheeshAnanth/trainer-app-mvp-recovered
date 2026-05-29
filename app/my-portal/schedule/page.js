@@ -43,6 +43,7 @@ export default function Page() {
   const [saving, setSaving] = useState(false);
   const [remindersEnabled, setRemindersEnabled] = useState(false);
   const [form, setForm] = useState(defaultForm());
+  const [sheetEvent, setSheetEvent] = useState(null);
 
   async function load() {
     const [sessionRes, eventsRes] = await Promise.all([fetch("/api/client-auth/session"), fetch("/api/schedule/events")]);
@@ -372,32 +373,12 @@ export default function Page() {
                       {event.notes ? <p className="item-sub">{event.notes}</p> : null}
                       {getNextScheduleReminderSummary(event) ? <p className="item-sub">{getNextScheduleReminderSummary(event)}</p> : null}
                     </div>
-                    <div className="quick-actions" style={{ flexDirection: "column", alignItems: "stretch", minWidth: 120 }}>
+                    <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
                       <span className="status-chip" style={tone}>{buildScheduleActionLabel(event.status)}</span>
-                      {ownRequest && status !== "completed" ? (
-                        <button className="ghost-button ghost-button-sm" type="button" onClick={() => editEvent(event)}>
-                          Reschedule
+                      {status !== "completed" && status !== "cancelled" ? (
+                        <button className="ghost-button ghost-button-sm" type="button" onClick={() => setSheetEvent({ event, ownRequest })}>
+                          Actions
                         </button>
-                      ) : null}
-                      {ownRequest && status !== "completed" ? (
-                        <button
-                          className="ghost-button ghost-button-sm"
-                          type="button"
-                          style={{ borderColor: "#7f1d1d", color: "#fecaca" }}
-                          onClick={() => changeStatus(event.id, "cancelled")}
-                        >
-                          Cancel
-                        </button>
-                      ) : null}
-                      {!ownRequest && status === "pending" ? (
-                        <>
-                          <button className="ghost-button ghost-button-sm" type="button" onClick={() => changeStatus(event.id, "accepted")}>
-                            Confirm
-                          </button>
-                          <button className="ghost-button ghost-button-sm" type="button" onClick={() => changeStatus(event.id, "declined")}>
-                            Decline
-                          </button>
-                        </>
                       ) : null}
                     </div>
                   </div>
@@ -409,6 +390,32 @@ export default function Page() {
       </article>
 
       {message ? <p className="item-sub">{message}</p> : null}
+
+      {sheetEvent ? (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(2,6,23,0.72)", zIndex: 60, display: "flex", alignItems: "flex-end" }} onClick={() => setSheetEvent(null)}>
+          <div style={{ width: "100%", background: "#0f172a", borderRadius: "20px 20px 0 0", padding: "20px 16px", paddingBottom: "calc(20px + env(safe-area-inset-bottom))" }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ width: 40, height: 4, borderRadius: 2, background: "#334155", margin: "0 auto 16px" }} />
+            <p className="item-title" style={{ marginBottom: 4 }}>{sheetEvent.event.client_name || sessionUser?.name || "Session"}</p>
+            <p className="item-sub" style={{ marginBottom: 16 }}>
+              {formatScheduleDateLabel(sheetEvent.event.scheduled_date)} · {formatScheduleTimeLabel(sheetEvent.event.scheduled_time)}
+            </p>
+            <div style={{ display: "grid", gap: 8 }}>
+              {sheetEvent.ownRequest ? (
+                <>
+                  <button className="ghost-button" type="button" onClick={() => { editEvent(sheetEvent.event); setSheetEvent(null); }}>Reschedule</button>
+                  <button className="ghost-button" type="button" style={{ borderColor: "#7f1d1d", color: "#fecaca" }} onClick={() => { changeStatus(sheetEvent.event.id, "cancelled"); setSheetEvent(null); }}>Cancel request</button>
+                </>
+              ) : (
+                <>
+                  <button className="continue-btn" type="button" onClick={() => { changeStatus(sheetEvent.event.id, "accepted"); setSheetEvent(null); }}>Confirm</button>
+                  <button className="ghost-button" type="button" onClick={() => { changeStatus(sheetEvent.event.id, "declined"); setSheetEvent(null); }}>Decline</button>
+                </>
+              )}
+              <button className="ghost-button" type="button" onClick={() => setSheetEvent(null)}>Dismiss</button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </ClientShell>
   );
 }

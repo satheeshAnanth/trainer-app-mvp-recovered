@@ -57,6 +57,22 @@ function TrainerOnboardForm() {
   const isValidPhone = useMemo(() => form.phone.replace(/\D/g, "").length === 10, [form.phone]);
 
   useEffect(() => {
+    let backListener;
+    (async () => {
+      try {
+        const { Capacitor } = await import("@capacitor/core");
+        if (!Capacitor.isNativePlatform()) return;
+        const { App } = await import("@capacitor/app");
+        backListener = await App.addListener("backButton", () => {
+          if (step > 1) setStep((s) => s - 1);
+          else App.exitApp();
+        });
+      } catch { /* not native */ }
+    })();
+    return () => { backListener?.remove?.(); };
+  }, [step]);
+
+  useEffect(() => {
     const rawPhone = String(searchParams.get("phone") ?? "").trim();
     if (rawPhone) {
       const digits = rawPhone.replace(/\D/g, "");

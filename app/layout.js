@@ -1,6 +1,7 @@
 import "./globals.css";
 import { Inter } from "next/font/google";
 import CapacitorInit from "app/_components/CapacitorInit";
+import OfflineBanner from "app/_components/OfflineBanner";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 
@@ -25,6 +26,7 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en" className={inter.variable}>
       <body className={`app-body ${inter.className}`}>
+        <OfflineBanner />
         {children}
         <CapacitorInit />
       </body>

@@ -90,6 +90,7 @@ export default function Page() {
   const [form, setForm] = useState(defaultForm());
   const [calView, setCalView] = useState("list");
   const [weekPivot, setWeekPivot] = useState(new Date().toISOString().slice(0, 10));
+  const [sheetEvent, setSheetEvent] = useState(null);
 
   async function load() {
     const [eventsRes, clientsRes] = await Promise.all([fetch("/api/schedule/events"), fetch("/api/clients")]);
@@ -338,32 +339,65 @@ export default function Page() {
             </p>
             <button className="ghost-button ghost-button-sm" type="button" onClick={() => setWeekPivot(addDays(isoDate(weekDates[0]), 7))}>Next →</button>
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4 }}>
+          <div style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 8 }}>
             {WEEK_DAYS.map((d, i) => {
               const date = weekDates[i];
               const key = isoDate(date);
               const dayEvents = weekEventsByDay.get(key) ?? [];
               const isToday = key === new Date().toISOString().slice(0, 10);
+              const isSelected = key === weekPivot || (weekPivot === isoDate(weekDates[0]) && i === 0);
               return (
-                <div key={key} style={{ minHeight: 80, borderRadius: 6, border: isToday ? "1px solid var(--mint)" : "1px solid rgba(255,255,255,0.08)", padding: "6px 4px" }}>
-                  <p className="item-sub" style={{ margin: "0 0 4px", textAlign: "center", color: isToday ? "var(--mint)" : "#94a3b8", fontSize: 11, fontWeight: 600 }}>
-                    {d}<br />{date.getDate()}
-                  </p>
-                  {dayEvents.slice(0, 3).map((event) => {
-                    const tone = statusTone(event.status);
-                    return (
-                      <div key={event.id} style={{ background: "rgba(255,255,255,0.05)", borderLeft: `3px solid ${tone.color}`, borderRadius: 3, padding: "3px 5px", marginBottom: 3 }}>
-                        <p style={{ margin: 0, fontSize: 10, color: "#e2e8f0", lineHeight: 1.3, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }}>
-                          {formatScheduleTimeLabel(event.scheduled_time)} {event.client_name || "Client"}
-                        </p>
-                      </div>
-                    );
-                  })}
-                  {dayEvents.length > 3 ? <p className="item-sub" style={{ margin: 0, fontSize: 10, textAlign: "center" }}>+{dayEvents.length - 3}</p> : null}
-                </div>
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setWeekPivot(key)}
+                  style={{
+                    flex: "0 0 auto",
+                    minWidth: 52,
+                    borderRadius: 12,
+                    border: isToday ? "1px solid var(--mint)" : "1px solid rgba(255,255,255,0.1)",
+                    background: isSelected ? "rgba(45,212,191,0.15)" : "transparent",
+                    padding: "8px 4px",
+                    cursor: "pointer",
+                    textAlign: "center",
+                    position: "relative",
+                  }}
+                >
+                  <p style={{ margin: 0, fontSize: 11, fontWeight: 600, color: isToday ? "var(--mint)" : "#94a3b8" }}>{d}</p>
+                  <p style={{ margin: "2px 0 4px", fontSize: 15, fontWeight: 700, color: isToday ? "var(--mint)" : "#e2e8f0" }}>{date.getDate()}</p>
+                  {dayEvents.length > 0 ? (
+                    <div style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--mint)", margin: "0 auto" }} />
+                  ) : <div style={{ width: 6, height: 6 }} />}
+                </button>
               );
             })}
           </div>
+          {(() => {
+            const selectedDay = weekPivot;
+            const dayEvents = weekEventsByDay.get(selectedDay) ?? [];
+            const label = (() => {
+              try { return new Date(selectedDay).toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" }); } catch { return selectedDay; }
+            })();
+            return (
+              <div style={{ marginTop: 12 }}>
+                <p className="item-sub" style={{ marginBottom: 8, fontWeight: 600, color: "#cbd5e1" }}>{label}</p>
+                {dayEvents.length === 0 ? (
+                  <p className="item-sub">No appointments this day.</p>
+                ) : dayEvents.map((event) => {
+                  const tone = statusTone(event.status);
+                  return (
+                    <div key={event.id} className="list-item" style={{ marginBottom: 8, alignItems: "flex-start", borderLeft: `3px solid ${tone.color}`, paddingLeft: 10 }}>
+                      <div style={{ flex: 1 }}>
+                        <p className="item-title">{event.client_name || "Client"} · {formatScheduleTimeLabel(event.scheduled_time)}</p>
+                        {event.notes ? <p className="item-sub">{event.notes}</p> : null}
+                      </div>
+                      <span className="status-chip" style={tone}>{buildScheduleActionLabel(event.status)}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })()}
         </article>
       ) : null}
 
@@ -529,8 +563,6 @@ export default function Page() {
               <p className="item-title" style={{ marginBottom: 8 }}>{formatScheduleDateLabel(date)}</p>
               {list.map((event) => {
                 const tone = statusTone(event.status);
-                const canEdit = !["completed"].includes(String(event.status || "").toLowerCase());
-                const isPending = String(event.status || "").toLowerCase() === "pending";
                 return (
                   <div key={event.id} className="list-item" style={{ marginBottom: 8, alignItems: "flex-start" }}>
                     <div style={{ flex: 1 }}>
@@ -539,38 +571,14 @@ export default function Page() {
                       </p>
                       <p className="item-sub">Requested by {event.created_by_role || "trainer"}</p>
                       {event.notes ? <p className="item-sub">{event.notes}</p> : null}
-                      {getNextScheduleReminderSummary(event) ? <p className="item-sub">{getNextScheduleReminderSummary(event)}</p> : null}
                     </div>
-                    <div className="quick-actions" style={{ flexDirection: "column", alignItems: "stretch", minWidth: 120 }}>
+                    <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
                       <span className="status-chip" style={tone}>{buildScheduleActionLabel(event.status)}</span>
-                      {isPending ? (
-                        <>
-                          <button className="ghost-button ghost-button-sm" type="button" onClick={() => changeStatus(event.id, "accepted")}>
-                            Confirm
-                          </button>
-                          <button className="ghost-button ghost-button-sm" type="button" onClick={() => changeStatus(event.id, "declined")}>
-                            Decline
-                          </button>
-                        </>
-                      ) : null}
-                      {canEdit ? (
-                        <button className="ghost-button ghost-button-sm" type="button" onClick={() => editEvent(event)}>
-                          Reschedule
+                      {!["completed", "cancelled"].includes(String(event.status || "").toLowerCase()) ? (
+                        <button className="ghost-button ghost-button-sm" type="button" onClick={() => setSheetEvent(event)}>
+                          Actions
                         </button>
                       ) : null}
-                      {!isPending && String(event.status || "").toLowerCase() === "accepted" ? (
-                        <button className="ghost-button ghost-button-sm" type="button" onClick={() => changeStatus(event.id, "completed")}>
-                          Complete
-                        </button>
-                      ) : null}
-                      <button
-                        className="ghost-button ghost-button-sm"
-                        type="button"
-                        style={{ borderColor: "#7f1d1d", color: "#fecaca" }}
-                        onClick={() => changeStatus(event.id, "cancelled")}
-                      >
-                        Cancel
-                      </button>
                     </div>
                   </div>
                 );
@@ -581,6 +589,32 @@ export default function Page() {
       </article>
 
       {message ? <p className="item-sub">{message}</p> : null}
+
+      {sheetEvent ? (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(2,6,23,0.72)", zIndex: 60, display: "flex", alignItems: "flex-end" }} onClick={() => setSheetEvent(null)}>
+          <div style={{ width: "100%", background: "#0f172a", borderRadius: "20px 20px 0 0", padding: "20px 16px", paddingBottom: "calc(20px + env(safe-area-inset-bottom))" }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ width: 40, height: 4, borderRadius: 2, background: "#334155", margin: "0 auto 16px" }} />
+            <p className="item-title" style={{ marginBottom: 4 }}>{sheetEvent.client_name || "Client"}</p>
+            <p className="item-sub" style={{ marginBottom: 16 }}>
+              {formatScheduleDateLabel(sheetEvent.scheduled_date)} · {formatScheduleTimeLabel(sheetEvent.scheduled_time)}
+            </p>
+            <div style={{ display: "grid", gap: 8 }}>
+              {String(sheetEvent.status || "").toLowerCase() === "pending" ? (
+                <>
+                  <button className="continue-btn" type="button" onClick={() => { changeStatus(sheetEvent.id, "accepted"); setSheetEvent(null); }}>Confirm</button>
+                  <button className="ghost-button" type="button" onClick={() => { changeStatus(sheetEvent.id, "declined"); setSheetEvent(null); }}>Decline</button>
+                </>
+              ) : null}
+              {String(sheetEvent.status || "").toLowerCase() === "accepted" ? (
+                <button className="continue-btn" type="button" onClick={() => { changeStatus(sheetEvent.id, "completed"); setSheetEvent(null); }}>Mark completed</button>
+              ) : null}
+              <button className="ghost-button" type="button" onClick={() => { editEvent(sheetEvent); setSheetEvent(null); }}>Reschedule</button>
+              <button className="ghost-button" type="button" style={{ borderColor: "#7f1d1d", color: "#fecaca" }} onClick={() => { changeStatus(sheetEvent.id, "cancelled"); setSheetEvent(null); }}>Cancel appointment</button>
+              <button className="ghost-button" type="button" onClick={() => setSheetEvent(null)}>Dismiss</button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </TrainerShell>
   );
 }

@@ -402,7 +402,7 @@ export default function Page() {
                 const score = s.payload?.assessment?.score ?? null;
                 return (
                   <li key={s.id} className="list-item" style={{ alignItems: "flex-start", padding: "10px 0" }}>
-                    <div style={{ flex: 1 }}>
+                    <Link href={`/my-portal/sessions/${s.id}`} style={{ flex: 1, textDecoration: "none", color: "inherit" }}>
                       <p className="item-title">{s.sessionTitle}</p>
                       <p className="item-sub">
                         {formatSessionDateShort(s.sessionDate)}
@@ -412,7 +412,7 @@ export default function Page() {
                       {s.payload?.sections?.mainWork && (
                         <p className="item-sub" style={{ marginTop: 4, color: "#cbd5e1" }}>{String(s.payload.sections.mainWork).slice(0, 80)}{String(s.payload.sections.mainWork).length > 80 ? "…" : ""}</p>
                       )}
-                    </div>
+                    </Link>
                     <span className="status-chip" style={{ color: s.status === "completed" ? "#34d399" : s.status === "pending_notes" ? "#facc15" : "#94a3b8" }}>
                       {String(s.status ?? "draft").replace(/_/g, " ")}
                     </span>

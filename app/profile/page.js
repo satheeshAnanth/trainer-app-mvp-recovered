@@ -178,12 +178,19 @@ export default function Page() {
                   <button
                     type="button"
                     className="ghost-button ghost-button-sm"
-                    onClick={() => {
+                    onClick={async () => {
                       const url = `${window.location.origin}/join?ref=${referralCode}`;
-                      navigator.clipboard.writeText(url).then(() => {
+                      try {
+                        const { Capacitor } = await import("@capacitor/core");
+                        if (Capacitor.isNativePlatform()) {
+                          const { Clipboard } = await import("@capacitor/clipboard");
+                          await Clipboard.write({ string: url });
+                        } else {
+                          await navigator.clipboard.writeText(url);
+                        }
                         setCopied(true);
                         setTimeout(() => setCopied(false), 2000);
-                      });
+                      } catch { /* ignore */ }
                     }}
                   >
                     {copied ? "Copied!" : "Copy"}
