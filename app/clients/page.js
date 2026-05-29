@@ -169,8 +169,8 @@ export default function Page() {
       </article>
 
       {showModal ? (
-        <div className="modal-backdrop" role="presentation" onClick={() => setShowModal(false)}>
-          <div className="modal-card card" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-backdrop" role="presentation">
+          <div className="modal-card card" role="dialog" aria-modal="true">
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <h2 style={{ margin: 0 }}>Add Client</h2>
               <button

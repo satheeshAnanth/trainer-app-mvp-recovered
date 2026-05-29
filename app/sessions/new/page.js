@@ -1047,8 +1047,8 @@ export default function Page() {
       ) : null}
 
       {showAddClient ? (
-        <div className="modal-backdrop" onClick={() => setShowAddClient(false)}>
-          <div className="modal-card card" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-backdrop">
+          <div className="modal-card card">
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}><h2 style={{ margin: 0 }}>Add Client</h2><button className="ghost-button" type="button" onClick={() => setShowAddClient(false)}>Close</button></div>
             <div className="form-grid" style={{ marginTop: 12 }}>
               <label className="field full"><span>Name *</span><input placeholder="Client full name" value={newClient.name} onChange={(e)=>setNewClient((p)=>({...p,name:e.target.value}))} /></label>
