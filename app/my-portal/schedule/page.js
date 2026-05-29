@@ -216,10 +216,10 @@ export default function Page() {
   return (
     <ClientShell title="My Schedule" subtitle="Simple requests, confirmations, reminders, and reschedules—no chat thread.">
       <article className="card panel">
-        <div className="quick-actions" style={{ marginBottom: 10, flexWrap: "wrap" }}>
-          <span className="status-chip">Total {events.length}</span>
-          <span className="status-chip" style={{ color: "#facc15" }}>Pending {events.filter((event) => String(event.status || "").toLowerCase() === "pending").length}</span>
-          <span className="status-chip" style={{ color: "#34d399" }}>Accepted {events.filter((event) => String(event.status || "").toLowerCase() === "accepted").length}</span>
+        <div className="filter-chip-row" style={{ marginBottom: 10 }}>
+          <span className="status-chip" style={{ whiteSpace: "nowrap" }}>Total {events.length}</span>
+          <span className="status-chip" style={{ color: "#facc15", whiteSpace: "nowrap" }}>Pending {events.filter((event) => String(event.status || "").toLowerCase() === "pending").length}</span>
+          <span className="status-chip" style={{ color: "#34d399", whiteSpace: "nowrap" }}>Accepted {events.filter((event) => String(event.status || "").toLowerCase() === "accepted").length}</span>
         </div>
         <p className="item-sub">
           {sessionUser?.name ? `Signed in as ${sessionUser.name}.` : "Loading your client schedule..."}

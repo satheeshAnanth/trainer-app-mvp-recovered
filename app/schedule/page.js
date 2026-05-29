@@ -306,7 +306,7 @@ export default function Page() {
     <TrainerShell title="Schedule Calendar" subtitle="Simple two-way requests, confirmations, and calendar-style reminders.">
       <article className="card panel">
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-          <div className="filter-chip-row" style={{ flex: 1, paddingBottom: 0 }}>
+          <div className="filter-chip-row" style={{ flex: 1, minWidth: 0, paddingBottom: 0 }}>
             <span className="status-chip" style={{ whiteSpace: "nowrap" }}>Total {counts.total}</span>
             <span className="status-chip" style={{ color: "#facc15", whiteSpace: "nowrap" }}>Pending {counts.pending}</span>
             <span className="status-chip" style={{ color: "#34d399", whiteSpace: "nowrap" }}>Accepted {counts.accepted}</span>
@@ -409,7 +409,7 @@ export default function Page() {
         <div className="section-header" style={{ marginBottom: 10 }}>
           <div>
             <h2 style={{ marginBottom: 4 }}>Pending confirmations</h2>
-            <p className="item-sub">These requests still need a response. Reschedule moves them back to pending if the time changes.</p>
+            <p className="item-sub">Requests waiting for a response.</p>
           </div>
           <span className="status-chip" style={{ color: pendingEvents.length ? "#facc15" : "#cbd5e1" }}>
             {pendingEvents.length ? `${pendingEvents.length} waiting` : "All caught up"}
@@ -442,7 +442,7 @@ export default function Page() {
         <div className="section-header" style={{ marginBottom: 10 }}>
           <div>
             <h2 style={{ marginBottom: 4 }}>Reminders</h2>
-            <p className="item-sub">Use the schedule tab as a lightweight calendar view. Browser notifications are optional.</p>
+            <p className="item-sub">24h and 1h alerts for upcoming sessions.</p>
           </div>
           <button type="button" className="mint-button mint-button-sm" onClick={enableReminders}>
             {remindersEnabled ? "Reminders enabled" : "Enable browser reminders"}
@@ -559,6 +559,10 @@ export default function Page() {
       </article>
 
       <article className="card panel">
+        <div className="section-header" style={{ marginBottom: 12 }}>
+          <h2 style={{ margin: 0 }}>All appointments</h2>
+          <span className="status-chip">{visibleEvents.length} shown</span>
+        </div>
         {grouped.length === 0 ? (
           <p className="item-sub">No appointments yet.</p>
         ) : (

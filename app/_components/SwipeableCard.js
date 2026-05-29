@@ -41,7 +41,7 @@ export default function SwipeableCard({ children, onSwipeLeft, disabled = false,
 
   return (
     <div
-      style={{ overflow: "hidden", borderRadius: 8, ...style }}
+      style={{ overflow: "hidden", borderRadius: 14, ...style }}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
