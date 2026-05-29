@@ -110,16 +110,12 @@ export function filterVisibleScheduleEvents(events = [], viewer = null) {
   if (viewer.role === "client") {
     return events.filter((event) => String(event.client_id ?? "") === String(viewer.clientId ?? ""));
   }
-
-  return events.filter((event) => {
-    if (!event) return false;
-    if (viewer.role !== "trainer") return false;
+  if (viewer.role === "trainer") {
     const trainerPhone = String(viewer.trainerPhone ?? "");
-    const eventTrainer = String(event.trainer_phone ?? "");
-    if (!trainerPhone) return true;
-    if (!eventTrainer) return event.created_by_role === "client";
-    return eventTrainer === trainerPhone || event.created_by_role === "client";
-  });
+    if (!trainerPhone) return [];
+    return events.filter((event) => event && String(event.trainer_phone ?? "") === trainerPhone);
+  }
+  return [];
 }
 
 export function buildScheduleActionLabel(status = "") {

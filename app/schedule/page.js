@@ -305,12 +305,14 @@ export default function Page() {
   return (
     <TrainerShell title="Schedule Calendar" subtitle="Simple two-way requests, confirmations, and calendar-style reminders.">
       <article className="card panel">
-        <div className="quick-actions" style={{ marginBottom: 10, flexWrap: "wrap" }}>
-          <span className="status-chip">Total {counts.total}</span>
-          <span className="status-chip" style={{ color: "#facc15" }}>Pending {counts.pending}</span>
-          <span className="status-chip" style={{ color: "#34d399" }}>Accepted {counts.accepted}</span>
-          <span className="status-chip" style={{ color: "#93c5fd" }}>Completed {counts.completed}</span>
-          <div style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+          <div className="filter-chip-row" style={{ flex: 1, paddingBottom: 0 }}>
+            <span className="status-chip" style={{ whiteSpace: "nowrap" }}>Total {counts.total}</span>
+            <span className="status-chip" style={{ color: "#facc15", whiteSpace: "nowrap" }}>Pending {counts.pending}</span>
+            <span className="status-chip" style={{ color: "#34d399", whiteSpace: "nowrap" }}>Accepted {counts.accepted}</span>
+            <span className="status-chip" style={{ color: "#93c5fd", whiteSpace: "nowrap" }}>Done {counts.completed}</span>
+          </div>
+          <div style={{ display: "flex", gap: 6, flexShrink: 0, marginLeft: 8 }}>
             <button type="button" className={calView === "list" ? "mint-button mint-button-sm" : "ghost-button ghost-button-sm"} onClick={() => setCalView("list")}>List</button>
             <button type="button" className={calView === "week" ? "mint-button mint-button-sm" : "ghost-button ghost-button-sm"} onClick={() => setCalView("week")}>Week</button>
           </div>
@@ -321,10 +323,11 @@ export default function Page() {
               <button
                 key={f}
                 type="button"
+                style={{ whiteSpace: "nowrap" }}
                 className={f === filter ? "mint-button mint-button-sm" : "ghost-button ghost-button-sm"}
                 onClick={() => setFilter(f)}
               >
-                {f === "all" ? "All statuses" : f[0].toUpperCase() + f.slice(1)}
+                {f === "all" ? "All" : f[0].toUpperCase() + f.slice(1)}
               </button>
             ))}
           </div>

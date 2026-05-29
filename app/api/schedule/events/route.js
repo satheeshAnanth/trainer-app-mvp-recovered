@@ -43,26 +43,26 @@ export async function GET(request) {
     });
   }
 
-  const rows = await query(
-    `
-      SELECT
-        id,
-        trainer_phone,
-        client_id,
-        client_name,
-        scheduled_date,
-        scheduled_time,
-        notes,
-        status,
-        created_by_role,
-        created_by_name,
-        created_at,
-        updated_at
-      FROM calendar_events
-      ORDER BY scheduled_date DESC, scheduled_time DESC, updated_at DESC
-      LIMIT 200
-    `
-  );
+  let rows;
+  if (viewer.role === "trainer") {
+    rows = await query(
+      `SELECT id, trainer_phone, client_id, client_name, scheduled_date, scheduled_time,
+              notes, status, created_by_role, created_by_name, created_at, updated_at
+       FROM calendar_events WHERE trainer_phone = $1
+       ORDER BY scheduled_date DESC, scheduled_time DESC, updated_at DESC LIMIT 200`,
+      [viewer.trainerPhone]
+    );
+  } else if (viewer.role === "client") {
+    rows = await query(
+      `SELECT id, trainer_phone, client_id, client_name, scheduled_date, scheduled_time,
+              notes, status, created_by_role, created_by_name, created_at, updated_at
+       FROM calendar_events WHERE client_id = $1
+       ORDER BY scheduled_date DESC, scheduled_time DESC, updated_at DESC LIMIT 200`,
+      [viewer.clientId]
+    );
+  } else {
+    rows = [];
+  }
 
   const visible = filterVisibleScheduleEvents(rows, viewer);
   return NextResponse.json({

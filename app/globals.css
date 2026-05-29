@@ -408,6 +408,14 @@ code {
   font-weight: 700;
 }
 
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
 .quick-actions {
   display: flex;
   gap: 10px;
