@@ -80,7 +80,7 @@ code {
 .auth-screen {
   min-height: 100vh;
   background: var(--auth-bg);
-  padding: 40px 16px;
+  padding: max(40px, env(safe-area-inset-top)) 16px 40px;
 }
 
 .auth-container {
@@ -319,7 +319,7 @@ code {
 
 .trainer-screen {
   min-height: 100vh;
-  padding: 16px 12px 108px;
+  padding: max(16px, env(safe-area-inset-top)) 12px 108px;
 }
 
 .client-screen .trainer-title {
@@ -743,9 +743,13 @@ code {
   padding: 16px;
 }
 
+:root {
+  --keyboard-height: 0px;
+}
+
 .modal-card {
   width: min(760px, 100%);
-  max-height: 90vh;
+  max-height: calc(100dvh - env(safe-area-inset-top) - var(--keyboard-height) - 32px);
   overflow: auto;
   padding: 16px;
 }
@@ -778,7 +782,7 @@ code {
 .wizard-tabs {
   margin-top: 10px;
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
   gap: 8px;
 }
 

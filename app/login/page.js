@@ -230,10 +230,15 @@ function LoginForm() {
                 <input
                   id="otp"
                   type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  autoComplete="one-time-code"
+                  autoFocus
                   className="auth-input"
                   placeholder="123456"
+                  maxLength={6}
                   value={otp}
-                  onChange={(event) => setOtp(event.target.value)}
+                  onChange={(event) => setOtp(event.target.value.replace(/\D/g, "").slice(0, 6))}
                 />
 
                 <div className="auth-button-row">

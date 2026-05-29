@@ -696,7 +696,7 @@ export default function Page() {
       </article> : null}
 
       {editorOpen && currentEntry ? (
-        <div className="modal-backdrop" onClick={() => setEditorOpen(false)}>
+        <div className="modal-backdrop">
           <div className="modal-card card" style={{ maxHeight: "100vh", height: "100vh", borderRadius: 0, paddingBottom: 110 }} onClick={(e) => e.stopPropagation()}>
             <div className="wizard-review-top">
               <div>
@@ -804,6 +804,11 @@ export default function Page() {
                 ))}
               </>
             )}
+            {message ? (
+              <p className="item-sub" style={{ color: message.toLowerCase().includes("unable") || message.toLowerCase().includes("select") || message.toLowerCase().includes("resolve") || message.toLowerCase().includes("enter") ? "#fca5a5" : "#34d399", padding: "6px 0", fontWeight: 500 }}>
+                {message}
+              </p>
+            ) : null}
             <div className="quick-actions" style={{ marginBottom: 8 }}>
               <button className="mint-button" type="button" onClick={logCurrentSet}>Log this set</button>
               <button className="ghost-button" type="button" onClick={() => addSetRow(false)}>
@@ -1015,12 +1020,14 @@ export default function Page() {
             </div>
             <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
               <input
+                style={{ flex: 1 }}
                 value={exerciseSearch}
                 onChange={(e) => setExerciseSearch(e.target.value)}
                 onKeyDown={(e) => { if (e.key === "Enter") runExerciseSearch(exerciseSearch); }}
-                placeholder="Type at least 4 characters and press Enter"
+                placeholder="Type at least 4 characters…"
                 autoFocus
               />
+              <button className="mint-button" type="button" onClick={() => runExerciseSearch(exerciseSearch)}>Search</button>
             </div>
             <div style={{ display: "grid", gap: 8, marginTop: 10 }}>
               {searchResults.map((item) => (

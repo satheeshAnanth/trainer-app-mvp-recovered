@@ -29,15 +29,14 @@ export default function TrainerShell({ title, subtitle, children }) {
             <h1 className="trainer-title">{title}</h1>
             <p className="trainer-subtitle">{subtitle}</p>
           </div>
-          <button type="button" className="ghost-button ghost-button-compact" onClick={signOut}>
-            Sign Out
-          </button>
         </header>
 
         <nav className="trainer-nav card surface-elevated trainer-nav-desktop" aria-label="Trainer sections">
           {navItems.map((item) => {
             const active = item.href === "/sessions/new"
               ? pathname.startsWith("/sessions")
+              : item.href === "/clients"
+              ? pathname.startsWith("/clients")
               : pathname === item.href;
             return (
               <Link
@@ -58,6 +57,8 @@ export default function TrainerShell({ title, subtitle, children }) {
             {navItems.map((item) => {
               const active = item.href === "/sessions/new"
                 ? pathname.startsWith("/sessions")
+                : item.href === "/clients"
+                ? pathname.startsWith("/clients")
                 : pathname === item.href;
               const Icon = item.Icon;
               return (

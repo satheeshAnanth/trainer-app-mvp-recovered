@@ -137,6 +137,9 @@ function InvitePage() {
                   className="auth-input"
                   type="text"
                   inputMode="numeric"
+                  pattern="[0-9]*"
+                  autoComplete="one-time-code"
+                  autoFocus
                   maxLength={6}
                   placeholder="123456"
                   value={otpCode}

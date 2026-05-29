@@ -2,14 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { IconHome, IconLog, IconProfile, IconSchedule, IconTips } from "app/_components/NavIcons";
+import { IconHome, IconLog, IconPayments, IconProfile, IconSchedule } from "app/_components/NavIcons";
 
 const navItems = [
   { href: "/my-portal", label: "Home", Icon: IconHome },
-  { href: "/my-portal/profile", label: "Profile", Icon: IconProfile },
   { href: "/my-portal/schedule", label: "Schedule", Icon: IconSchedule },
   { href: "/my-portal/self-log", label: "Log", Icon: IconLog },
-  { href: "/my-portal/tips", label: "Tips", Icon: IconTips },
+  { href: "/my-portal/payments", label: "Payments", Icon: IconPayments },
+  { href: "/my-portal/profile", label: "Profile", Icon: IconProfile },
 ];
 
 export default function ClientShell({ title, subtitle, children }) {
@@ -29,9 +29,6 @@ export default function ClientShell({ title, subtitle, children }) {
             <h1 className="trainer-title">{title}</h1>
             <p className="trainer-subtitle">{subtitle}</p>
           </div>
-          <button type="button" className="ghost-button ghost-button-compact" onClick={signOut}>
-            Sign Out
-          </button>
         </header>
 
         <nav className="trainer-nav card surface-elevated trainer-nav-desktop" aria-label="Client sections">
@@ -51,7 +48,9 @@ export default function ClientShell({ title, subtitle, children }) {
         <nav className="mobile-tabbar" aria-label="Primary">
           <div className="mobile-tabbar-inner card surface-glass">
             {navItems.map((item) => {
-              const active = pathname === item.href;
+              const active = item.href === "/my-portal"
+                ? pathname === "/my-portal"
+                : pathname.startsWith(item.href);
               const Icon = item.Icon;
               return (
                 <Link

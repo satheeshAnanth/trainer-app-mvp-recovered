@@ -199,15 +199,15 @@ export default function Page() {
               </label>
               <label className="field">
                 <span>Age</span>
-                <input type="number" value={form.age} onChange={(e) => setField("age", e.target.value)} />
+                <input type="number" inputMode="numeric" value={form.age} onChange={(e) => setField("age", e.target.value)} />
               </label>
               <label className="field">
                 <span>Weight (kg)</span>
-                <input type="number" value={form.weightKg} onChange={(e) => setField("weightKg", e.target.value)} />
+                <input type="number" inputMode="decimal" value={form.weightKg} onChange={(e) => setField("weightKg", e.target.value)} />
               </label>
               <label className="field">
                 <span>Height (cm)</span>
-                <input type="number" value={form.heightCm} onChange={(e) => setField("heightCm", e.target.value)} />
+                <input type="number" inputMode="decimal" value={form.heightCm} onChange={(e) => setField("heightCm", e.target.value)} />
               </label>
               <label className="field full">
                 <span>Sex</span>
