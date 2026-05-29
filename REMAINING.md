@@ -56,6 +56,14 @@ _P0, P1, and P2.1–P2.5 are complete. Items below are what's left._
   - Should show: exercises logged, goal summary, trainer notes, publish comment, and the discussion thread
   - Read-only; no editing by the client
 
+- [ ] **3.8 Per-client weekly programme overview** _(new — user request)_
+  - New route: `app/clients/[id]/week/page.js`
+  - Trainer needs a bird's-eye view of one client's full week: sessions logged, scheduled appointments, and goal template exercises — all in one place
+  - Layout: 7-day horizontal strip (Mon–Sun); each day shows a pill for logged sessions (mint), scheduled appointments (amber), and rest days (empty)
+  - Tapping a day expands inline to show the exercises/sets logged or the appointment detail
+  - Week navigation: prev/week/next arrows at the top
+  - Link from the client detail page (`/clients/[id]`) as a "This week" shortcut button
+
 ---
 
 ## P4 — Post First APK
