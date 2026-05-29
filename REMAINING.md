@@ -13,10 +13,9 @@ _P0, P1, P2, P3, and most of P4 are complete._
   - Server-side: call FCM API to push notifications for schedule confirmations and session publishes
   - Replace the existing `window.Notification` / localStorage deduplication code
 
-- [ ] **4.3 Swipe-to-action on schedule event cards**
-  - `app/schedule/page.js`, `app/my-portal/schedule/page.js`
-  - After bottom sheet is done (✅), swipe-left is a further UX polish step
-  - Requires a touch gesture library (e.g. `@use-gesture/react`) or custom `touchstart`/`touchend` handler
+- [x] **4.3 Swipe-to-action on schedule event cards** ✅
+  - `SwipeableCard` component using native touch events (no library)
+  - Swipe left > 55px triggers the Actions bottom sheet on both trainer and client schedule
 
 - [ ] **4.5 Play Store listing — screenshots**
   - All listing copy is written in `PLAYSTORE_LISTING.md`

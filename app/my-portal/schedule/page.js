@@ -14,6 +14,7 @@ import {
   normalizeScheduleTime,
   sortScheduleEvents,
 } from "app/lib/schedule";
+import SwipeableCard from "app/_components/SwipeableCard";
 
 const REMINDER_KEY = "client-schedule-reminders-enabled";
 const NOTIFIED_KEY = "client-schedule-notified";
@@ -364,24 +365,31 @@ export default function Page() {
                 const ownRequest = String(event.created_by_role || "") === "client";
                 const status = String(event.status || "").toLowerCase();
                 return (
-                  <div key={event.id} className="list-item" style={{ marginBottom: 8, alignItems: "flex-start" }}>
-                    <div style={{ flex: 1 }}>
-                      <p className="item-title">
-                        {formatScheduleTimeLabel(event.scheduled_time)} · {ownRequest ? "Your request" : "Trainer request"}
-                      </p>
-                      <p className="item-sub">{buildScheduleActionLabel(event.status)} · {ownRequest ? "You sent this note" : "Your trainer sent this note"}</p>
-                      {event.notes ? <p className="item-sub">{event.notes}</p> : null}
-                      {getNextScheduleReminderSummary(event) ? <p className="item-sub">{getNextScheduleReminderSummary(event)}</p> : null}
+                  <SwipeableCard
+                    key={event.id}
+                    disabled={status === "completed" || status === "cancelled"}
+                    onSwipeLeft={() => setSheetEvent({ event, ownRequest })}
+                    style={{ marginBottom: 8 }}
+                  >
+                    <div className="list-item" style={{ alignItems: "flex-start" }}>
+                      <div style={{ flex: 1 }}>
+                        <p className="item-title">
+                          {formatScheduleTimeLabel(event.scheduled_time)} · {ownRequest ? "Your request" : "Trainer request"}
+                        </p>
+                        <p className="item-sub">{buildScheduleActionLabel(event.status)} · {ownRequest ? "You sent this note" : "Your trainer sent this note"}</p>
+                        {event.notes ? <p className="item-sub">{event.notes}</p> : null}
+                        {getNextScheduleReminderSummary(event) ? <p className="item-sub">{getNextScheduleReminderSummary(event)}</p> : null}
+                      </div>
+                      <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
+                        <span className="status-chip" style={tone}>{buildScheduleActionLabel(event.status)}</span>
+                        {status !== "completed" && status !== "cancelled" ? (
+                          <button className="ghost-button ghost-button-sm" type="button" onClick={() => setSheetEvent({ event, ownRequest })}>
+                            Actions
+                          </button>
+                        ) : null}
+                      </div>
                     </div>
-                    <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
-                      <span className="status-chip" style={tone}>{buildScheduleActionLabel(event.status)}</span>
-                      {status !== "completed" && status !== "cancelled" ? (
-                        <button className="ghost-button ghost-button-sm" type="button" onClick={() => setSheetEvent({ event, ownRequest })}>
-                          Actions
-                        </button>
-                      ) : null}
-                    </div>
-                  </div>
+                  </SwipeableCard>
                 );
               })}
             </div>

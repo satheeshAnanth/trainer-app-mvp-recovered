@@ -14,6 +14,7 @@ import {
   normalizeScheduleTime,
   sortScheduleEvents,
 } from "app/lib/schedule";
+import SwipeableCard from "app/_components/SwipeableCard";
 
 const FILTERS = ["all", "pending", "accepted", "declined", "cancelled", "completed"];
 const REMINDER_KEY = "trainer-schedule-reminders-enabled";
@@ -563,24 +564,32 @@ export default function Page() {
               <p className="item-title" style={{ marginBottom: 8 }}>{formatScheduleDateLabel(date)}</p>
               {list.map((event) => {
                 const tone = statusTone(event.status);
+                const actionable = !["completed", "cancelled"].includes(String(event.status || "").toLowerCase());
                 return (
-                  <div key={event.id} className="list-item" style={{ marginBottom: 8, alignItems: "flex-start" }}>
-                    <div style={{ flex: 1 }}>
-                      <p className="item-title">
-                        {formatScheduleTimeLabel(event.scheduled_time)} · {event.client_name || "Client"}
-                      </p>
-                      <p className="item-sub">Requested by {event.created_by_role || "trainer"}</p>
-                      {event.notes ? <p className="item-sub">{event.notes}</p> : null}
+                  <SwipeableCard
+                    key={event.id}
+                    disabled={!actionable}
+                    onSwipeLeft={() => setSheetEvent(event)}
+                    style={{ marginBottom: 8 }}
+                  >
+                    <div className="list-item" style={{ alignItems: "flex-start" }}>
+                      <div style={{ flex: 1 }}>
+                        <p className="item-title">
+                          {formatScheduleTimeLabel(event.scheduled_time)} · {event.client_name || "Client"}
+                        </p>
+                        <p className="item-sub">Requested by {event.created_by_role || "trainer"}</p>
+                        {event.notes ? <p className="item-sub">{event.notes}</p> : null}
+                      </div>
+                      <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
+                        <span className="status-chip" style={tone}>{buildScheduleActionLabel(event.status)}</span>
+                        {actionable ? (
+                          <button className="ghost-button ghost-button-sm" type="button" onClick={() => setSheetEvent(event)}>
+                            Actions
+                          </button>
+                        ) : null}
+                      </div>
                     </div>
-                    <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
-                      <span className="status-chip" style={tone}>{buildScheduleActionLabel(event.status)}</span>
-                      {!["completed", "cancelled"].includes(String(event.status || "").toLowerCase()) ? (
-                        <button className="ghost-button ghost-button-sm" type="button" onClick={() => setSheetEvent(event)}>
-                          Actions
-                        </button>
-                      ) : null}
-                    </div>
-                  </div>
+                  </SwipeableCard>
                 );
               })}
             </div>
