@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server";
 import { buildRecoveredPayload } from "app/lib/apiResponse";
 import { hasDatabaseUrl, query } from "app/lib/db";
+import { readTrainerPhone } from "app/lib/session";
 
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
   const limit = clampLimit(searchParams.get("limit"));
+  const trainerPhone = readTrainerPhone(request.cookies.get("trainer_session")?.value) ?? null;
 
   if (!hasDatabaseUrl()) {
     const payload = await buildRecoveredPayload("api/audit");
@@ -21,14 +23,21 @@ export async function GET(request) {
     });
   }
 
+  if (!trainerPhone) {
+    return NextResponse.json({ ok: false, message: "Login required." }, { status: 401 });
+  }
+
   const rows = await query(
     `
       SELECT id, entity_type, entity_id, payload_json, created_at
       FROM audit_events
+      WHERE
+        payload_json::jsonb->>'capturedBy' = $1
+        OR payload_json::jsonb->>'actorId' = $1
       ORDER BY created_at DESC
-      LIMIT $1
+      LIMIT $2
     `,
-    [limit]
+    [trainerPhone, limit]
   );
 
   return NextResponse.json({
