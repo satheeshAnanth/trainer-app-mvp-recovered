@@ -24,11 +24,6 @@
 
 * {
   box-sizing: border-box;
-  max-width: 100%;
-}
-
-html, .app-body {
-  overflow-x: hidden;
 }
 
 .app-body {
@@ -385,6 +380,11 @@ code {
   margin-top: 14px;
   display: grid;
   gap: 14px;
+  min-width: 0;
+}
+
+.trainer-content > * {
+  min-width: 0;
 }
 
 .stats-grid {
