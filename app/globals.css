@@ -24,6 +24,11 @@
 
 * {
   box-sizing: border-box;
+  max-width: 100%;
+}
+
+html, .app-body {
+  overflow-x: hidden;
 }
 
 .app-body {
@@ -327,6 +332,7 @@ code {
 }
 
 .trainer-container {
+  width: 100%;
   max-width: 980px;
   margin: 0 auto;
 }
