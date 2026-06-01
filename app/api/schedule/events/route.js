@@ -105,6 +105,16 @@ export async function POST(request) {
   const createdByRole = viewer.role;
   const nextStatus = "pending";
 
+  if (hasDatabaseUrl() && viewer.role === "trainer" && trainerPhone) {
+    const clientOwned = await query(
+      `SELECT id FROM clients WHERE id = $1 AND created_by_trainer = $2 LIMIT 1`,
+      [clientId, trainerPhone]
+    );
+    if (!clientOwned[0]) {
+      return NextResponse.json({ ok: false, message: "Client not found." }, { status: 404 });
+    }
+  }
+
   if (!hasDatabaseUrl()) {
     return NextResponse.json(
       {

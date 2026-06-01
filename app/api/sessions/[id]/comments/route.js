@@ -1,8 +1,15 @@
 import { NextResponse } from "next/server";
 import { buildRecoveredPayload } from "app/lib/apiResponse";
 import { hasDatabaseUrl, query } from "app/lib/db";
+import { readTrainerPhone } from "app/lib/session";
+import { requireTrainerOwnsSession } from "app/lib/ownership";
 
-export async function GET(_request, { params }) {
+export async function GET(request, { params }) {
+  const phone = readTrainerPhone(request.cookies.get("trainer_session")?.value);
+  if (hasDatabaseUrl() && phone) {
+    const owned = await requireTrainerOwnsSession(phone, params.id);
+    if (!owned) return NextResponse.json({ ok: false, message: "Session not found." }, { status: 404 });
+  }
   if (hasDatabaseUrl()) {
     const rows = await query(
       `
@@ -51,6 +58,9 @@ export async function GET(_request, { params }) {
 
 export async function POST(request, { params }) {
   const { id } = params;
+  const phone = readTrainerPhone(request.cookies.get("trainer_session")?.value);
+  if (!phone) return NextResponse.json({ ok: false, message: "Login required." }, { status: 401 });
+
   const body = await request.json();
   const { text, authorRole = "trainer", authorName = "Trainer" } = body;
 
@@ -76,6 +86,9 @@ export async function POST(request, { params }) {
       { status: 201 }
     );
   }
+
+  const owned = await requireTrainerOwnsSession(phone, id);
+  if (!owned) return NextResponse.json({ ok: false, message: "Session not found." }, { status: 404 });
 
   const rows = await query(
     `

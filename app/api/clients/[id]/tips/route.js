@@ -15,6 +15,7 @@ function parseJson(value) {
 
 export async function GET(request, { params }) {
   const { id } = params;
+  const phone = readTrainerPhone(request.cookies.get("trainer_session")?.value);
   const { searchParams } = new URL(request.url);
   const status = String(searchParams.get("status") ?? "all").toLowerCase();
   const category = String(searchParams.get("category") ?? "all").toLowerCase();
@@ -22,6 +23,11 @@ export async function GET(request, { params }) {
   if (!hasDatabaseUrl()) {
     const payload = await buildRecoveredPayload("api/clients/[id]/tips", params);
     return NextResponse.json({ ok: true, recovered: true, route: "api/clients/[id]/tips", data: payload });
+  }
+
+  if (phone) {
+    const clientCheck = await query(`SELECT id FROM clients WHERE id = $1 AND created_by_trainer = $2 LIMIT 1`, [id, phone]);
+    if (!clientCheck[0]) return NextResponse.json({ ok: false, message: "Client not found." }, { status: 404 });
   }
 
   const rows = await query(
@@ -78,7 +84,11 @@ export async function POST(request, { params }) {
     });
   }
 
-  const trainerPhone = readTrainerPhone(request.cookies.get("trainer_session")?.value) ?? "trainer";
+  const trainerPhone = readTrainerPhone(request.cookies.get("trainer_session")?.value);
+  if (!trainerPhone) return NextResponse.json({ ok: false, message: "Login required." }, { status: 401 });
+  const clientCheck = await query(`SELECT id FROM clients WHERE id = $1 AND created_by_trainer = $2 LIMIT 1`, [id, trainerPhone]);
+  if (!clientCheck[0]) return NextResponse.json({ ok: false, message: "Client not found." }, { status: 404 });
+
   const payload = JSON.stringify({
     text,
     category,

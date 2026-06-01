@@ -45,14 +45,16 @@ export async function PATCH(request, { params }) {
     });
   }
 
+  const scopeCol = viewer.role === "trainer" ? "trainer_phone" : "client_id";
+  const scopeVal = viewer.role === "trainer" ? viewer.trainerPhone : viewer.clientId;
   const rows = await query(
     `
       UPDATE calendar_events
       SET status = $2, updated_at = NOW()
-      WHERE id = $1
+      WHERE id = $1 AND ${scopeCol} = $3
       RETURNING *
     `,
-    [id, status]
+    [id, status, scopeVal]
   );
 
   if (!rows[0]) {

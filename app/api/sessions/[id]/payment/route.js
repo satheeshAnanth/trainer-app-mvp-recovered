@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { buildRecoveredPayload } from "app/lib/apiResponse";
 import { hasDatabaseUrl, query } from "app/lib/db";
+import { readTrainerPhone } from "app/lib/session";
+import { requireTrainerOwnsSession } from "app/lib/ownership";
 
 export async function GET(_request, { params }) {
   const payload = await buildRecoveredPayload("api/sessions/[id]/payment", params);
@@ -14,6 +16,9 @@ export async function GET(_request, { params }) {
 
 export async function POST(request, { params }) {
   const { id } = params;
+  const phone = readTrainerPhone(request.cookies.get("trainer_session")?.value);
+  if (!phone) return NextResponse.json({ ok: false, message: "Login required." }, { status: 401 });
+
   const body = await request.json();
   const amountInr = Number(body?.amountInr ?? 0);
   const upiId = String(body?.upiId ?? "").trim();
@@ -32,17 +37,9 @@ export async function POST(request, { params }) {
     });
   }
 
-  const trainerPhoneRows = await query(
-    `
-      SELECT c.created_by_trainer AS trainer_phone
-      FROM sessions s
-      LEFT JOIN clients c ON c.id = s.client_id
-      WHERE s.id = $1
-      LIMIT 1
-    `,
-    [id]
-  );
-  const trainerPhone = trainerPhoneRows[0]?.trainer_phone;
+  const owned = await requireTrainerOwnsSession(phone, id);
+  if (!owned) return NextResponse.json({ ok: false, message: "Session not found." }, { status: 404 });
+  const trainerPhone = phone;
 
   if (trainerPhone) {
     const monthYear = new Date().toISOString().slice(0, 7);

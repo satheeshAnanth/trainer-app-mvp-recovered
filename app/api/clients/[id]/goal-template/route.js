@@ -26,6 +26,7 @@ function normalizeFrequency(value) {
 
 export async function GET(request, { params }) {
   const { id } = params;
+  const phone = readTrainerPhone(request.cookies.get("trainer_session")?.value);
 
   if (!hasDatabaseUrl()) {
     const payload = await buildRecoveredPayload("api/clients/[id]/goal-template", params);
@@ -33,8 +34,10 @@ export async function GET(request, { params }) {
   }
 
   const hasPriorCondition = await hasTableColumn("clients", "prior_condition");
+  const trainerFilter = phone ? "AND created_by_trainer = $2" : "";
+  const clientArgs = phone ? [id, phone] : [id];
   const [clientRows, templateRows] = await Promise.all([
-    query(`SELECT id, name, goal${hasPriorCondition ? ", prior_condition" : ""} FROM clients WHERE id = $1 LIMIT 1`, [id]),
+    query(`SELECT id, name, goal${hasPriorCondition ? ", prior_condition" : ""} FROM clients WHERE id = $1 ${trainerFilter} LIMIT 1`, clientArgs),
     query(
       `
         SELECT payload_json, created_at
@@ -124,12 +127,13 @@ export async function POST(request, { params }) {
     });
   }
 
-  const clientRows = await query(`SELECT id FROM clients WHERE id = $1 LIMIT 1`, [id]);
+  const trainerPhone = readTrainerPhone(request.cookies.get("trainer_session")?.value);
+  if (!trainerPhone) return NextResponse.json({ ok: false, message: "Login required." }, { status: 401 });
+
+  const clientRows = await query(`SELECT id FROM clients WHERE id = $1 AND created_by_trainer = $2 LIMIT 1`, [id, trainerPhone]);
   if (!clientRows[0]) {
     return NextResponse.json({ ok: false, message: "Client not found." }, { status: 404 });
   }
-
-  const trainerPhone = readTrainerPhone(request.cookies.get("trainer_session")?.value) ?? "trainer";
   const payload = JSON.stringify({
     goalName,
     status: "active",

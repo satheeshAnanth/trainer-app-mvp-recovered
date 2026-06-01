@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { buildRecoveredPayload } from "app/lib/apiResponse";
 import { hasDatabaseUrl, query } from "app/lib/db";
+import { getScheduleViewer } from "app/lib/schedule";
 
 export async function GET(_request, { params }) {
   const payload = await buildRecoveredPayload("api/schedule/events/[id]/notes", params);
@@ -13,6 +14,9 @@ export async function GET(_request, { params }) {
 }
 
 export async function POST(request, { params }) {
+  const viewer = getScheduleViewer(request);
+  if (!viewer) return NextResponse.json({ ok: false, message: "Login required." }, { status: 401 });
+
   const { id } = params;
   const body = await request.json();
   const { message, authorRole = "trainer", authorName = "Trainer" } = body;
@@ -39,6 +43,11 @@ export async function POST(request, { params }) {
       { status: 201 }
     );
   }
+
+  const scopeCol = viewer.role === "trainer" ? "trainer_phone" : "client_id";
+  const scopeVal = viewer.role === "trainer" ? viewer.trainerPhone : viewer.clientId;
+  const eventCheck = await query(`SELECT id FROM calendar_events WHERE id = $1 AND ${scopeCol} = $2 LIMIT 1`, [id, scopeVal]);
+  if (!eventCheck[0]) return NextResponse.json({ ok: false, message: "Event not found." }, { status: 404 });
 
   const rows = await query(
     `
