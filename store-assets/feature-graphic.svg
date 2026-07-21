@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="500" viewBox="0 0 1024 500" role="img" aria-label="TrainerApp">
+  <defs>
+    <radialGradient id="glow" cx="50%" cy="40%" r="55%">
+      <stop offset="0%" stop-color="#134e4a" stop-opacity="0.55"/>
+      <stop offset="100%" stop-color="#020617" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="1024" height="500" fill="#020617"/>
+  <rect width="1024" height="500" fill="url(#glow)"/>
+  <circle cx="180" cy="250" r="90" fill="none" stroke="#2dd4bf" stroke-opacity="0.18" stroke-width="3"/>
+  <circle cx="180" cy="250" r="58" fill="none" stroke="#2dd4bf" stroke-opacity="0.28" stroke-width="3"/>
+  <circle cx="844" cy="250" r="90" fill="none" stroke="#2dd4bf" stroke-opacity="0.18" stroke-width="3"/>
+  <circle cx="844" cy="250" r="58" fill="none" stroke="#2dd4bf" stroke-opacity="0.28" stroke-width="3"/>
+  <text x="512" y="245" text-anchor="middle" font-family="Inter, Arial, Helvetica, sans-serif" font-size="72" font-weight="700" fill="#2dd4bf">TrainerApp</text>
+  <text x="512" y="300" text-anchor="middle" font-family="Inter, Arial, Helvetica, sans-serif" font-size="26" fill="#94a3b8">Session logging for fitness trainers</text>
+</svg>

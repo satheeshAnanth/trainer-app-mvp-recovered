@@ -288,6 +288,11 @@ function LoginForm() {
             </>
           ) : null}
         </section>
+        <p className="auth-legal-links">
+          <a href="/privacy">Privacy Policy</a>
+          <span aria-hidden="true"> · </span>
+          <a href="/terms">Terms of Use</a>
+        </p>
       </div>
     </main>
   );
