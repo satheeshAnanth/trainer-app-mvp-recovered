@@ -95,7 +95,17 @@ npm run play:upload -- --track production --status completed
 
 ## GitHub Actions
 
-Workflow: `.github/workflows/play-internal.yml`
+Example workflow (copy into place):
+
+```bash
+mkdir -p .github/workflows
+cp docs/play-store/play-internal.yml.example .github/workflows/play-internal.yml
+git add .github/workflows/play-internal.yml
+git commit -m "ci: add Play internal upload workflow"
+git push
+```
+
+If `git push` rejects the workflow file, use a Personal Access Token with the **`workflow`** scope (or push from the GitHub UI).
 
 Required repo secrets:
 
