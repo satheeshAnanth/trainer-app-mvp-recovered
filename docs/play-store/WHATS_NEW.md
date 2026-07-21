@@ -2,6 +2,15 @@
 
 Paste into Play Console release notes (per language). Keep under ~500 characters when possible.
 
+## 1.2.1 (versionCode 4)
+
+```
+• Play Console internal release refresh
+• Faster session logging with improved exercise search and sticky previews
+• Clearer Needs Work queue for incomplete sessions
+• Cleaner goal templates and client self-log experience
+```
+
 ## 1.2 (versionCode 3)
 
 ```
