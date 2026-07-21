@@ -16,6 +16,16 @@ _Paste these into Google Play Console → Store Presence → Main Store Listing_
 
 ---
 
+**Automation (AAB + listing sync):** `docs/play-store/AUTOMATION.md`  
+After dropping a Play service account JSON at `.secrets/play-store-service-account.json`:
+
+```bash
+npm run play:check
+npm run play:ship -- --build
+```
+
+---
+
 ## Developer account (source of truth)
 
 | Field | Value |

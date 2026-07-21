@@ -1,0 +1,95 @@
+name: Play Internal Upload
+
+on:
+  workflow_dispatch:
+    inputs:
+      track:
+        description: Play track
+        required: true
+        default: internal
+        type: choice
+        options:
+          - internal
+          - alpha
+          - beta
+          - production
+      sync_listing:
+        description: Sync store listing + images
+        required: true
+        default: true
+        type: boolean
+      skip_build:
+        description: Skip Android build (fail if AAB missing)
+        required: true
+        default: false
+        type: boolean
+
+jobs:
+  ship:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install JS deps
+        run: npm ci
+
+      - name: Setup Java
+        if: ${{ inputs.skip_build == false }}
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Setup Android SDK
+        if: ${{ inputs.skip_build == false }}
+        uses: android-actions/setup-android@v3
+
+      - name: Decode keystore
+        if: ${{ inputs.skip_build == false }}
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          if [ -z "${ANDROID_KEYSTORE_BASE64:-}" ]; then
+            echo "Missing secret ANDROID_KEYSTORE_BASE64"
+            exit 1
+          fi
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$HOME/trainerapp-release.keystore"
+          printf '%s\n' \
+            "storeFile=$HOME/trainerapp-release.keystore" \
+            "storePassword=$ANDROID_KEYSTORE_PASSWORD" \
+            "keyAlias=$ANDROID_KEY_ALIAS" \
+            "keyPassword=$ANDROID_KEY_PASSWORD" \
+            > android/keystore.properties
+
+      - name: Build release AAB
+        if: ${{ inputs.skip_build == false }}
+        working-directory: android
+        run: ./gradlew bundleRelease --no-daemon
+
+      - name: Upload to Play + optional listing sync
+        env:
+          PLAY_STORE_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_STORE_SERVICE_ACCOUNT_JSON }}
+          PLAY_TRACK: ${{ inputs.track }}
+          PLAY_RELEASE_STATUS: completed
+        run: |
+          set -euo pipefail
+          ARGS=(--track "$PLAY_TRACK" --status completed)
+          if [ "${{ inputs.sync_listing }}" != "true" ]; then
+            ARGS+=(--skip-listing)
+          fi
+          if [ "${{ inputs.skip_build }}" = "true" ]; then
+            echo "skip_build=true requires a pre-built AAB in the default path"
+          fi
+          node scripts/play/ship.mjs "${ARGS[@]}"

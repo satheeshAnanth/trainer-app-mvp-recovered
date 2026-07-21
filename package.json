@@ -16,7 +16,13 @@
     "media:workoutx:dry": "node --env-file=.env.local scripts/seed-workoutx-media.mjs --dry-run",
     "media:workoutx:refresh": "node --env-file=.env.local scripts/seed-workoutx-media.mjs --refresh-catalog",
     "media:approve-subset": "node scripts/approve-exercise-media-subset.mjs",
-    "media:reject-bad": "node scripts/reject-exercise-media-bad.mjs"
+    "media:reject-bad": "node scripts/reject-exercise-media-bad.mjs",
+    "play:check": "node scripts/play/check.mjs",
+    "play:status": "node scripts/play/status.mjs",
+    "play:build": "cd android && ./gradlew bundleRelease",
+    "play:upload": "node scripts/play/upload-aab.mjs",
+    "play:listing": "node scripts/play/sync-listing.mjs",
+    "play:ship": "node scripts/play/ship.mjs"
   },
   "dependencies": {
     "@capacitor/android": "^8.3.4",
@@ -31,6 +37,7 @@
     "@capacitor/status-bar": "^8.0.2",
     "@sentry/nextjs": "^10.53.1",
     "@vercel/blob": "^2.4.0",
+    "googleapis": "^148.0.0",
     "next": "14.2.35",
     "pg": "^8.20.0",
     "react": "18.2.0",

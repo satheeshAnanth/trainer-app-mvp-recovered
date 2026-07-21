@@ -2,6 +2,16 @@
 
 Use this to move TrainerApp from testing toward production.
 
+**Automation:** once a Play service account JSON is in `.secrets/play-store-service-account.json`, run:
+
+```bash
+npm install
+npm run play:check
+npm run play:ship -- --build
+```
+
+Details: `docs/play-store/AUTOMATION.md`
+
 Package: `in.trainer.fitness`  
 Current AAB: versionCode **3** / versionName **1.2**  
 Path: `android/app/build/outputs/bundle/release/app-release.aab`

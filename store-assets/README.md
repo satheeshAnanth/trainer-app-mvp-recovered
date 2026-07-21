@@ -1,6 +1,7 @@
 # Store assets
 
-Upload these into Google Play Console.
+Synced to Play Console by `npm run play:listing` (see `docs/play-store/AUTOMATION.md`).
+You can also upload manually in Play Console.
 
 | File | Use | Spec |
 |------|-----|------|
