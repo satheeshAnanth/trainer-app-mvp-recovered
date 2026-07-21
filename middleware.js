@@ -11,6 +11,18 @@ function matchesPrefix(pathname, prefixes) {
 export function middleware(request) {
   const { pathname } = request.nextUrl;
 
+  if (pathname === "/exercises" || pathname.startsWith("/exercises/")) {
+    const trainerSession = request.cookies.get("trainer_session")?.value;
+    const clientSession = request.cookies.get("client_session")?.value;
+    if (!trainerSession && !clientSession) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/login";
+      url.searchParams.set("next", pathname);
+      return NextResponse.redirect(url);
+    }
+    return NextResponse.next();
+  }
+
   if (matchesPrefix(pathname, TRAINER_PATHS)) {
     const trainerSession = request.cookies.get("trainer_session")?.value;
     if (!trainerSession) {
@@ -55,6 +67,8 @@ export const config = {
     "/profile/:path*",
     "/sessions",
     "/sessions/:path*",
+    "/exercises",
+    "/exercises/:path*",
     "/my-portal",
     "/my-portal/:path*",
   ],

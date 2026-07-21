@@ -5,3 +5,8 @@ node_modules
 .vercel
 
 .npm-cache
+
+.secrets/
+scripts/data/workoutx-catalog.json
+
+android/app/google-services.json

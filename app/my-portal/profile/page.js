@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import ClientShell from "app/_components/ClientShell";
 
@@ -110,6 +111,12 @@ export default function Page() {
             </button>
           </>
         )}
+      </article>
+
+      <article className="card panel">
+        <h2>Exercise Library</h2>
+        <p className="item-sub" style={{ marginBottom: 12 }}>Browse exercises and watch form examples.</p>
+        <Link href="/exercises" className="ghost-button" style={{ display: "inline-block" }}>Open exercise library</Link>
       </article>
 
       <article className="card panel">

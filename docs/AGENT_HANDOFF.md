@@ -3,6 +3,14 @@
 This file is the continuity handoff for any new agent picking up work in this repo.
 Use this together with `docs/BUILD_CONTEXT.md` and `docs/WORKLOG.md`.
 
+## Pending Design/Feature Specs (added 2026-07-20, not yet implemented)
+- `docs/MOBILE_UX_REVIEW.md` — full mobile design review with a prioritized P0-P2 roadmap;
+  supersedes/consolidates `docs/DESIGN_REVIEW.md` and `MOBILE_PLAN.md` into one ranked list.
+- `docs/EXERCISE_MEDIA_SPEC.md` — spec for adding image/YouTube-video examples per exercise
+  (434 rows in `master_exercises`, currently zero have media), reachable from Profile via
+  search. Includes schema, sourcing strategy, moderation gate, and rollout order.
+- Both are documentation only — no code has been changed yet. Pick either up directly.
+
 ## Current Product State
 - App is a recovered trainer-client coaching platform (Next.js App Router) with Neon Postgres backing.
 - Primary trainer workflows are active: login/onboarding, clients, goal templates, session draft/final flow, tips, schedule, profile.

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState, useCallback } from "react";
 import TrainerShell from "app/_components/TrainerShell";
+import { SkeletonBlock } from "app/_components/Skeleton";
 
 const LIMIT_OPTIONS = [25, 50, 100];
 
@@ -94,7 +95,19 @@ export default function AuditPage() {
       <article className="card panel">
         <h2>Event feed</h2>
         <div style={{ display: "grid", gap: 12 }}>
-          {loading ? <p className="item-sub">Loading events…</p> : null}
+          {loading ? (
+            <>
+              {Array.from({ length: 5 }).map((_, index) => (
+                <div key={index} className="list-item" style={{ alignItems: "flex-start" }}>
+                  <div style={{ flex: 1 }}>
+                    <SkeletonBlock style={{ width: "45%", height: 14, marginBottom: 8 }} />
+                    <SkeletonBlock style={{ width: "70%", height: 12 }} />
+                  </div>
+                  <SkeletonBlock style={{ width: 72, height: 24, borderRadius: 999 }} />
+                </div>
+              ))}
+            </>
+          ) : null}
           {!loading && events.length === 0 ? <p className="item-sub">No audit events found.</p> : null}
           {events.map((event) => (
             <div key={event.id} className="list-item" style={{ alignItems: "flex-start" }}>

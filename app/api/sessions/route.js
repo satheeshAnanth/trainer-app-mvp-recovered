@@ -3,34 +3,32 @@ import { buildRecoveredPayload } from "app/lib/apiResponse";
 import { hasDatabaseUrl, query } from "app/lib/db";
 import { readTrainerPhone } from "app/lib/session";
 import { shouldValidateTrainerSession, validateTrainerSessionBody } from "app/lib/sessionValidation";
-import { cookies } from "next/headers";
 
 export async function GET(request) {
-  const cookieStore = cookies();
-  const trainerPhone = readTrainerPhone(cookieStore.get("trainer_session")?.value);
+  const trainerPhone = readTrainerPhone(request.cookies.get("trainer_session")?.value);
 
   const { searchParams } = new URL(request.url);
   const q = String(searchParams.get("q") ?? "").trim();
 
   if (!trainerPhone) {
-    const payload = await buildRecoveredPayload("api/sessions");
-    return NextResponse.json({ ok: true, recovered: true, route: "api/sessions", data: payload });
+    return NextResponse.json({ ok: false, message: "Login required." }, { status: 401 });
   }
 
   if (!hasDatabaseUrl()) {
-    const payload = await buildRecoveredPayload("api/sessions");
-    return NextResponse.json({ ok: true, recovered: true, route: "api/sessions", data: payload });
+    return NextResponse.json({ ok: false, message: "Session data is unavailable." }, { status: 503 });
   }
 
   let rows;
   if (q) {
     rows = await query(
       `SELECT s.id, s.client_id, s.client_name_snapshot, s.session_date, s.session_title,
-              s.raw_notes, s.summary, s.status, s.duration_minutes, s.payload_json,
+              s.raw_notes, s.summary, s.status, s.duration_minutes, s.estimated_calories, s.payload_json,
               s.created_at, s.updated_at
        FROM sessions s
        JOIN clients c ON c.id = s.client_id
-       WHERE c.created_by_trainer = $1
+       WHERE regexp_replace(COALESCE(c.created_by_trainer, ''), '[^0-9]', '', 'g')
+           = regexp_replace(COALESCE($1, ''), '[^0-9]', '', 'g')
+         AND s.archived_at IS NULL
          AND (
            s.session_title ILIKE $2
            OR s.client_name_snapshot ILIKE $2
@@ -43,11 +41,13 @@ export async function GET(request) {
   } else {
     rows = await query(
       `SELECT s.id, s.client_id, s.client_name_snapshot, s.session_date, s.session_title,
-              s.raw_notes, s.summary, s.status, s.duration_minutes, s.payload_json,
+              s.raw_notes, s.summary, s.status, s.duration_minutes, s.estimated_calories, s.payload_json,
               s.created_at, s.updated_at
        FROM sessions s
        JOIN clients c ON c.id = s.client_id
-       WHERE c.created_by_trainer = $1
+       WHERE regexp_replace(COALESCE(c.created_by_trainer, ''), '[^0-9]', '', 'g')
+           = regexp_replace(COALESCE($1, ''), '[^0-9]', '', 'g')
+         AND s.archived_at IS NULL
        ORDER BY s.session_date DESC, s.created_at DESC
        LIMIT 200`,
       [trainerPhone]

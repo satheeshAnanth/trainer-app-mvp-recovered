@@ -22,10 +22,10 @@ function primaryCta({ pendingConfirmCount, paymentTotalInr, feedbackSessions }) 
     return { href: "/my-portal/schedule", label: "Review schedule" };
   }
   if (paymentTotalInr > 0) {
-    return { href: "/my-portal/profile", label: "Open profile" };
+    return { href: "/my-portal/payments", label: "Open payments" };
   }
   if (feedbackSessions.length > 0) {
-    return { href: "/my-portal/tips", label: "Coach tips" };
+    return { href: "/my-portal/progress", label: "Open progress" };
   }
   return { href: "/my-portal/self-log", label: "Log a workout" };
 }

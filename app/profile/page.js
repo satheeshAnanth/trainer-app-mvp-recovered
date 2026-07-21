@@ -1,8 +1,11 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import TrainerShell from "app/_components/TrainerShell";
 import TrainerInsightsPanel from "app/_components/TrainerInsightsPanel";
+import CollapsibleSection from "app/_components/CollapsibleSection";
+import { useToast } from "app/_components/ToastProvider";
 
 const ALL_SKILLS = [
   "Strength Training",
@@ -22,11 +25,11 @@ export default function Page() {
   const [billing, setBilling] = useState({ status: "trial", maxClients: 5 });
   const [pricing, setPricing] = useState({ billingModels: { trial: { clientLimit: 5 }, perClient: { perClientCostInr: 99 } } });
   const [clientCount, setClientCount] = useState(0);
-  const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
   const [referralCode, setReferralCode] = useState(null);
   const [referredCount, setReferredCount] = useState(0);
   const [copied, setCopied] = useState(false);
+  const { showToast } = useToast();
 
   useEffect(() => {
     (async () => {
@@ -79,7 +82,6 @@ export default function Page() {
 
   async function saveProfile() {
     setSaving(true);
-    setMessage("");
     try {
       const res = await fetch("/api/profile/trainer", {
         method: "PATCH",
@@ -88,10 +90,10 @@ export default function Page() {
       });
       const json = await res.json();
       if (!res.ok || !json?.ok) throw new Error(json?.message ?? "Unable to save profile.");
-      setMessage("Profile saved.");
+      showToast("Profile saved.");
       setProfile((prev) => ({ ...(prev || {}), name, phone: mobile, specialization }));
     } catch (e) {
-      setMessage(e?.message ?? "Unable to save profile.");
+      showToast(e?.message ?? "Unable to save profile.", { variant: "error" });
     } finally {
       setSaving(false);
     }
@@ -104,8 +106,7 @@ export default function Page() {
 
   return (
     <TrainerShell title="Profile" subtitle="">
-      <article className="card panel">
-        <h2>Account</h2>
+      <CollapsibleSection title="Account" subtitle="Name and specializations" defaultOpen>
         <div className="form-grid">
           <label className="field full">
             <span>Name</span>
@@ -138,10 +139,14 @@ export default function Page() {
         <button className="continue-btn" type="button" onClick={saveProfile} disabled={saving}>
           Save Profile
         </button>
-      </article>
+      </CollapsibleSection>
 
-      <article className="card panel">
-        <h2>Billing</h2>
+      <CollapsibleSection
+        title="Billing"
+        subtitle={isTrial ? `${clientCount}/${maxClients} trial clients` : `${clientCount} active clients`}
+        badge={`${Math.max(0, maxClients - clientCount)} left`}
+        defaultOpen={false}
+      >
         <div className="list-item">
           <div>
             <p className="item-title">{isTrial ? "Free trial up to X clients" : "Per-client pricing after threshold"}</p>
@@ -151,12 +156,10 @@ export default function Page() {
                 : `INR ${perClientCost} per active client per month · ${clientCount} active clients`}
             </p>
           </div>
-          <span className="status-chip">{Math.max(0, maxClients - clientCount)} slots left</span>
         </div>
-      </article>
+      </CollapsibleSection>
 
-      <article className="card panel">
-        <h2>Share &amp; Grow</h2>
+      <CollapsibleSection title="Share & Grow" subtitle="Referral and public profile" defaultOpen={false}>
         {referralCode ? (
           <>
             <div className="list-item" style={{ alignItems: "flex-start", flexDirection: "column", gap: 10 }}>
@@ -214,18 +217,21 @@ export default function Page() {
             </div>
           </>
         ) : (
-          <p className="item-sub">Referral link will appear here once the referrals feature is enabled (requires migration 004).</p>
+          <p className="item-sub">Coming soon</p>
         )}
-      </article>
+      </CollapsibleSection>
 
-      <article className="card panel">
-        <h2>Insights</h2>
+      <CollapsibleSection title="Exercise Library" subtitle="Browse master catalog" defaultOpen={false}>
+        <p className="item-sub" style={{ marginBottom: 12 }}>Browse the master catalog and watch form examples.</p>
+        <Link href="/exercises" className="ghost-button" style={{ display: "inline-block" }}>Open exercise library</Link>
+      </CollapsibleSection>
+
+      <CollapsibleSection title="Insights" subtitle="Progress snapshot" defaultOpen={false}>
         <p className="item-sub" style={{ marginBottom: 12 }}>Progress snapshot is now part of your profile workspace.</p>
-      </article>
-      <TrainerInsightsPanel />
+        <TrainerInsightsPanel />
+      </CollapsibleSection>
 
-      <article className="card panel">
-        <h2>Settings</h2>
+      <CollapsibleSection title="Settings" defaultOpen={false}>
         <div className="list-item">
           <span>Notifications</span>
           <span className="item-sub">Coming soon</span>
@@ -234,7 +240,7 @@ export default function Page() {
           <span>Theme</span>
           <button className="ghost-button" type="button">☼ Light</button>
         </div>
-      </article>
+      </CollapsibleSection>
 
       <article className="card panel">
         <h2>Session</h2>
@@ -244,7 +250,6 @@ export default function Page() {
         <p className="item-sub" style={{ textAlign: "center", marginTop: 10 }}>Trainer App MVP v0.1.0</p>
       </article>
 
-      {message ? <p className="item-sub">{message}</p> : null}
     </TrainerShell>
   );
 }

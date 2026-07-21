@@ -1,7 +1,10 @@
 import "./globals.css";
 import { Inter } from "next/font/google";
+import BackButtonGuard from "app/_components/BackButtonGuard";
 import CapacitorInit from "app/_components/CapacitorInit";
 import OfflineBanner from "app/_components/OfflineBanner";
+import PushNotificationInit from "app/_components/PushNotificationInit";
+import { ToastProvider } from "app/_components/ToastProvider";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 
@@ -18,7 +21,6 @@ export const metadata = {
   viewport: {
     width: "device-width",
     initialScale: 1,
-    maximumScale: 1,
   },
 };
 
@@ -26,9 +28,13 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en" className={inter.variable}>
       <body className={`app-body ${inter.className}`}>
-        <OfflineBanner />
-        {children}
-        <CapacitorInit />
+        <ToastProvider>
+          <OfflineBanner />
+          {children}
+          <BackButtonGuard />
+          <CapacitorInit />
+          <PushNotificationInit />
+        </ToastProvider>
       </body>
     </html>
   );

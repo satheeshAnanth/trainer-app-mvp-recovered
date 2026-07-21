@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { buildRecoveredPayload } from "app/lib/apiResponse";
 import { hasDatabaseUrl, query } from "app/lib/db";
+import { notifySessionPublished } from "app/lib/pushNotifications";
 import { readTrainerPhone } from "app/lib/session";
 import { requireTrainerOwnsSession } from "app/lib/ownership";
 
@@ -62,6 +63,17 @@ export async function POST(request, { params }) {
   if (!rows[0]) {
     return NextResponse.json({ ok: false, message: "Session not found." }, { status: 404 });
   }
+
+  const sessionMeta = await query(
+    `SELECT session_title, client_id FROM sessions WHERE id = $1 LIMIT 1`,
+    [id]
+  );
+  const meta = sessionMeta[0] ?? {};
+  notifySessionPublished({
+    sessionId: id,
+    clientId: meta.client_id ?? rows[0].client_id,
+    sessionTitle: meta.session_title,
+  }).catch(() => {});
 
   return NextResponse.json({
     ok: true,

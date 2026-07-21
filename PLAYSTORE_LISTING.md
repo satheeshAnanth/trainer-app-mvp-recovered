@@ -4,6 +4,19 @@ _Paste these into Google Play Console → Store Presence → Main Store Listing_
 
 ---
 
+## Developer account (source of truth)
+
+| Field | Value |
+|-------|--------|
+| **Play Console login** | `getsatxray@gmail.com` (personal Google account) |
+| **Package / applicationId** | `in.trainer.fitness` |
+| **App name** | TrainerApp |
+| **Keystore org (cert DN)** | Raak Advisory (IN) |
+
+Use this account for Play Console uploads, Internal testing, and listing edits. Do not assume a separate Raak Advisory Play org unless one is created later.
+
+---
+
 ## App Details
 
 **App name** (max 30 chars)

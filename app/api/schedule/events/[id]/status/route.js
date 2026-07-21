@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { buildRecoveredPayload } from "app/lib/apiResponse";
 import { hasDatabaseUrl, query } from "app/lib/db";
+import { notifyScheduleStatusChange } from "app/lib/pushNotifications";
 import { getScheduleViewer, sanitizeScheduleStatus } from "app/lib/schedule";
 
 export async function GET(request, { params }) {
@@ -60,6 +61,8 @@ export async function PATCH(request, { params }) {
   if (!rows[0]) {
     return NextResponse.json({ ok: false, message: "Event not found." }, { status: 404 });
   }
+
+  notifyScheduleStatusChange(rows[0], viewer.role, status).catch(() => {});
 
   return NextResponse.json({
     ok: true,

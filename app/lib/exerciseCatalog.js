@@ -51,6 +51,46 @@ export async function getRequiredLoggingKeys(exerciseId) {
   return [...new Set(merged)];
 }
 
+/** Batch version to avoid N+1 on search results. */
+export async function getRequiredLoggingKeysForExercises(exerciseIds) {
+  const ids = [...new Set((exerciseIds || []).map(String).filter(Boolean))];
+  const map = new Map(ids.map((id) => [id, []]));
+  if (!hasDatabaseUrl() || ids.length === 0) return map;
+
+  const [metricRows, fieldRows] = await Promise.all([
+    query(
+      `
+        SELECT exercise_id, metric_key
+        FROM master_exercise_metrics
+        WHERE exercise_id = ANY($1::text[])
+          AND LOWER(TRIM(metric_value)) = 'primary'
+        ORDER BY exercise_id, metric_key
+      `,
+      [ids]
+    ),
+    query(
+      `
+        SELECT id, important_input_fields_json
+        FROM master_exercises
+        WHERE id = ANY($1::text[])
+      `,
+      [ids]
+    ),
+  ]);
+
+  for (const row of fieldRows) {
+    const keys = safeParseJsonArray(row.important_input_fields_json).filter((k) => typeof k === "string");
+    map.set(String(row.id), keys);
+  }
+  for (const row of metricRows) {
+    const id = String(row.exercise_id);
+    const current = map.get(id) || [];
+    if (row.metric_key && !current.includes(row.metric_key)) current.push(row.metric_key);
+    map.set(id, current);
+  }
+  return map;
+}
+
 export async function getExerciseById(exerciseId) {
   if (!hasDatabaseUrl() || !exerciseId) return null;
   const rows = await query(
@@ -104,11 +144,24 @@ export async function searchMasterExercises(searchText, limit = 25) {
         category,
         equipment,
         important_input_fields_json,
-        tracking_json
+        tracking_json,
+        CASE
+          WHEN LOWER(name) = LOWER($1) THEN 0
+          WHEN LOWER(name) LIKE LOWER($1) || '%' THEN 1
+          WHEN LOWER(COALESCE(aliases_json::text, '')) LIKE '%"' || LOWER($1) || '"%' THEN 2
+          WHEN LOWER(name) LIKE '%' || LOWER($1) || '%' THEN 3
+          ELSE 4
+        END AS rank_score
       FROM master_exercises
       WHERE COALESCE(is_active, 1) = 1
-        AND name ILIKE '%' || $1 || '%'
-      ORDER BY name
+        AND (
+          name ILIKE '%' || $1 || '%'
+          OR category ILIKE '%' || $1 || '%'
+          OR equipment ILIKE '%' || $1 || '%'
+          OR COALESCE(variation, '') ILIKE '%' || $1 || '%'
+          OR COALESCE(aliases_json::text, '') ILIKE '%' || $1 || '%'
+        )
+      ORDER BY rank_score ASC, name ASC
       LIMIT $2
     `,
     [q, limit]

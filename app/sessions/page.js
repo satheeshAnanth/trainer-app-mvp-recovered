@@ -27,6 +27,31 @@ function formatDate(value) {
   return d.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
 }
 
+function NeedsWorkBanner() {
+  const [count, setCount] = useState(0);
+  useEffect(() => {
+    fetch("/api/sessions")
+      .then((r) => r.json())
+      .then((json) => {
+        const sessions = json?.data?.sessions ?? [];
+        setCount(sessions.filter((item) => ["draft", "pending_notes", "client_submitted"].includes(item.status)).length);
+      })
+      .catch(() => setCount(0));
+  }, []);
+  if (!count) return null;
+  return (
+    <div className="needs-work-banner">
+      <div>
+        <p className="item-title" style={{ margin: 0 }}>Needs Work</p>
+        <p className="item-sub" style={{ margin: "4px 0 0" }}>
+          {count} draft{count === 1 ? "" : "s"} / pending item{count === 1 ? "" : "s"} across clients
+        </p>
+      </div>
+      <Link href="/sessions/needs-work" className="mint-button">Open queue</Link>
+    </div>
+  );
+}
+
 export default function Page() {
   const [sessions, setSessions] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -62,6 +87,7 @@ export default function Page() {
 
   return (
     <TrainerShell title="Sessions" subtitle="All logged sessions — search by title, client, or notes.">
+      <NeedsWorkBanner />
       <article className="card panel">
         <div style={{ display: "flex", gap: 10, alignItems: "center", justifyContent: "space-between", flexWrap: "wrap" }}>
           <div style={{ flex: 1, minWidth: 180 }}>
@@ -72,7 +98,9 @@ export default function Page() {
               style={{ width: "100%" }}
             />
           </div>
-          <Link href="/sessions/new" className="mint-button mint-button-sm">+ New session</Link>
+          <div className="quick-actions">
+            <Link href="/sessions/new" className="mint-button mint-button-sm">+ New session</Link>
+          </div>
         </div>
         {query && !loading ? (
           <p className="item-sub" style={{ marginTop: 8 }}>

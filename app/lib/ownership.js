@@ -1,4 +1,4 @@
-import { query } from "app/lib/db";
+import { hasTableColumn, query } from "app/lib/db";
 
 /**
  * Verifies that the given client belongs to the given trainer.
@@ -6,10 +6,15 @@ import { query } from "app/lib/db";
  */
 export async function requireTrainerOwnsClient(trainerPhone, clientId) {
   if (!trainerPhone || !clientId) return null;
+  const hasPriorCondition = await hasTableColumn("clients", "prior_condition");
   const rows = await query(
-    `SELECT id, name, mobile, goal, age, weight_kg, height_cm, gender, activity_level, created_by_trainer, created_at, updated_at
+    `SELECT id, name, mobile, goal, age, weight_kg, height_cm, gender, activity_level,
+            ${hasPriorCondition ? "prior_condition," : ""}
+            created_by_trainer, created_at, updated_at
      FROM clients
-     WHERE id = $1 AND created_by_trainer = $2
+     WHERE id = $1
+       AND regexp_replace(COALESCE(created_by_trainer, ''), '[^0-9]', '', 'g')
+         = regexp_replace(COALESCE($2, ''), '[^0-9]', '', 'g')
      LIMIT 1`,
     [clientId, trainerPhone]
   );

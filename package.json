@@ -8,7 +8,15 @@
     "start": "next start",
     "lint": "next lint",
     "smoke:test": "node scripts/smoke-check.mjs",
-    "smoke:mutate": "SMOKE_MUTATE_CLIENTS=true node scripts/smoke-check.mjs"
+    "smoke:mutate": "SMOKE_MUTATE_CLIENTS=true node scripts/smoke-check.mjs",
+    "media:candidates": "node scripts/list-exercise-media-candidates.mjs --write",
+    "media:seed": "node scripts/seed-exercise-media.mjs",
+    "media:seed:dry": "node scripts/seed-exercise-media.mjs --dry-run",
+    "media:workoutx": "node --env-file=.env.local scripts/seed-workoutx-media.mjs",
+    "media:workoutx:dry": "node --env-file=.env.local scripts/seed-workoutx-media.mjs --dry-run",
+    "media:workoutx:refresh": "node --env-file=.env.local scripts/seed-workoutx-media.mjs --refresh-catalog",
+    "media:approve-subset": "node scripts/approve-exercise-media-subset.mjs",
+    "media:reject-bad": "node scripts/reject-exercise-media-bad.mjs"
   },
   "dependencies": {
     "@capacitor/android": "^8.3.4",
@@ -17,6 +25,8 @@
     "@capacitor/clipboard": "^8.0.1",
     "@capacitor/core": "^8.3.4",
     "@capacitor/keyboard": "^8.0.3",
+    "@capacitor/local-notifications": "^8.2.1",
+    "@capacitor/push-notifications": "^8.1.2",
     "@capacitor/splash-screen": "^8.0.1",
     "@capacitor/status-bar": "^8.0.2",
     "@sentry/nextjs": "^10.53.1",

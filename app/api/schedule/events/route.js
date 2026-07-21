@@ -10,6 +10,7 @@ import {
   sortScheduleEvents,
 } from "app/lib/schedule";
 import { mockData } from "app/lib/mockData";
+import { notifyScheduleRequestCreated } from "app/lib/pushNotifications";
 
 function normalizeCreatedByName(value, fallback) {
   const text = String(value ?? "").trim();
@@ -173,6 +174,8 @@ export async function POST(request) {
     `,
     [trainerPhone, clientId, clientName, scheduledDate, scheduledTime, notes, nextStatus, createdByRole, createdByName]
   );
+
+  notifyScheduleRequestCreated(rows[0], viewer.role).catch(() => {});
 
   return NextResponse.json(
     {

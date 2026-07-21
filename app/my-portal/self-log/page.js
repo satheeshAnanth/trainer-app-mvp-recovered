@@ -1,8 +1,10 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import ClientShell from "app/_components/ClientShell";
+import ExercisePicker from "app/_components/ExercisePicker";
+import { ExerciseMediaSheet } from "app/_components/ExerciseMediaSheet";
+import { useToast } from "app/_components/ToastProvider";
 
 const DEFAULT_EXERCISES = [
   { name: "Warm-up & mobility", target: "8–10 min", actual: "", notes: "", effort: "", completionStatus: "planned" },
@@ -17,6 +19,7 @@ function todayISO() {
 function makeExerciseRow(seed = {}, index = 0) {
   return {
     id: seed.id ?? `exercise-${Date.now()}-${index}-${Math.random().toString(16).slice(2)}`,
+    masterExerciseId: String(seed.masterExerciseId ?? seed.exerciseId ?? ""),
     name: String(seed.name ?? seed.exercise ?? `Exercise ${index + 1}`),
     target: String(seed.target ?? ""),
     actual: String(seed.actual ?? seed.done ?? ""),
@@ -71,7 +74,10 @@ export default function Page() {
   const [goalTemplateName, setGoalTemplateName] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState("");
+  const [searchModal, setSearchModal] = useState({ open: false, exerciseId: null, query: "" });
+  const [mediaPreviewExercise, setMediaPreviewExercise] = useState(null);
+  const { showToast } = useToast();
+
   const [form, setForm] = useState(() => ({
     workoutTitle: "Strength check-in",
     sessionDate: todayISO(),
@@ -186,21 +192,49 @@ export default function Page() {
     }));
   }
 
+  function openCatalogSearch(exerciseRowId) {
+    const row = form.exercises.find((exercise) => exercise.id === exerciseRowId);
+    setSearchModal({
+      open: true,
+      exerciseId: exerciseRowId,
+      query: String(row?.name ?? "").trim(),
+    });
+  }
+
+  function applyCatalogExercise(catalogExercise) {
+    if (!searchModal.exerciseId || !catalogExercise) return;
+    setForm((prev) => ({
+      ...prev,
+      exercises: prev.exercises.map((exercise) =>
+        exercise.id === searchModal.exerciseId
+          ? {
+              ...exercise,
+              masterExerciseId: catalogExercise.id,
+              name: catalogExercise.name,
+              source: "catalog",
+            }
+          : exercise
+      ),
+    }));
+    setSearchModal({ open: false, exerciseId: null, query: "" });
+    showToast(`Selected ${catalogExercise.name}.`);
+  }
+
   async function handleSubmit() {
-    setMessage("");
     if (!client?.clientId) {
-      setMessage("Client session missing. Please sign in again.");
+      showToast("Client session missing. Please sign in again.", { variant: "error" });
       return;
     }
 
     if (!form.workoutTitle.trim() || !form.sessionDate) {
-      setMessage("Please enter a workout title and date.");
+      showToast("Please enter a workout title and date.", { variant: "error" });
       return;
     }
 
     const exercises = form.exercises
       .map((exercise) => ({
         id: exercise.id,
+        masterExerciseId: String(exercise.masterExerciseId ?? "").trim() || null,
         name: String(exercise.name ?? "").trim(),
         target: String(exercise.target ?? "").trim(),
         actual: String(exercise.actual ?? "").trim(),
@@ -243,13 +277,13 @@ export default function Page() {
 
       const json = await response.json();
       if (!response.ok || !json?.ok) {
-        setMessage(json?.message ?? "Unable to submit self log.");
+        showToast(json?.message ?? "Unable to submit self log.", { variant: "error" });
         return;
       }
 
-      setMessage("Submitted for trainer review.");
+      showToast("Submitted for trainer review.");
     } catch {
-      setMessage("Unable to submit self log.");
+      showToast("Unable to submit self log.", { variant: "error" });
     } finally {
       setSaving(false);
     }
@@ -270,14 +304,6 @@ export default function Page() {
         <p className="item-sub" style={{ marginBottom: 0 }}>
           Log the session title, what you did, what felt good, and what needs coach attention.
         </p>
-        <div className="quick-actions" style={{ marginTop: 14 }}>
-          <Link className="ghost-button ghost-button-sm" href="/my-portal">
-            Back to dashboard
-          </Link>
-          <Link className="ghost-button ghost-button-sm" href="/my-portal/progress">
-            View progress
-          </Link>
-        </div>
       </section>
 
       <article className="card panel">
@@ -349,7 +375,29 @@ export default function Page() {
               <div className="form-grid">
                 <label className="field">
                   <span>Name</span>
-                  <input type="text" value={exercise.name} onChange={(event) => updateExercise(exercise.id, "name", event.target.value)} />
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                    <input
+                      type="text"
+                      style={{ flex: 1, minWidth: 160 }}
+                      value={exercise.name}
+                      onChange={(event) => updateExercise(exercise.id, "name", event.target.value)}
+                    />
+                    <button className="ghost-button-sm" type="button" onClick={() => openCatalogSearch(exercise.id)}>
+                      Search catalog
+                    </button>
+                    {exercise.masterExerciseId ? (
+                      <button
+                        className="ghost-button-sm"
+                        type="button"
+                        onClick={() => setMediaPreviewExercise({ id: exercise.masterExerciseId, name: exercise.name })}
+                      >
+                        Example
+                      </button>
+                    ) : null}
+                  </div>
+                  {exercise.masterExerciseId ? (
+                    <span className="item-sub" style={{ marginTop: 6, display: "block" }}>Linked to master catalog</span>
+                  ) : null}
                 </label>
                 <label className="field">
                   <span>Target</span>
@@ -388,6 +436,20 @@ export default function Page() {
         </div>
       </article>
 
+      <ExercisePicker
+        open={searchModal.open}
+        mode="single"
+        title="Choose exercise"
+        initialQuery={searchModal.query}
+        confirmLabel="Use this exercise"
+        onClose={() => setSearchModal({ open: false, exerciseId: null, query: "" })}
+        onSelect={applyCatalogExercise}
+      />
+
+      {mediaPreviewExercise ? (
+        <ExerciseMediaSheet exercise={mediaPreviewExercise} onClose={() => setMediaPreviewExercise(null)} />
+      ) : null}
+
       <article className="card panel">
         <h2>Reflection</h2>
         <div className="form-grid">
@@ -422,54 +484,15 @@ export default function Page() {
       </article>
 
       <article className="card panel">
-        <h2>Review and submit</h2>
-        <div className="grid" style={{ display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 220px), 1fr))" }}>
-          <div className="card" style={{ padding: 14, borderColor: "rgba(45, 212, 191, 0.18)" }}>
-            <p className="eyebrow" style={{ marginTop: 0 }}>
-              Snapshot
-            </p>
-            <p className="item-title" style={{ marginBottom: 8 }}>
-              {form.workoutTitle || "Workout title"}
-            </p>
-            <p className="item-sub" style={{ marginBottom: 8 }}>
-              {form.sessionDate || "Date not set"} · {form.durationMinutes || "0"} min
-            </p>
-            <p className="item-sub" style={{ marginBottom: 0 }}>
-              {preview.details || "Add a short summary before submitting."}
-            </p>
-          </div>
-
-          <div className="card" style={{ padding: 14, borderColor: "rgba(148, 163, 184, 0.18)" }}>
-            <p className="eyebrow" style={{ marginTop: 0 }}>
-              Coach visibility
-            </p>
-            <ul className="list" style={{ marginTop: 0 }}>
-              <li className="list-item">
-                <span className="item-sub">Exercise blocks</span>
-                <span className="status-chip">{preview.exerciseCount}</span>
-              </li>
-              <li className="list-item">
-                <span className="item-sub">Top items</span>
-                <span className="status-chip">{preview.exerciseNames.length}</span>
-              </li>
-              <li className="list-item">
-                <span className="item-sub">Ready for review</span>
-                <span className="status-chip" style={{ color: "#fbbf24" }}>
-                  {loading ? "Loading" : "Yes"}
-                </span>
-              </li>
-            </ul>
-          </div>
-        </div>
-
-        {message ? <p className="item-sub" style={{ marginTop: 14 }}>{message}</p> : null}
+        <h2>Submit</h2>
+        <p className="item-sub">
+          {form.workoutTitle || "Workout"} · {form.sessionDate || "date TBD"} · {preview.exerciseCount} exercise
+          {preview.exerciseCount === 1 ? "" : "s"}
+        </p>
         <div className="quick-actions" style={{ marginTop: 14 }}>
           <button className="mint-button" type="button" onClick={handleSubmit} disabled={saving || loading}>
             {saving ? "Submitting..." : "Submit for trainer review"}
           </button>
-          <Link className="ghost-button" href="/my-portal/payments">
-            View payments
-          </Link>
         </div>
       </article>
     </ClientShell>

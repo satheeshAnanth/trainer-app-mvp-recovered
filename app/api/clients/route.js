@@ -60,10 +60,11 @@ export async function GET(request) {
   const rows = await query(
     `SELECT id, name, goal, mobile, age, weight_kg, height_cm, gender, activity_level,
             ${hasPriorCondition ? "prior_condition," : ""}
-            created_by_trainer, created_at, updated_at
+            created_by_trainer, archived_at, created_at, updated_at
      FROM clients
      WHERE regexp_replace(COALESCE(created_by_trainer, ''), '[^0-9]', '', 'g')
          = regexp_replace(COALESCE($1, ''), '[^0-9]', '', 'g')
+       AND archived_at IS NULL
      ORDER BY created_at DESC
      LIMIT 200`,
     [trainerPhone]
@@ -196,6 +197,7 @@ export async function POST(request) {
       SELECT COUNT(*)::int AS count
       FROM clients
       WHERE regexp_replace(COALESCE(created_by_trainer, ''), '[^0-9]', '', 'g') = regexp_replace(COALESCE($1, ''), '[^0-9]', '', 'g')
+        AND archived_at IS NULL
     `,
     [trainerPhone]
   );

@@ -4,8 +4,6 @@ import { useEffect, useMemo, useState } from "react";
 import ClientShell from "app/_components/ClientShell";
 import {
   buildScheduleActionLabel,
-  buildScheduleReminderText,
-  buildScheduleReminderWindows,
   formatScheduleDateLabel,
   formatScheduleTimeLabel,
   getNextScheduleReminderSummary,
@@ -14,6 +12,12 @@ import {
   normalizeScheduleTime,
   sortScheduleEvents,
 } from "app/lib/schedule";
+import {
+  enableScheduleReminders,
+  isNativeApp,
+  remindersButtonLabel,
+  syncScheduleReminders,
+} from "app/lib/scheduleRemindersClient";
 import SwipeableCard from "app/_components/SwipeableCard";
 
 const REMINDER_KEY = "client-schedule-reminders-enabled";
@@ -43,6 +47,7 @@ export default function Page() {
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
   const [remindersEnabled, setRemindersEnabled] = useState(false);
+  const [remindersNative, setRemindersNative] = useState(false);
   const [form, setForm] = useState(defaultForm());
   const [sheetEvent, setSheetEvent] = useState(null);
 
@@ -70,35 +75,26 @@ export default function Page() {
     } catch {
       setRemindersEnabled(false);
     }
+    isNativeApp().then(setRemindersNative).catch(() => setRemindersNative(false));
   }, []);
 
   useEffect(() => {
-    if (!remindersEnabled || typeof window === "undefined" || !("Notification" in window)) return;
-    if (Notification.permission !== "granted") return;
-
-    const scan = () => {
-      const now = Date.now();
-      const upcoming = sortScheduleEvents(events)
-        .filter((event) => isUpcomingEvent(event, now))
-        .filter((event) => !["declined", "cancelled", "completed"].includes(String(event.status || "").toLowerCase()));
-
-      upcoming.slice(0, 5).forEach((event) => {
-        buildScheduleReminderWindows(event, now).forEach((reminder) => {
-          if (reminder.delayMs > 60000 || reminder.delayMs < -60000) return;
-          const storageKey = `${NOTIFIED_KEY}:${reminder.marker}`;
-          if (window.localStorage.getItem(storageKey)) return;
-          window.localStorage.setItem(storageKey, "1");
-          new Notification("Schedule reminder", {
-            body: buildScheduleReminderText(event, reminder.hours),
-            tag: `client-schedule-${event.id}-${reminder.hours}`,
-          });
-        });
+    if (!remindersEnabled) return undefined;
+    let cancelled = false;
+    const run = async () => {
+      if (cancelled) return;
+      await syncScheduleReminders({
+        events,
+        notifiedKeyPrefix: NOTIFIED_KEY,
+        tagPrefix: "client-schedule",
       });
     };
-
-    scan();
-    const timer = window.setInterval(scan, 30000);
-    return () => window.clearInterval(timer);
+    run();
+    const timer = window.setInterval(run, 30000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
   }, [events, remindersEnabled]);
 
   const visibleEvents = useMemo(() => sortScheduleEvents(events), [events]);
@@ -126,25 +122,16 @@ export default function Page() {
   );
 
   async function enableReminders() {
-    if (typeof window === "undefined" || !("Notification" in window)) {
-      setMessage("This browser does not support notifications.");
-      return;
+    const result = await enableScheduleReminders({ storageKey: REMINDER_KEY });
+    setMessage(result.message);
+    if (result.ok) {
+      setRemindersEnabled(true);
+      await syncScheduleReminders({
+        events,
+        notifiedKeyPrefix: NOTIFIED_KEY,
+        tagPrefix: "client-schedule",
+      });
     }
-
-    const permission = Notification.permission === "granted" ? "granted" : await Notification.requestPermission();
-    if (permission !== "granted") {
-      setMessage("Notifications are off. Your schedule tab still works as a reminder list.");
-      return;
-    }
-
-    try {
-      window.localStorage.setItem(REMINDER_KEY, "1");
-    } catch {
-      /* ignore */
-    }
-
-    setRemindersEnabled(true);
-    setMessage("Browser reminders enabled.");
   }
 
   async function createOrUpdate() {
@@ -263,10 +250,10 @@ export default function Page() {
         <div className="section-header" style={{ marginBottom: 10 }}>
           <div>
             <h2 style={{ marginBottom: 4 }}>Reminders</h2>
-            <p className="item-sub">Turn on browser notifications for 24h and 1h reminder windows.</p>
+            <p className="item-sub">24h and 1h alerts for upcoming sessions.</p>
           </div>
-          <button type="button" className="mint-button mint-button-sm" onClick={enableReminders}>
-            {remindersEnabled ? "Reminders enabled" : "Enable browser reminders"}
+          <button type="button" className="mint-button mint-button-sm" onClick={enableReminders} disabled={remindersEnabled}>
+            {remindersButtonLabel({ enabled: remindersEnabled, native: remindersNative })}
           </button>
         </div>
         {upcoming.length === 0 ? (
@@ -376,7 +363,6 @@ export default function Page() {
                         <p className="item-title">
                           {formatScheduleTimeLabel(event.scheduled_time)} · {ownRequest ? "Your request" : "Trainer request"}
                         </p>
-                        <p className="item-sub">{buildScheduleActionLabel(event.status)} · {ownRequest ? "You sent this note" : "Your trainer sent this note"}</p>
                         {event.notes ? <p className="item-sub">{event.notes}</p> : null}
                         {getNextScheduleReminderSummary(event) ? <p className="item-sub">{getNextScheduleReminderSummary(event)}</p> : null}
                       </div>

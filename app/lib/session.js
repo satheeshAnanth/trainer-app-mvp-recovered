@@ -74,3 +74,21 @@ export function readClientSession(token) {
     return parsed;
   });
 }
+
+// ── Admin session ────────────────────────────────────────────────────────────
+
+export function createAdminToken(email) {
+  const exp = Math.floor(Date.now() / 1000) + SESSION_TTL_SECONDS;
+  const dataB64 = Buffer.from(JSON.stringify({ role: "admin", email: String(email ?? "").toLowerCase() }), "utf8").toString("base64url");
+  const payload = `${dataB64}.${exp}`;
+  return `${payload}.${sign(payload)}`;
+}
+
+/** Returns { role: 'admin', email }, or null if token is invalid/expired. */
+export function readAdminSession(token) {
+  return verifyAndDecode(token, (raw) => {
+    const parsed = JSON.parse(raw);
+    if (!parsed || parsed.role !== "admin" || !parsed.email) return null;
+    return parsed;
+  });
+}

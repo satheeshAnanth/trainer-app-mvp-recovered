@@ -3,12 +3,15 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import TrainerShell from "app/_components/TrainerShell";
 import { buildExerciseWarnings, buildProfileSafetyPlan } from "app/lib/coachSafety";
 import TipBanner from "app/_components/TipBanner";
+import ExercisePicker from "app/_components/ExercisePicker";
+import CollapsibleSection from "app/_components/CollapsibleSection";
+import { useModalDismiss } from "app/_components/useModalDismiss";
 
-function newExercise() {
+function newExercise(partial = {}) {
   return {
     id: crypto.randomUUID(),
     masterExerciseId: "",
@@ -20,6 +23,7 @@ function newExercise() {
     imageUrl: "",
     search: "",
     showResults: false,
+    ...partial,
   };
 }
 
@@ -31,18 +35,19 @@ function normalizeExerciseDisplayName(rawName) {
   return name;
 }
 
-function uniqueExerciseResults(items) {
-  const seen = new Set();
-  const unique = [];
-  for (const item of items) {
-    const displayName = normalizeExerciseDisplayName(item?.name);
-    if (!displayName) continue;
-    const key = displayName.toLowerCase();
-    if (seen.has(key)) continue;
-    seen.add(key);
-    unique.push({ ...item, displayName });
-  }
-  return unique;
+function mapPickerItem(item, defaults = {}) {
+  const primary = item?.media?.gifMedia ?? item?.media?.primaryMedia;
+  const mediaImage = primary?.type === "image" ? primary.imageUrl : "";
+  return newExercise({
+    masterExerciseId: String(item?.id ?? item?.masterExerciseId ?? ""),
+    exercise: normalizeExerciseDisplayName(item?.name ?? item?.exercise),
+    variation: defaults.variation || "",
+    target: defaults.target || item?.target || "",
+    frequency: defaults.frequency || item?.frequency || "every_session",
+    priority: defaults.priority || item?.priority || "mandatory",
+    imageUrl: String(mediaImage || item?.imageUrl || ""),
+    search: normalizeExerciseDisplayName(item?.name ?? item?.exercise),
+  });
 }
 
 export default function Page() {
@@ -51,14 +56,24 @@ export default function Page() {
   const [clientName, setClientName] = useState("Client");
   const [goalName, setGoalName] = useState("");
   const [clientProfile, setClientProfile] = useState(null);
-  const [exercises, setExercises] = useState([newExercise()]);
-  const [searchModal, setSearchModal] = useState({ open: false, exIndex: -1, query: "" });
-  const [searchResults, setSearchResults] = useState([]);
-  const [searching, setSearching] = useState(false);
+  const [exercises, setExercises] = useState([]);
+  const [pickerMode, setPickerMode] = useState(null);
   const [previewImageUrl, setPreviewImageUrl] = useState("");
   const [saveSuccessModalOpen, setSaveSuccessModalOpen] = useState(false);
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
+  const [suggestOpen, setSuggestOpen] = useState(false);
+  const [suggesting, setSuggesting] = useState(false);
+  const [questionnaire, setQuestionnaire] = useState({
+    outcome: "strength",
+    successTarget: "",
+    sessionsPerWeek: "3",
+    constraints: "",
+  });
+
+  const closeSaveSuccessModal = useCallback(() => setSaveSuccessModalOpen(false), []);
+  useModalDismiss(saveSuccessModalOpen, closeSaveSuccessModal);
+  useModalDismiss(suggestOpen, () => setSuggestOpen(false));
 
   useEffect(() => {
     if (!clientId) return;
@@ -76,6 +91,11 @@ export default function Page() {
       setClientProfile(profile);
       setClientName(template?.name ?? profile?.name ?? "Client");
       setGoalName(template?.goalName ?? template?.goal ?? profile?.goal ?? "");
+      setQuestionnaire((prev) => ({
+        ...prev,
+        constraints: String(profile?.prior_condition ?? profile?.priorCondition ?? ""),
+        successTarget: String(template?.goalName ?? template?.goal ?? profile?.goal ?? ""),
+      }));
       if (Array.isArray(template?.exercises) && template.exercises.length > 0) {
         setExercises(
           template.exercises.map((exercise) => ({
@@ -126,50 +146,51 @@ export default function Page() {
     setExercises((prev) => prev.map((e, i) => (i === index ? { ...e, [key]: value } : e)));
   }
 
-  function addExercise() {
-    setExercises((prev) => [...prev, newExercise()]);
-  }
-
   function removeExercise(index) {
     setExercises((prev) => prev.filter((_, i) => i !== index));
   }
 
-  async function searchExercises(term) {
-    const q = String(term ?? "").trim();
-    if (q.length < 4) {
-      setMessage("Type at least 4 characters, then tap o.");
-      setSearchResults([]);
-      return;
-    }
-    setSearching(true);
-    try {
-      const response = await fetch(`/api/exercises/master/search?q=${encodeURIComponent(q)}&limit=200`);
-      const json = await response.json();
-      const results = Array.isArray(json?.data?.exercises) ? json.data.exercises : [];
-      setSearchResults(uniqueExerciseResults(results).slice(0, 120));
-    } catch {
-      setSearchResults([]);
-    } finally {
-      setSearching(false);
-    }
-  }
-
   function chooseExercise(index, item) {
     setExercises((prev) =>
-      prev.map((ex, i) =>
-        i === index
-          ? {
-              ...ex,
-              masterExerciseId: String(item?.id ?? ""),
-              exercise: normalizeExerciseDisplayName(item?.name),
-              variation: ex.variation || "",
-              imageUrl: String(item?.imageUrl ?? ""),
-              search: normalizeExerciseDisplayName(item?.name),
-              showResults: false,
-            }
-          : ex
-      )
+      prev.map((ex, i) => (i === index ? { ...mapPickerItem(item, { variation: ex.variation, target: ex.target, frequency: ex.frequency, priority: ex.priority }), id: ex.id } : ex))
     );
+  }
+
+  function addExercisesFromPicker(items) {
+    if (!Array.isArray(items) || items.length === 0) return;
+    setExercises((prev) => {
+      const existingIds = new Set(prev.map((item) => String(item.masterExerciseId || "")).filter(Boolean));
+      const mapped = items
+        .filter((item) => item?.id && !existingIds.has(String(item.id)))
+        .map((item) => mapPickerItem(item));
+      return [...prev, ...mapped];
+    });
+  }
+
+  async function runSuggest() {
+    setSuggesting(true);
+    setMessage("");
+    try {
+      const response = await fetch(`/api/clients/${clientId}/goal-template/suggest`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...questionnaire,
+          goalName: goalName || questionnaire.successTarget,
+        }),
+      });
+      const json = await response.json();
+      if (!response.ok || !json?.ok) throw new Error(json?.message ?? "Could not draft a template.");
+      if (json?.data?.goalName) setGoalName(json.data.goalName);
+      const proposed = Array.isArray(json?.data?.exercises) ? json.data.exercises : [];
+      setExercises(proposed.map((item) => mapPickerItem(item, item)));
+      setSuggestOpen(false);
+      setMessage(`Draft ready (${json?.data?.model || "rule-based"}). Review targets, then Save.`);
+    } catch (error) {
+      setMessage(error?.message ?? "Could not draft a template.");
+    } finally {
+      setSuggesting(false);
+    }
   }
 
   async function saveTemplate() {
@@ -187,13 +208,13 @@ export default function Page() {
           return Boolean(hasValue);
         })
         .map((exercise) => ({
-        id: exercise.id,
-        masterExerciseId: exercise.masterExerciseId,
-        exercise: exercise.exercise,
-        variation: exercise.variation,
-        target: exercise.target,
-        frequency: exercise.frequency,
-        priority: exercise.priority,
+          id: exercise.id,
+          masterExerciseId: exercise.masterExerciseId,
+          exercise: exercise.exercise,
+          variation: exercise.variation,
+          target: exercise.target,
+          frequency: exercise.frequency,
+          priority: exercise.priority,
         }));
       if (payloadExercises.length === 0) {
         setMessage("Add at least one goal exercise before saving.");
@@ -224,6 +245,9 @@ export default function Page() {
       setSaving(false);
     }
   }
+
+  const alreadySelectedIds = exercises.map((item) => item.masterExerciseId).filter(Boolean);
+  const changeIndex = typeof pickerMode === "number" ? pickerMode : -1;
 
   return (
     <TrainerShell title={clientName} subtitle="Client goal setup">
@@ -256,56 +280,62 @@ export default function Page() {
             />
           </label>
         </div>
-
-        <div className="metric-card" style={{ marginTop: 12, borderLeft: "4px solid var(--mint)" }}>
-          <div className="client-detail-head" style={{ marginBottom: 8 }}>
-            <h2 style={{ margin: 0 }}>Suggested routine</h2>
-            <span className="status-chip">Advisory only</span>
-          </div>
-          <p className="item-title" style={{ marginTop: 0 }}>{profileSafety.title}</p>
-          <p className="item-sub" style={{ marginTop: 6 }}>{profileSafety.note}</p>
-          {profileSafety.blocks.length > 0 ? (
-            <ul className="list" style={{ marginTop: 10 }}>
-              {profileSafety.blocks.map((block) => (
-                <li key={`${block.title}-${block.text}`} className="list-item" style={{ alignItems: "flex-start" }}>
-                  <div>
-                    <p className="item-title">{block.title}</p>
-                    <p className="item-sub" style={{ marginTop: 4 }}>{block.text}</p>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          ) : null}
+        <div className="quick-actions" style={{ marginTop: 10 }}>
+          <button className="ghost-button" type="button" onClick={() => setSuggestOpen(true)}>
+            Draft with 4 questions
+          </button>
         </div>
+      </article>
 
-        <div style={{ display: "grid", gap: 12 }}>
+      <CollapsibleSection
+        title="Suggested routine"
+        subtitle="Advisory guidance from goal + prior conditions"
+        badge="Guidance only"
+        defaultOpen={false}
+      >
+        <p className="item-title" style={{ marginTop: 0 }}>{profileSafety.title}</p>
+        <p className="item-sub" style={{ marginTop: 6 }}>{profileSafety.note}</p>
+        {profileSafety.blocks.length > 0 ? (
+          <ul className="list" style={{ marginTop: 10 }}>
+            {profileSafety.blocks.map((block) => (
+              <li key={`${block.title}-${block.text}`} className="list-item" style={{ alignItems: "flex-start" }}>
+                <div>
+                  <p className="item-title">{block.title}</p>
+                  <p className="item-sub" style={{ marginTop: 4 }}>{block.text}</p>
+                </div>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="item-sub">No routine blocks for the current profile inputs.</p>
+        )}
+      </CollapsibleSection>
+
+      <article className="card panel">
+        <div className="client-detail-head" style={{ marginBottom: 8 }}>
+          <h2 style={{ margin: 0 }}>Goal exercises</h2>
+          <span className="status-chip">{exercises.length}</span>
+        </div>
+        <p className="item-sub">Add from the library, then set targets one exercise at a time.</p>
+
+        <div style={{ display: "grid", gap: 12, marginTop: 12 }}>
+          {exercises.length === 0 ? (
+            <p className="item-sub">No exercises yet. Add from the library or draft with questions.</p>
+          ) : null}
           {exercises.map((exercise, exIndex) => (
-            <div key={`ex-${exIndex}`} className="metric-card">
+            <div key={exercise.id} className="metric-card">
               <div className="form-grid">
                 <label className="field full">
-                  <span>Goal exercise {exIndex + 1} (master library)</span>
-                  <div style={{ display: "flex", gap: 8 }}>
-                    <input
-                      value={exercise.search}
-                      onChange={(e) => setExerciseField(exIndex, "search", e.target.value)}
-                      placeholder="Search exercise (e.g. Back Squat)"
-                    />
-                    <button
-                      type="button"
-                      className="ghost-button"
-                      style={{ width: 36, minWidth: 36, padding: "8px 0", textAlign: "center" }}
-                      onClick={() => {
-                        setSearchResults([]);
-                        setSearchModal({ open: true, exIndex, query: exercise.search });
-                        searchExercises(exercise.search);
-                      }}
-                      title="Search"
-                    >
-                      o
-                    </button>
-                  </div>
+                  <span>Goal exercise {exIndex + 1}</span>
+                  <button
+                    type="button"
+                    className={exercise.exercise ? "ghost-button" : "mint-button"}
+                    style={{ width: "100%", textAlign: "left" }}
+                    onClick={() => setPickerMode(exIndex)}
+                  >
+                    {exercise.exercise ? `Change: ${exercise.exercise}` : "Choose exercise"}
+                  </button>
                 </label>
-                {exercise.exercise ? <p className="item-sub" style={{ gridColumn: "1 / -1" }}>{exercise.exercise}</p> : null}
                 {exercise.imageUrl ? (
                   <button
                     type="button"
@@ -319,7 +349,7 @@ export default function Page() {
                 ) : null}
                 {((exerciseWarningsById.get(exercise.id) ?? [])).length > 0 ? (
                   <div className="metric-card" style={{ gridColumn: "1 / -1", borderLeft: "4px solid #f59e0b", marginTop: 4 }}>
-                    <p className="item-title" style={{ marginTop: 0 }}>Potential contraindication</p>
+                    <p className="item-title" style={{ marginTop: 0 }}>Potential contraindication (guidance only)</p>
                     <ul className="list" style={{ marginTop: 8 }}>
                       {(exerciseWarningsById.get(exercise.id) ?? []).map((warning) => (
                         <li key={`${exercise.id}-${warning.label}`} className="list-item" style={{ alignItems: "flex-start" }}>
@@ -367,115 +397,153 @@ export default function Page() {
                     <option value="optional">Optional</option>
                   </select>
                 </label>
-
               </div>
               <div className="quick-actions" style={{ marginTop: 8 }}>
                 <button className="ghost-button" type="button" onClick={() => removeExercise(exIndex)}>
-                  X
+                  Remove from plan
                 </button>
               </div>
             </div>
           ))}
         </div>
 
-        <div className="quick-actions" style={{ marginTop: 8 }}>
-          <button className="ghost-button" type="button" onClick={addExercise}>+ Add goal exercise</button>
+        <div className="quick-actions" style={{ marginTop: 12 }}>
+          <button className="mint-button" type="button" onClick={() => setPickerMode("multi")}>
+            + Add from library
+          </button>
         </div>
 
-        <p className="item-sub">Goal exercises capture mapped movement, target progression, frequency, and priority.</p>
-        {previewImageUrl ? (
-          <div className="metric-card" style={{ marginTop: 10 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-              <p className="item-title" style={{ margin: 0 }}>Exercise preview</p>
-              <button type="button" className="ghost-button" onClick={() => setPreviewImageUrl("")}>Close</button>
-            </div>
-            <div style={{ position: "relative", width: "100%", aspectRatio: "16 / 9", borderRadius: 12, overflow: "hidden", border: "1px solid rgba(148,163,184,0.25)" }}>
-              <Image
-                src={previewImageUrl}
-                alt="Selected exercise preview"
-                fill
-                unoptimized
-                sizes="100vw"
-                style={{ objectFit: "contain", background: "rgba(15,23,42,0.12)" }}
-              />
-            </div>
-          </div>
-        ) : null}
-        {searchModal.open ? (
-          <div className="modal-backdrop">
-            <div
-              className="modal-card card"
-              style={{ width: "100vw", maxWidth: "100vw", minHeight: "100vh", borderRadius: 0 }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <h2 style={{ margin: 0 }}>Search exercise</h2>
-                <button className="ghost-button" type="button" onClick={() => setSearchModal({ open: false, exIndex: -1, query: "" })}>Close</button>
-              </div>
-              <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
-                <input
-                  value={searchModal.query}
-                  onChange={(e) => setSearchModal((prev) => ({ ...prev, query: e.target.value }))}
-                  placeholder="Type at least 4 characters"
-                />
-                <button
-                  type="button"
-                  className="ghost-button"
-                  style={{ width: 36, minWidth: 36, padding: "8px 0", textAlign: "center" }}
-                  onClick={() => searchExercises(searchModal.query)}
-                >
-                  Search
-                </button>
-              </div>
-              <div style={{ display: "grid", gap: 8, marginTop: 10 }}>
-                {searching ? <p className="item-sub">Searching...</p> : null}
-                {!searching && searchResults.length === 0 && String(searchModal.query ?? "").trim().length >= 4 ? (
-                  <p className="item-sub">No matches found. Try a different keyword.</p>
-                ) : null}
-                {searchResults.map((item) => (
-                  <button
-                    key={`search-modal-${item.id}`}
-                    type="button"
-                    className="ghost-button"
-                    style={{ textAlign: "left" }}
-                    onClick={() => {
-                      chooseExercise(searchModal.exIndex, item);
-                      setSearchModal({ open: false, exIndex: -1, query: "" });
-                    }}
-                  >
-                    {item.displayName ?? normalizeExerciseDisplayName(item?.name)}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-        ) : null}
-        {saveSuccessModalOpen ? (
-          <div className="modal-backdrop" onClick={() => setSaveSuccessModalOpen(false)}>
-            <div className="modal-card card" onClick={(e) => e.stopPropagation()}>
-              <div style={{ minHeight: "55vh", display: "grid", alignContent: "center", gap: 12, textAlign: "center" }}>
-                <p className="eyebrow" style={{ margin: 0 }}>Saved</p>
-                <h2 style={{ margin: 0 }}>Goal template saved successfully</h2>
-                <p className="item-sub" style={{ margin: 0 }}>
-                  This goal plan will now load into every new session for this client.
-                </p>
-                <button
-                  type="button"
-                  className="continue-btn"
-                  style={{ marginTop: 8 }}
-                  onClick={() => setSaveSuccessModalOpen(false)}
-                >
-                  Continue
-                </button>
-              </div>
-            </div>
-          </div>
-        ) : null}
-        {message ? <p className="item-sub" style={{ color: message.includes("saved") ? "#34d399" : "#fca5a5" }}>{message}</p> : null}
-        <button className="continue-btn" type="button" onClick={saveTemplate} disabled={saving}>
-          {saving ? "Saving..." : "Save Goal Template"}
+        <p className="item-sub" style={{ marginTop: 10 }}>
+          Goal exercises capture mapped movement, target progression, frequency, and priority.
+        </p>
+        {message ? <p className="item-sub" style={{ marginTop: 8 }}>{message}</p> : null}
+        <button className="continue-btn" type="button" style={{ marginTop: 12 }} onClick={saveTemplate} disabled={saving}>
+          {saving ? "Saving…" : "Save goal template"}
         </button>
       </article>
+
+      {previewImageUrl ? (
+        <div className="metric-card" style={{ marginTop: 10 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+            <p className="item-title" style={{ margin: 0 }}>Exercise preview</p>
+            <button type="button" className="ghost-button" onClick={() => setPreviewImageUrl("")}>Close</button>
+          </div>
+          <div style={{ position: "relative", width: "100%", aspectRatio: "16 / 9", borderRadius: 12, overflow: "hidden", border: "1px solid rgba(148,163,184,0.25)" }}>
+            <Image
+              src={previewImageUrl}
+              alt="Selected exercise preview"
+              fill
+              unoptimized
+              sizes="100vw"
+              style={{ objectFit: "contain", background: "rgba(15,23,42,0.12)" }}
+            />
+          </div>
+        </div>
+      ) : null}
+
+      <ExercisePicker
+        open={pickerMode === "multi"}
+        mode="multi"
+        title="Choose goal exercises"
+        confirmLabel="Add to plan"
+        alreadySelectedIds={alreadySelectedIds}
+        onClose={() => setPickerMode(null)}
+        onConfirm={(items) => {
+          addExercisesFromPicker(items);
+          setPickerMode(null);
+        }}
+      />
+      <ExercisePicker
+        open={changeIndex >= 0}
+        mode="single"
+        title="Change goal exercise"
+        initialQuery={changeIndex >= 0 ? exercises[changeIndex]?.exercise || "" : ""}
+        confirmLabel="Use this exercise"
+        onClose={() => setPickerMode(null)}
+        onSelect={(item) => {
+          chooseExercise(changeIndex, item);
+          setPickerMode(null);
+        }}
+      />
+
+      {suggestOpen ? (
+        <div className="modal-backdrop" onClick={() => setSuggestOpen(false)}>
+          <div className="modal-card card" onClick={(e) => e.stopPropagation()}>
+            <p className="eyebrow" style={{ margin: 0 }}>Quick draft</p>
+            <h2 style={{ margin: "6px 0 0" }}>Four questions</h2>
+            <p className="item-sub">Proposes library-mapped exercises. You review and edit before saving.</p>
+            <div className="form-grid" style={{ marginTop: 12 }}>
+              <label className="field full">
+                <span>1. Primary outcome</span>
+                <select
+                  value={questionnaire.outcome}
+                  onChange={(e) => setQuestionnaire((prev) => ({ ...prev, outcome: e.target.value }))}
+                >
+                  <option value="strength">Strength</option>
+                  <option value="fat_loss">Fat loss</option>
+                  <option value="mobility">Mobility</option>
+                  <option value="sport">Sport performance</option>
+                  <option value="rehab">Rehab / return to training</option>
+                  <option value="general">General fitness</option>
+                </select>
+              </label>
+              <label className="field full">
+                <span>2. Success target + timeframe</span>
+                <input
+                  value={questionnaire.successTarget}
+                  onChange={(e) => setQuestionnaire((prev) => ({ ...prev, successTarget: e.target.value }))}
+                  placeholder="e.g. 10 push-ups in 12 weeks"
+                />
+              </label>
+              <label className="field full">
+                <span>3. Sessions per week</span>
+                <select
+                  value={questionnaire.sessionsPerWeek}
+                  onChange={(e) => setQuestionnaire((prev) => ({ ...prev, sessionsPerWeek: e.target.value }))}
+                >
+                  <option value="1">1</option>
+                  <option value="2">2</option>
+                  <option value="3">3</option>
+                  <option value="4">4+</option>
+                </select>
+              </label>
+              <label className="field full">
+                <span>4. Experience, equipment, limitations</span>
+                <textarea
+                  rows={3}
+                  value={questionnaire.constraints}
+                  onChange={(e) => setQuestionnaire((prev) => ({ ...prev, constraints: e.target.value }))}
+                  placeholder="Beginner · dumbbells + bands · lower-back caution"
+                />
+              </label>
+            </div>
+            <div className="quick-actions" style={{ marginTop: 12 }}>
+              <button className="ghost-button" type="button" onClick={() => setSuggestOpen(false)}>Cancel</button>
+              <button className="mint-button" type="button" onClick={runSuggest} disabled={suggesting}>
+                {suggesting ? "Drafting…" : "Propose template"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {saveSuccessModalOpen ? (
+        <div className="modal-backdrop" onClick={() => setSaveSuccessModalOpen(false)}>
+          <div className="modal-card card" onClick={(e) => e.stopPropagation()}>
+            <div style={{ minHeight: "55vh", display: "grid", alignContent: "center", gap: 12, textAlign: "center" }}>
+              <p className="eyebrow" style={{ margin: 0 }}>Saved</p>
+              <h2 style={{ margin: 0 }}>Goal template saved successfully</h2>
+              <p className="item-sub" style={{ margin: 0 }}>
+                These exercises will load into the next session for this client.
+              </p>
+              <div className="quick-actions" style={{ justifyContent: "center" }}>
+                <Link href={`/clients/${clientId}`} className="mint-button">Back to client</Link>
+                <button className="ghost-button" type="button" onClick={() => setSaveSuccessModalOpen(false)}>Keep editing</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </TrainerShell>
   );
 }

@@ -1,11 +1,17 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import TrainerShell from "app/_components/TrainerShell";
 import TipBanner from "app/_components/TipBanner";
-import { buildExerciseWarnings, buildProfileSafetyPlan } from "app/lib/coachSafety";
+import ExercisePicker from "app/_components/ExercisePicker";
+import CollapsibleSection from "app/_components/CollapsibleSection";
+import { useModalDismiss } from "app/_components/useModalDismiss";
+import { useToast } from "app/_components/ToastProvider";
+import { buildExerciseWarnings } from "app/lib/coachSafety";
 import { describeMetricKey, getMetricOptions, labelizeMetricKey } from "app/lib/metricLabels";
+import { parseSessionPayload } from "app/lib/payloadMerge";
 import Link from "next/link";
 
 const TABS = ["live", "review"];
@@ -52,8 +58,18 @@ function blankSetFromKeys(requiredKeys) {
   return out;
 }
 
+function normalizeRequiredKeys(keys) {
+  const cleaned = [...new Set((Array.isArray(keys) ? keys : []).map((key) => String(key ?? "").trim()).filter(Boolean))];
+  const usable = cleaned.filter((key) => !isStructuralSetsMetric(key));
+  if (usable.length > 0) return cleaned.includes("sets") ? ["sets", ...usable] : usable;
+  return ["sets", "reps", "load"];
+}
+
 function newEntry(partial = {}) {
-  const requiredKeys = partial.requiredKeys && partial.requiredKeys.length > 0 ? partial.requiredKeys : ["sets", "reps", "load"];
+  const requiredKeys = normalizeRequiredKeys(
+    partial.requiredKeys && partial.requiredKeys.length > 0 ? partial.requiredKeys : ["sets", "reps", "load"]
+  );
+  const { requiredKeys: _ignored, ...rest } = partial;
   return {
     id: crypto.randomUUID(),
     name: "",
@@ -70,8 +86,40 @@ function newEntry(partial = {}) {
     requiredKeys,
     setLogs: [],
     notes: "",
-    ...partial,
+    ...rest,
+    requiredKeys,
   };
+}
+
+function entriesFromPayload(payload) {
+  const parsed = parseSessionPayload(payload);
+  const rows = Array.isArray(parsed.entries)
+    ? parsed.entries
+    : Array.isArray(parsed.exercises)
+      ? parsed.exercises
+      : [];
+  return rows.map((entry) =>
+    newEntry({
+      id: entry.id || crypto.randomUUID(),
+      name: entry.name || "",
+      category: entry.category || classifyCategory(entry.name),
+      source: entry.source === "goal" ? "goal" : "adhoc",
+      masterExerciseId: String(entry.masterExerciseId || entry.exerciseId || ""),
+      goalExerciseId: entry.goalExerciseId ?? null,
+      linkedGoalExerciseId: entry.linkedGoalExerciseId ?? null,
+      completionStatus: entry.completionStatus || "",
+      skipReason: entry.skipReason || "",
+      notes: entry.notes || entry.note || "",
+      requiredKeys: normalizeRequiredKeys(entry.requiredKeys || entry.metricRequired || ["sets", "reps", "load"]),
+      setLogs: Array.isArray(entry.setLogs)
+        ? entry.setLogs
+        : Array.isArray(entry?.metrics?.setsData)
+          ? entry.metrics.setsData
+          : [],
+      photos: Array.isArray(entry.photos) ? entry.photos : [],
+      target: entry.target || "",
+    })
+  );
 }
 
 function makePayload({ overallNotes, entries, goalTemplate }) {
@@ -83,6 +131,7 @@ function makePayload({ overallNotes, entries, goalTemplate }) {
       cooldown: entries.find((e) => e.category === "Mobility")?.name || "Cooldown logged",
       goalUpdate: "Goal progress updated in session flow.",
     },
+    entries,
     exercises: entries.map((entry) => ({
       name: entry.name,
       exerciseId: entry.masterExerciseId || null,
@@ -153,6 +202,15 @@ function isStructuralSetsMetric(key) {
 }
 
 export default function Page() {
+  return (
+    <Suspense fallback={<TrainerShell title="Session" subtitle="Loading…" />}>
+      <SessionLogPage />
+    </Suspense>
+  );
+}
+
+function SessionLogPage() {
+  const searchParams = useSearchParams();
   const [tab, setTab] = useState("live");
   const [clients, setClients] = useState([]);
   const [goalTemplate, setGoalTemplate] = useState(null);
@@ -160,8 +218,6 @@ export default function Page() {
   const [entryIndex, setEntryIndex] = useState(0);
   const [searchModalOpen, setSearchModalOpen] = useState(false);
   const [editorOpen, setEditorOpen] = useState(false);
-  const [exerciseSearch, setExerciseSearch] = useState("");
-  const [searchResults, setSearchResults] = useState([]);
   const [currentSetIndex, setCurrentSetIndex] = useState(0);
   const [showTimingFields, setShowTimingFields] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -191,6 +247,21 @@ export default function Page() {
     name: "", goal: "", mobile: "", age: "", weightKg: "", heightCm: "", gender: "not set", activityLevel: "not set", priorCondition: "",
   });
   const [draftRestored, setDraftRestored] = useState(false);
+  const [sessionStatus, setSessionStatus] = useState("draft");
+  const { showToast } = useToast();
+  const canEditDraft = sessionStatus === "draft" || sessionStatus === "pending_notes" || sessionStatus === "reopened";
+
+  const closeEditor = useCallback(() => setEditorOpen(false), []);
+  const closeAddClient = useCallback(() => setShowAddClient(false), []);
+  useModalDismiss(editorOpen, closeEditor);
+  useModalDismiss(showAddClient, closeAddClient);
+
+  useEffect(() => {
+    if (!message) return;
+    const lower = message.toLowerCase();
+    const isError = lower.includes("unable") || lower.includes("select") || lower.includes("resolve") || lower.includes("required") || lower.includes("failed") || lower.includes("add a");
+    showToast(message, { variant: isError ? "error" : "success" });
+  }, [message, showToast]);
 
   // Restore draft on first mount
   useEffect(() => {
@@ -228,14 +299,6 @@ export default function Page() {
     () => clients.find((client) => String(client.id) === String(form.clientId)) ?? null,
     [clients, form.clientId]
   );
-  const coachingSafety = useMemo(
-    () =>
-      buildProfileSafetyPlan({
-        goalText: goalTemplate?.goalName ?? selectedClient?.goal ?? "",
-        priorCondition: selectedClient?.prior_condition ?? selectedClient?.priorCondition ?? "",
-      }),
-    [goalTemplate, selectedClient]
-  );
   const currentExerciseWarnings = useMemo(
     () =>
       buildExerciseWarnings({
@@ -266,6 +329,42 @@ export default function Page() {
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    const resumeId = String(searchParams.get("sessionId") || "").trim();
+    const preselectClientId = String(searchParams.get("clientId") || "").trim();
+    if (!resumeId && preselectClientId) {
+      setForm((prev) => ({ ...prev, clientId: preselectClientId }));
+      return;
+    }
+    if (!resumeId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/sessions/${resumeId}`);
+        const json = await res.json();
+        const record = json?.data?.session ?? json?.data ?? null;
+        if (!record || cancelled) return;
+        setSessionId(String(record.id || resumeId));
+        setSessionStatus(String(record.status || "draft"));
+        setForm((prev) => ({
+          ...prev,
+          clientId: String(record.client_id || preselectClientId || prev.clientId),
+          sessionDate: normalizeDateDisplay(record.session_date || new Date().toISOString()),
+          sessionTitle: String(record.session_title || prev.sessionTitle),
+          overallNotes: String(record.raw_notes || prev.overallNotes || ""),
+        }));
+        const hydrated = entriesFromPayload(record.payload_json ?? record.payloadJson);
+        if (hydrated.length) setEntries(hydrated);
+        setDraftRestored(true);
+      } catch {
+        /* ignore resume failures */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [searchParams]);
 
   async function fetchRequiredKeys(masterExerciseId, name) {
     try {
@@ -317,8 +416,8 @@ export default function Page() {
           target: String(exercise?.target ?? ""),
           priority: String(exercise?.priority ?? "mandatory"),
           frequency: String(exercise?.frequency ?? "every_session"),
-          requiredKeys,
-          setLogs: [],
+          requiredKeys: normalizeRequiredKeys(requiredKeys),
+          setLogs: [blankSetFromKeys(normalizeRequiredKeys(requiredKeys))],
         });
       }));
       setEntries((prev) => [...goalRows, ...prev.filter((e) => e.source !== "goal")]);
@@ -346,55 +445,97 @@ export default function Page() {
   }
 
   function addSetRow(duplicate = false) {
-    setEntries((prev) => prev.map((entry, i) => {
-      if (i !== entryIndex) return entry;
-      const base = duplicate && entry.setLogs?.length ? entry.setLogs[entry.setLogs.length - 1] : blankSetFromKeys(entry.requiredKeys || []);
-      return { ...entry, setLogs: [...(entry.setLogs || []), { ...base }] };
-    }));
-    setCurrentSetIndex((prev) => prev + 1);
+    setEntries((prev) => {
+      const next = prev.map((entry, i) => {
+        if (i !== entryIndex) return entry;
+        const keys = normalizeRequiredKeys(entry.requiredKeys || ["sets", "reps", "load"]);
+        const base = duplicate && entry.setLogs?.length
+          ? entry.setLogs[entry.setLogs.length - 1]
+          : blankSetFromKeys(keys);
+        return { ...entry, requiredKeys: keys, setLogs: [...(entry.setLogs || []), { ...base }] };
+      });
+      const active = next[entryIndex];
+      setCurrentSetIndex(Math.max(0, (active?.setLogs?.length || 1) - 1));
+      return next;
+    });
   }
 
   function deleteSetRow(setIndex) {
+    if (!canEditDraft) {
+      setMessage("Sets can only be deleted while the session is still a draft.");
+      return;
+    }
+    if (!window.confirm("Delete this set?")) return;
+    const snapshot = currentEntry ? { ...currentEntry, setLogs: [...(currentEntry.setLogs || [])] } : null;
+    const entryId = currentEntry?.id;
     setEntries((prev) => prev.map((entry, i) => {
       if (i !== entryIndex) return entry;
       const kept = (entry.setLogs || []).filter((_, idx) => idx !== setIndex);
+      setCurrentSetIndex(Math.max(0, kept.length - 1));
       return { ...entry, setLogs: kept };
     }));
+    if (snapshot && entryId) {
+      showToast("Set deleted.", {
+        actionLabel: "Undo",
+        durationMs: 5000,
+        onAction: () => {
+          setEntries((prev) => prev.map((entry) => (entry.id === entryId ? snapshot : entry)));
+        },
+      });
+    }
   }
 
-  async function runExerciseSearch(term) {
-    const q = String(term ?? "").trim();
-    if (q.length < 4) {
-      setMessage("Enter at least 4 characters and press Enter to search.");
-      setSearchResults([]);
+  function removeAdhocExercise(targetIndex = entryIndex) {
+    if (!canEditDraft) {
+      setMessage("Exercises can only be removed while the session is still a draft.");
       return;
     }
-    try {
-      const res = await fetch(`/api/exercises/master/search?withKeys=1&limit=200&q=${encodeURIComponent(q)}`);
-      const json = await res.json();
-      setSearchResults(Array.isArray(json?.data?.exercises) ? json.data.exercises : []);
-    } catch {
-      setSearchResults([]);
+    const target = entries[targetIndex];
+    if (!target || target.source === "goal") {
+      setMessage("Goal exercises stay on the plan — mark Skip with a reason instead.");
+      return;
     }
+    if (!window.confirm(`Delete "${target.name || "this exercise"}" from the session timeline?`)) return;
+    const snapshot = { entry: target, index: targetIndex };
+    setEntries((prev) => prev.filter((_, i) => i !== targetIndex));
+    setEditorOpen(false);
+    setEntryIndex(0);
+    showToast("Exercise deleted.", {
+      actionLabel: "Undo",
+      durationMs: 5000,
+      onAction: () => {
+        setEntries((prev) => {
+          const next = [...prev];
+          next.splice(Math.min(snapshot.index, next.length), 0, snapshot.entry);
+          return next;
+        });
+      },
+    });
   }
 
   function startAdhocExercise(item) {
-    const requiredKeys = Array.isArray(item?.requiredKeys) && item.requiredKeys.length > 0 ? item.requiredKeys : ["sets", "reps", "load"];
+    const requiredKeys = normalizeRequiredKeys(
+      Array.isArray(item?.requiredKeys) && item.requiredKeys.length > 0
+        ? item.requiredKeys
+        : ["sets", "reps", "load"]
+    );
     const next = newEntry({
       name: String(item?.name ?? "").trim(),
       category: classifyCategory(item?.name),
       source: "adhoc",
       masterExerciseId: String(item?.id ?? ""),
       requiredKeys,
-      setLogs: [],
+      // Open with one blank set ready so logging is one tap away.
+      setLogs: [blankSetFromKeys(requiredKeys)],
     });
-    setEntries((prev) => [...prev, next]);
-    setEntryIndex(entries.length);
+    setEntries((prev) => {
+      const nextEntries = [...prev, next];
+      setEntryIndex(nextEntries.length - 1);
+      return nextEntries;
+    });
     setCurrentSetIndex(0);
     setEditorOpen(true);
     setSearchModalOpen(false);
-    setExerciseSearch("");
-    setSearchResults([]);
   }
 
   function finishCurrentExercise() {
@@ -409,30 +550,17 @@ export default function Page() {
     setTab("live");
   }
 
-  function logCurrentSet() {
-    if (!currentEntry) return;
-    if (!currentEntry.setLogs?.length) {
-      setMessage("Add a set first.");
-      return;
-    }
-    const row = currentEntry.setLogs?.[currentSetIndex] ?? {};
-    const hasValue = Object.values(row).some((v) => String(v ?? "").trim() !== "");
-    if (!hasValue) {
-      setMessage("Enter at least one value for this set.");
-      return;
-    }
-    setMessage(`Set ${currentSetIndex + 1} logged.`);
-  }
-
   function openSearchForCurrentEntry() {
     if (!currentEntry) return;
-    setExerciseSearch(currentEntry.name || "");
-    setSearchResults([]);
     setSearchModalOpen(true);
   }
 
   async function mapSelectedExercise(item) {
-    const requiredKeys = Array.isArray(item?.requiredKeys) && item.requiredKeys.length > 0 ? item.requiredKeys : ["sets", "reps", "load"];
+    const requiredKeys = normalizeRequiredKeys(
+      Array.isArray(item?.requiredKeys) && item.requiredKeys.length > 0
+        ? item.requiredKeys
+        : ["sets", "reps", "load"]
+    );
     setEntries((prev) =>
       prev.map((entry, i) =>
         i === entryIndex
@@ -441,11 +569,15 @@ export default function Page() {
               name: String(item?.name ?? ""),
               masterExerciseId: String(item?.id ?? ""),
               requiredKeys,
-              setLogs: entry.setLogs && entry.setLogs.length > 0 ? entry.setLogs : [],
+              setLogs:
+                entry.setLogs && entry.setLogs.length > 0
+                  ? entry.setLogs
+                  : [blankSetFromKeys(requiredKeys)],
             }
           : entry
       )
     );
+    setCurrentSetIndex(0);
     setSearchModalOpen(false);
   }
 
@@ -511,11 +643,13 @@ export default function Page() {
       const json = await res.json();
       if (!res.ok || !json?.ok) throw new Error(json?.message ?? "Unable to create session.");
       setSessionId(json?.data?.id ?? "");
+      setSessionStatus(status);
       return json?.data?.id;
     }
     const res = await fetch(`/api/sessions/${sessionId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
     const json = await res.json();
     if (!res.ok || !json?.ok) throw new Error(json?.message ?? "Unable to update session.");
+    setSessionStatus(status);
     return sessionId;
   }
 
@@ -648,16 +782,25 @@ export default function Page() {
       {draftRestored ? (
         <div className="metric-card" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", borderLeft: "4px solid #facc15", marginBottom: 0 }}>
           <p className="item-sub" style={{ margin: 0, color: "#facc15" }}>Draft restored from your last session.</p>
-          <button className="ghost-button ghost-button-sm" type="button" onClick={clearDraft}>Discard draft</button>
+          <button className="ghost-button ghost-button-sm" type="button" onClick={clearDraft}>Cancel draft</button>
         </div>
       ) : null}
       <article className="card panel session-wizard-header">
-        <div className="wizard-topline"><h2>{form.sessionTitle}</h2><button className="ghost-button" type="button" onClick={clearDraft}>Cancel</button></div>
-        <div className="wizard-tabs">{TABS.map((t) => <button key={t} type="button" className={`wizard-tab ${tab === t ? "wizard-tab-active" : ""}`} onClick={() => setTab(t)}>{TAB_LABELS[t]}</button>)}</div>
+        <div className="wizard-topline">
+          <div className="wizard-tabs" style={{ flex: 1 }}>
+            {TABS.map((t) => (
+              <button key={t} type="button" className={`wizard-tab ${tab === t ? "wizard-tab-active" : ""}`} onClick={() => setTab(t)}>
+                {TAB_LABELS[t]}
+              </button>
+            ))}
+          </div>
+          {!draftRestored ? (
+            <button className="ghost-button" type="button" onClick={clearDraft}>Cancel</button>
+          ) : null}
+        </div>
       </article>
 
       {tab === "live" ? <article className="card panel">
-        <h2>Draft Capture</h2>
         <div className="form-grid">
           <label className="field"><span>Client</span><select value={form.clientId} onChange={(e) => setForm((prev) => ({ ...prev, clientId: e.target.value }))}><option value="">Select a client</option>{clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
           <div className="field" style={{ alignSelf: "end", width: "fit-content" }}><button className="ghost-button ghost-button-compact" type="button" onClick={() => setShowAddClient(true)}>+ Add</button></div>
@@ -688,14 +831,50 @@ export default function Page() {
         ) : null}
         <div className="metric-card" style={{ marginTop: 10 }}>
           <p className="item-title">Session timeline</p>
-          {entries.length === 0 ? <p className="item-sub">No entries yet.</p> : entries.map((entry, idx) => <button key={entry.id} type="button" className="list-item ghost-button" style={{ width: "100%", textAlign: "left", marginTop: 8 }} onClick={() => { setEntryIndex(idx); setCurrentSetIndex(Math.max(0, (entry.setLogs?.length || 1) - 1)); setEditorOpen(true); }}><span>{entry.name || "Untitled"} {entry.source === "goal" ? "· Goal" : "· Other Exercise"}</span><span>{entry.setLogs?.length || 0} sets</span></button>)}
-          <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 10, marginTop: 10 }}>
-            <button className="mint-button" type="button" onClick={() => { setExerciseSearch(""); setSearchResults([]); setSearchModalOpen(true); }} title="Add exercise">+</button>
-            <button className="ghost-button" type="button" onClick={() => { setExerciseSearch(""); setSearchResults([]); setSearchModalOpen(true); }}>Other Exercise</button>
-          </div>
+          {entries.length === 0 ? <p className="item-sub">No entries yet.</p> : entries.map((entry, idx) => {
+            const isGoal = entry.source === "goal";
+            const canRemove = canEditDraft && !isGoal;
+            return (
+              <div key={entry.id} className="timeline-row">
+                <button
+                  type="button"
+                  className="timeline-row-main"
+                  onClick={() => {
+                    setEntryIndex(idx);
+                    setCurrentSetIndex(Math.max(0, (entry.setLogs?.length || 1) - 1));
+                    setEditorOpen(true);
+                  }}
+                >
+                  <span className="timeline-row-copy">
+                    <strong>{entry.name || "Untitled"}</strong>
+                    <small>{isGoal ? "Goal exercise" : "Other exercise"} · {entry.setLogs?.length || 0} sets</small>
+                  </span>
+                  <span className="timeline-row-open" aria-hidden="true">›</span>
+                </button>
+                {canRemove ? (
+                  <button
+                    type="button"
+                    className="timeline-row-delete"
+                    aria-label={`Delete ${entry.name || "exercise"}`}
+                    onClick={() => removeAdhocExercise(idx)}
+                  >
+                    Delete
+                  </button>
+                ) : null}
+              </div>
+            );
+          })}
+          <button
+            className="mint-button"
+            type="button"
+            style={{ width: "100%", marginTop: 10 }}
+            onClick={() => setSearchModalOpen(true)}
+          >
+            + Add another exercise
+          </button>
           {pendingGoalEntries.length > 0 ? (
             <p className="item-sub" style={{ marginTop: 8 }}>
-              Goal exercises are managed from the client goal template and appear here automatically.
+              Goal exercises stay on the plan — open one and mark Skip for this session.
             </p>
           ) : null}
         </div>
@@ -707,8 +886,8 @@ export default function Page() {
       </article> : null}
 
       {editorOpen && currentEntry ? (
-        <div className="modal-backdrop">
-          <div className="modal-card card" style={{ maxHeight: "100vh", height: "100vh", borderRadius: 0, paddingBottom: 110 }} onClick={(e) => e.stopPropagation()}>
+        <div className="modal-backdrop session-editor-backdrop">
+          <div className="modal-card card session-editor-card" onClick={(e) => e.stopPropagation()}>
             <div className="wizard-review-top">
               <div>
                 <p className="item-title">{currentEntry.name || "Exercise capture"}</p>
@@ -716,88 +895,74 @@ export default function Page() {
                   {currentEntry.setLogs?.length
                     ? `Set ${Math.min(currentSetIndex + 1, currentEntry.setLogs.length)} of ${currentEntry.setLogs.length}`
                     : "No sets yet"}
+                  {currentEntry.source === "goal" && currentEntry.target ? ` · Target ${currentEntry.target}` : ""}
                 </p>
               </div>
-              <div className="quick-actions">
-                <button className="ghost-button" type="button" onClick={() => setEditorOpen(false)}>Back</button>
-              </div>
             </div>
-            <label className="field full">
-              <span>Exercise name</span>
-              <input
-                value={currentEntry.name}
-                onChange={(e) => setEntryField("name", e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter" && !currentEntry.source === "goal") openSearchForCurrentEntry(); }}
-                disabled={currentEntry.source === "goal"}
-                placeholder={currentEntry.source === "goal" ? "Locked — edit from Goal Template" : "Type name then press Enter to search"}
-              />
-            </label>
-            {currentEntry.source === "goal" ? (
-              <p className="item-sub">Goal exercise name is locked here. Edit it from Client &gt; Goal Template.</p>
+            <div className="session-editor-body">
+            {(goalTemplate?.goalName || selectedClient?.goal) ? (
+              <div className="session-goal-sticky">
+                <p className="eyebrow" style={{ margin: 0 }}>Client goal</p>
+                <p className="item-title" style={{ marginTop: 4 }}>
+                  {goalTemplate?.goalName || selectedClient?.goal}
+                </p>
+              </div>
             ) : null}
-            <p className="item-sub">{currentEntry.masterExerciseId ? "Mapped exercise selected." : "Not mapped yet. Search and select canonical exercise."}</p>
-            <div className="metric-card" style={{ marginTop: 8, borderLeft: "4px solid var(--mint)" }}>
-              <p className="item-title" style={{ marginTop: 0 }}>Suggested routine</p>
-              <p className="item-sub" style={{ marginTop: 4 }}>{coachingSafety.title}</p>
-              <p className="item-sub" style={{ marginTop: 4 }}>{coachingSafety.note}</p>
-              {coachingSafety.blocks.length > 0 ? (
+            {currentEntry.source !== "goal" ? (
+              <label className="field full">
+                <span>Exercise name</span>
+                <input
+                  value={currentEntry.name}
+                  onChange={(e) => setEntryField("name", e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") openSearchForCurrentEntry(); }}
+                  placeholder="Type name then press Enter to search"
+                />
+                <p className="item-sub">
+                  {currentEntry.masterExerciseId ? "Mapped to library." : "Not mapped yet — search and select a library exercise."}
+                </p>
+              </label>
+            ) : null}
+            {currentExerciseWarnings.length > 0 ? (
+              <div className="metric-card" style={{ marginTop: 8, borderLeft: "4px solid #f59e0b" }}>
+                <p className="item-title" style={{ marginTop: 0 }}>Safety warning</p>
                 <ul className="list" style={{ marginTop: 8 }}>
-                  {coachingSafety.blocks.map((block) => (
-                    <li key={`${block.title}-${block.text}`} className="list-item" style={{ alignItems: "flex-start" }}>
+                  {currentExerciseWarnings.map((warning) => (
+                    <li key={`${warning.label}-${warning.message}`} className="list-item" style={{ alignItems: "flex-start" }}>
                       <div>
-                        <p className="item-title">{block.title}</p>
-                        <p className="item-sub" style={{ marginTop: 4 }}>{block.text}</p>
+                        <p className="item-title">{warning.label}</p>
+                        <p className="item-sub" style={{ marginTop: 4 }}>{warning.message}</p>
+                        <p className="item-sub" style={{ marginTop: 4, color: "#94a3b8" }}>
+                          Alternatives: {warning.alternatives.join(", ")}
+                        </p>
                       </div>
                     </li>
                   ))}
                 </ul>
-              ) : null}
-              {currentExerciseWarnings.length > 0 ? (
-                <div className="metric-card" style={{ marginTop: 10, borderLeft: "4px solid #f59e0b" }}>
-                  <p className="item-title" style={{ marginTop: 0 }}>Safety warning</p>
-                  <ul className="list" style={{ marginTop: 8 }}>
-                    {currentExerciseWarnings.map((warning) => (
-                      <li key={`${warning.label}-${warning.message}`} className="list-item" style={{ alignItems: "flex-start" }}>
-                        <div>
-                          <p className="item-title">{warning.label}</p>
-                          <p className="item-sub" style={{ marginTop: 4 }}>{warning.message}</p>
-                          <p className="item-sub" style={{ marginTop: 4, color: "#94a3b8" }}>
-                            Alternatives: {warning.alternatives.join(", ")}
-                          </p>
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ) : null}
-            </div>
+              </div>
+            ) : null}
             {currentEntry.source === "goal" ? (
-              <>
-                <p className="item-sub" style={{ color: "#5eead4" }}>Goal Exercise{currentEntry.target ? ` · Target: ${currentEntry.target}` : ""}</p>
-                <div className="form-grid">
+              <div className="form-grid">
+                <label className="field">
+                  <span>Completion status</span>
+                  <select value={currentEntry.completionStatus || ""} onChange={(e) => setEntryField("completionStatus", e.target.value)}>
+                    <option value="">Select status</option>
+                    <option value="completed">Completed</option>
+                    <option value="partial">Partially completed</option>
+                    <option value="skipped">Skipped</option>
+                  </select>
+                </label>
+                {currentEntry.completionStatus === "skipped" ? (
                   <label className="field">
-                    <span>Completion status</span>
-                    <select value={currentEntry.completionStatus || ""} onChange={(e) => setEntryField("completionStatus", e.target.value)}>
-                      <option value="">Select status</option>
-                      <option value="completed">Completed</option>
-                      <option value="partial">Partially completed</option>
-                      <option value="skipped">Skipped</option>
+                    <span>Skip reason (required)</span>
+                    <select value={currentEntry.skipReason || ""} onChange={(e) => setEntryField("skipReason", e.target.value)}>
+                      <option value="">Select reason</option>
+                      {SKIP_REASONS.map((reason) => <option key={reason.value} value={reason.value}>{reason.label}</option>)}
                     </select>
                   </label>
-                  {currentEntry.completionStatus === "skipped" ? (
-                    <label className="field">
-                      <span>Skip reason (required)</span>
-                      <select value={currentEntry.skipReason || ""} onChange={(e) => setEntryField("skipReason", e.target.value)}>
-                        <option value="">Select reason</option>
-                        {SKIP_REASONS.map((reason) => <option key={reason.value} value={reason.value}>{reason.label}</option>)}
-                      </select>
-                    </label>
-                  ) : null}
-                </div>
-              </>
+                ) : null}
+              </div>
             ) : (
               <>
-                <p className="item-sub">Other Exercise</p>
                 {goalEntries.filter((goal) => !goal.completionStatus && looksLikeSubstitution(currentEntry.name, goal.name)).slice(0, 1).map((goal) => (
                   <div key={goal.id} className="metric-card" style={{ marginBottom: 8 }}>
                     <p className="item-sub">This looks like a variation of &quot;{goal.name}&quot; (Goal Exercise). Link it?</p>
@@ -815,24 +980,14 @@ export default function Page() {
                 ))}
               </>
             )}
-            {message ? (
-              <p className="item-sub" style={{ color: message.toLowerCase().includes("unable") || message.toLowerCase().includes("select") || message.toLowerCase().includes("resolve") || message.toLowerCase().includes("enter") ? "#fca5a5" : "#34d399", padding: "6px 0", fontWeight: 500 }}>
-                {message}
-              </p>
-            ) : null}
-            <div className="quick-actions" style={{ marginBottom: 8 }}>
-              <button className="mint-button" type="button" onClick={logCurrentSet}>Log this set</button>
-              <button className="ghost-button" type="button" onClick={() => addSetRow(false)}>
-                {currentEntry.setLogs?.length ? "Add next set" : "Add first set"}
-              </button>
-              <button className="continue-btn" type="button" onClick={finishCurrentExercise}>Done with this Exercise</button>
-            </div>
             {(currentEntry.setLogs ?? []).length === 0 ? <p className="item-sub">No sets logged yet.</p> : null}
             {(currentEntry.setLogs ?? []).map((setRow, setIdx) => (
               <div key={`${currentEntry.id}-set-${setIdx}`} className="metric-card" style={{ marginTop: 8 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <p className="item-sub" style={{ margin: 0 }}>Set {setIdx + 1}</p>
-                  <button className="ghost-button" type="button" onClick={() => deleteSetRow(setIdx)}>Delete</button>
+                  {canEditDraft ? (
+                    <button className="ghost-button" type="button" onClick={() => deleteSetRow(setIdx)}>Delete set</button>
+                  ) : null}
                 </div>
                 <div className="form-grid" style={{ marginTop: 8 }}>
                   {(currentEntry.requiredKeys || []).filter((key) => !isStructuralSetsMetric(key)).map((key) => (
@@ -900,13 +1055,32 @@ export default function Page() {
                 ) : null}
               </div>
             </details>
+            </div>
+            <div className="session-editor-actions">
+              <button className="mint-button" type="button" onClick={() => addSetRow(false)}>
+                {currentEntry.setLogs?.length ? "+ Add next set" : "+ Add first set"}
+              </button>
+              <button className="ghost-button" type="button" onClick={() => addSetRow(true)} disabled={!currentEntry.setLogs?.length}>
+                Duplicate last set
+              </button>
+              <button className="continue-btn" type="button" onClick={finishCurrentExercise}>Done with this exercise</button>
+              <button
+                className="ghost-button"
+                type="button"
+                onClick={() => {
+                  setEditorOpen(false);
+                  setSearchModalOpen(true);
+                }}
+              >
+                + Add another exercise
+              </button>
+            </div>
           </div>
         </div>
       ) : null}
 
       {tab === "review" ? <>
-        <article className="card panel">
-          <h2>Goal Progress Summary</h2>
+        <CollapsibleSection title="Goal Progress Summary" defaultOpen>
           {goalEntries.length === 0 ? <p className="item-sub">No goal exercises.</p> : goalEntries.map((entry) => (
             <div key={entry.id} className="list-item" style={{ marginTop: 8 }}>
               <div>
@@ -921,18 +1095,16 @@ export default function Page() {
               </button>
             </div>
           ))}
-        </article>
-        <article className="card panel">
-          <h2>Additional Exercises</h2>
+        </CollapsibleSection>
+        <CollapsibleSection title="Additional Exercises" defaultOpen={false}>
           {entries.filter((e) => e.source === "adhoc").length === 0 ? <p className="item-sub">No other exercises.</p> : entries.filter((e) => e.source === "adhoc").map((entry) => (
             <div key={entry.id} className="list-item" style={{ marginTop: 8 }}>
               <span>{entry.name || "Other exercise"}</span>
               <span>{entry.setLogs?.length || 0} sets</span>
             </div>
           ))}
-        </article>
-        <article className="card panel">
-          <h2>Workout Assessment</h2>
+        </CollapsibleSection>
+        <CollapsibleSection title="Workout Assessment" defaultOpen={false}>
           {assessment ? (
             <div className="metric-card">
               <p className="item-title" style={{ marginTop: 0 }}>Quality score: {assessment.score}/5</p>
@@ -957,16 +1129,15 @@ export default function Page() {
               {assessmentLoading ? "Generating..." : "Re-run assessment"}
             </button>
           </div>
-        </article>
-        <article className="card panel">
-          <h2>Finish Session</h2>
-          {!goalChecksPassed ? <p className="item-sub" style={{ color: "#facc15" }}>Resolve goal statuses before final submit. Missing status: {unresolvedGoalCount}. Missing skip reason: {skippedWithoutReasonCount}.</p> : null}
-          <div className="quick-actions">
-            <button className="ghost-button" type="button" onClick={() => setTab("live")}>Back to draft</button>
-          </div>
-        </article>
-        <article className="card panel">
-          <h2>Discussion (Trainer + Client)</h2>
+        </CollapsibleSection>
+        {!goalChecksPassed ? (
+          <article className="card panel">
+            <p className="item-sub" style={{ margin: 0, color: "#facc15" }}>
+              Resolve goal statuses before lock. Missing status: {unresolvedGoalCount}. Missing skip reason: {skippedWithoutReasonCount}.
+            </p>
+          </article>
+        ) : null}
+        <CollapsibleSection title="Discussion (Trainer + Client)" defaultOpen={false}>
           <div className="card panel" style={{ marginBottom: 10 }}>
             {discussion.length === 0 ? (
               <p className="item-sub">No messages yet.</p>
@@ -989,25 +1160,30 @@ export default function Page() {
             <input value={sharedNote} onChange={(e) => setSharedNote(e.target.value)} placeholder="Reply to client..." />
             <button className="ghost-button" type="button" onClick={sendSharedNote}>Reply</button>
           </div>
-        </article>
-        <article className="card panel"><h2>Session Payment (UPI)</h2><div className="form-grid"><input placeholder="Amount INR" value={payment.amountInr} onChange={(e) => setPayment((p) => ({ ...p, amountInr: e.target.value }))} /><input placeholder="UPI ID" value={payment.upiId} onChange={(e) => setPayment((p) => ({ ...p, upiId: e.target.value }))} /><input placeholder="Payment note" value={payment.note} onChange={(e) => setPayment((p) => ({ ...p, note: e.target.value }))} /></div><button className="ghost-button" type="button" onClick={requestPayment}>Request payment</button></article>
-        <article className="card panel">
-          <h2>Payment Confirmation</h2>
+        </CollapsibleSection>
+        <CollapsibleSection title="Session Payment (UPI)" defaultOpen={false}>
+          <div className="form-grid">
+            <input placeholder="Amount INR" value={payment.amountInr} onChange={(e) => setPayment((p) => ({ ...p, amountInr: e.target.value }))} />
+            <input placeholder="UPI ID" value={payment.upiId} onChange={(e) => setPayment((p) => ({ ...p, upiId: e.target.value }))} />
+            <input placeholder="Payment note" value={payment.note} onChange={(e) => setPayment((p) => ({ ...p, note: e.target.value }))} />
+          </div>
+          <button className="ghost-button" type="button" onClick={requestPayment}>Request payment</button>
+        </CollapsibleSection>
+        <CollapsibleSection title="Payment Confirmation" defaultOpen>
           <label className="field" style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <input type="checkbox" checked={paymentReceived} onChange={(e) => setPaymentReceived(e.target.checked)} />
             <span>I confirm payment has been received from client.</span>
           </label>
           <p className="item-sub">Finalization is enabled only after trainer confirms payment receipt.</p>
-        </article>
-        <article className="card panel">
-          <h2>Publish to Client</h2>
+        </CollapsibleSection>
+        <CollapsibleSection title="Publish to Client" defaultOpen={false}>
           <textarea rows={3} value={publishText} onChange={(e) => setPublishText(e.target.value)} placeholder="Add trainer publish notes the client should see..." />
           <div className="quick-actions" style={{ marginTop: 8 }}>
             <button className="continue-btn" type="button" disabled={!readyToPublish || !goalChecksPassed || saving} onClick={publishToClient}>
               Publish Session Details
             </button>
           </div>
-        </article>
+        </CollapsibleSection>
         <article className="card panel">
           <h2>Lock Notes</h2>
           <label className="field full">
@@ -1020,42 +1196,20 @@ export default function Page() {
         </article>
       </> : null}
 
-      {message ? <p className="item-sub" style={{ color: message.toLowerCase().includes("unable") || message.toLowerCase().includes("select") || message.toLowerCase().includes("resolve") ? "#fca5a5" : "#34d399" }}>{message}</p> : null}
+      {message ? null : null}
 
-      {searchModalOpen ? (
-        <div className="modal-backdrop">
-          <div className="modal-card card" onClick={(e) => e.stopPropagation()}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <h2 style={{ margin: 0 }}>Search Exercise</h2>
-              <button className="ghost-button" type="button" onClick={() => setSearchModalOpen(false)}>Close</button>
-            </div>
-            <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
-              <input
-                style={{ flex: 1 }}
-                value={exerciseSearch}
-                onChange={(e) => setExerciseSearch(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter") runExerciseSearch(exerciseSearch); }}
-                placeholder="Type at least 4 characters…"
-                autoFocus
-              />
-              <button className="mint-button" type="button" onClick={() => runExerciseSearch(exerciseSearch)}>Search</button>
-            </div>
-            <div style={{ display: "grid", gap: 8, marginTop: 10 }}>
-              {searchResults.map((item) => (
-                <button
-                  key={item.id}
-                  type="button"
-                  className="ghost-button"
-                  style={{ textAlign: "left" }}
-                  onClick={() => (editorOpen && currentEntry ? mapSelectedExercise(item) : startAdhocExercise(item))}
-                >
-                  {item.name}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-      ) : null}
+      <ExercisePicker
+        open={searchModalOpen}
+        mode="single"
+        title={editorOpen && currentEntry ? "Map exercise" : "Add exercise"}
+        initialQuery={editorOpen && currentEntry ? currentEntry.name : ""}
+        confirmLabel={editorOpen && currentEntry ? "Use this exercise" : "Add to session"}
+        onClose={() => setSearchModalOpen(false)}
+        onSelect={(item) => {
+          if (editorOpen && currentEntry) mapSelectedExercise(item);
+          else startAdhocExercise(item);
+        }}
+      />
 
       {showAddClient ? (
         <div className="modal-backdrop">
@@ -1076,6 +1230,7 @@ export default function Page() {
           </div>
         </div>
       ) : null}
+
     </TrainerShell>
   );
 }

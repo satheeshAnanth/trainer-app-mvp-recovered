@@ -1,5 +1,13 @@
 import { NextResponse } from "next/server";
-import { getRequiredLoggingKeys, searchMasterExercises } from "app/lib/exerciseCatalog";
+import {
+  getRequiredLoggingKeysForExercises,
+  searchMasterExercises,
+} from "app/lib/exerciseCatalog";
+import {
+  buildMediaSummary,
+  fetchPrimaryMediaForExercises,
+  fetchWorkoutxMediaForExercises,
+} from "app/lib/exerciseMedia";
 import { hasDatabaseUrl } from "app/lib/db";
 
 const MOCK_ITEMS = [
@@ -29,23 +37,41 @@ export async function GET(request) {
   const rows = await searchMasterExercises(q, limit);
   let exercises = dedupeExercises(
     rows.map((row) => ({
-    id: row.id,
-    name: normalizeExerciseName(row.name),
-    category: row.category,
-    equipment: row.equipment,
-    importantInputFields: safeParseArray(row.important_input_fields_json),
-    imageUrl: extractImageUrl(row.tracking_json),
+      id: row.id,
+      name: normalizeExerciseName(row.name),
+      category: row.category,
+      equipment: row.equipment,
+      importantInputFields: safeParseArray(row.important_input_fields_json),
+      imageUrl: extractImageUrl(row.tracking_json),
     }))
   );
 
   if (withKeys && exercises.length > 0) {
-    exercises = await Promise.all(
-      exercises.map(async (ex) => ({
-        ...ex,
-        requiredKeys: await getRequiredLoggingKeys(ex.id),
-      }))
-    );
+    const keysById = await getRequiredLoggingKeysForExercises(exercises.map((ex) => ex.id));
+    exercises = exercises.map((ex) => ({
+      ...ex,
+      requiredKeys: keysById.get(String(ex.id)) || [],
+    }));
   }
+
+  const exerciseIds = exercises.map((ex) => ex.id);
+  const [mediaByExercise, gifByExercise] = await Promise.all([
+    fetchPrimaryMediaForExercises(exerciseIds),
+    fetchWorkoutxMediaForExercises(exerciseIds),
+  ]);
+  exercises = exercises.map((ex) => {
+    const primary = mediaByExercise.get(ex.id) ?? null;
+    const gifMedia = gifByExercise.get(ex.id) ?? null;
+    const legacyImage = primary ? null : (ex.imageUrl ? { type: "image", imageUrl: ex.imageUrl, title: ex.name } : null);
+    const primaryMedia = primary ?? legacyImage;
+    return {
+      ...ex,
+      media: {
+        ...buildMediaSummary(primaryMedia, primaryMedia ? 1 : 0),
+        gifMedia,
+      },
+    };
+  });
 
   const response = NextResponse.json({
     ok: true,
@@ -53,7 +79,8 @@ export async function GET(request) {
     route: "api/exercises/master/search",
     data: { exercises, source: "database", count: exercises.length, limit },
   });
-  response.headers.set("Cache-Control", "public, s-maxage=300, stale-while-revalidate=3600");
+  // Avoid caching personalized/search results for long — stale empty/wrong lists feel broken.
+  response.headers.set("Cache-Control", "private, max-age=30, stale-while-revalidate=120");
   return response;
 }
 

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { buildRecoveredPayload } from "app/lib/apiResponse";
 import { hasDatabaseUrl, query } from "app/lib/db";
 import { readTrainerPhone } from "app/lib/session";
-import { getTrainerBillingStatus } from "app/lib/billingGuard";
+import { getTrainerBillingStatus, reconcileExpiredTrials } from "app/lib/billingGuard";
 
 export async function GET(request) {
   const phone = readTrainerPhone(request.cookies.get("trainer_session")?.value);
@@ -27,6 +27,8 @@ export async function GET(request) {
       },
     });
   }
+
+  await reconcileExpiredTrials({ actor: "auth-session", phone, limit: 1 });
 
   const rows = await query(
     `SELECT id, phone, name, billing_status, trial_ends_at, max_clients FROM trainer_phones WHERE phone = $1 LIMIT 1`,

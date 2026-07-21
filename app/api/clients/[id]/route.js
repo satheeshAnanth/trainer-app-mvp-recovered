@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { buildRecoveredPayload } from "app/lib/apiResponse";
-import { hasDatabaseUrl, query } from "app/lib/db";
+import { hasDatabaseUrl, hasTableColumn, query } from "app/lib/db";
 import { readTrainerPhone } from "app/lib/session";
 import { requireTrainerOwnsClient } from "app/lib/ownership";
 
@@ -49,30 +49,66 @@ export async function PATCH(request, { params }) {
   if (!existing) {
     return NextResponse.json({ ok: false, message: "Client not found." }, { status: 404 });
   }
+  const hasPriorCondition = await hasTableColumn("clients", "prior_condition");
 
-  const name = body?.name != null ? String(body.name).trim() || null : null;
-  const goal = body?.goal != null ? String(body.goal).trim() || null : null;
-  const age = body?.age != null ? Number(body.age) || null : null;
-  const weightKg = body?.weight_kg != null ? Number(body.weight_kg) || null : null;
-  const heightCm = body?.height_cm != null ? Number(body.height_cm) || null : null;
-  const gender = body?.gender != null ? String(body.gender).trim().toLowerCase() || null : null;
-  const activityLevel =
-    body?.activity_level != null ? normalizeActivityLevel(body.activity_level) : null;
+  const updates = [];
+  const values = [];
+  const setField = (column, value) => {
+    values.push(value);
+    updates.push(`${column} = $${values.length}`);
+  };
+  const nullableNumber = (value, label) => {
+    if (value === "" || value == null) return null;
+    const number = Number(value);
+    if (!Number.isFinite(number) || number < 0) throw new Error(`${label} must be a valid number.`);
+    return number;
+  };
 
+  try {
+    if ("name" in body) {
+      const name = String(body.name ?? "").trim();
+      if (!name) return NextResponse.json({ ok: false, message: "Name is required." }, { status: 400 });
+      setField("name", name);
+    }
+    if ("goal" in body) setField("goal", String(body.goal ?? "").trim() || null);
+    if ("age" in body) setField("age", nullableNumber(body.age, "Age"));
+    if ("weight_kg" in body) setField("weight_kg", nullableNumber(body.weight_kg, "Weight"));
+    if ("height_cm" in body) setField("height_cm", nullableNumber(body.height_cm, "Height"));
+    if ("gender" in body) {
+      const gender = String(body.gender ?? "").trim().toLowerCase();
+      if (gender && !["female", "male", "other"].includes(gender)) {
+        return NextResponse.json({ ok: false, message: "Invalid gender." }, { status: 400 });
+      }
+      setField("gender", gender || null);
+    }
+    if ("activity_level" in body) {
+      const raw = String(body.activity_level ?? "").trim();
+      const activityLevel = raw ? normalizeActivityLevel(raw) : null;
+      if (raw && !activityLevel) {
+        return NextResponse.json({ ok: false, message: "Invalid activity level." }, { status: 400 });
+      }
+      setField("activity_level", activityLevel);
+    }
+    if (hasPriorCondition && "prior_condition" in body) {
+      setField("prior_condition", String(body.prior_condition ?? "").trim() || null);
+    }
+  } catch (error) {
+    return NextResponse.json({ ok: false, message: error?.message ?? "Invalid client details." }, { status: 400 });
+  }
+
+  if (!updates.length) {
+    return NextResponse.json({ ok: false, message: "No editable fields provided." }, { status: 400 });
+  }
+
+  values.push(id, phone);
   const rows = await query(
     `UPDATE clients
-     SET
-       name            = COALESCE($2, name),
-       goal            = COALESCE($3, goal),
-       age             = COALESCE($4, age),
-       weight_kg       = COALESCE($5, weight_kg),
-       height_cm       = COALESCE($6, height_cm),
-       gender          = COALESCE($7, gender),
-       activity_level  = COALESCE($8, activity_level),
-       updated_at      = NOW()
-     WHERE id = $1 AND created_by_trainer = $9
+     SET ${updates.join(", ")}, updated_at = NOW()
+     WHERE id = $${values.length - 1}
+       AND regexp_replace(COALESCE(created_by_trainer, ''), '[^0-9]', '', 'g')
+         = regexp_replace(COALESCE($${values.length}, ''), '[^0-9]', '', 'g')
      RETURNING *`,
-    [id, name, goal, age, weightKg, heightCm, gender, activityLevel, phone]
+    values
   );
 
   if (!rows[0]) {

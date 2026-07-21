@@ -2,10 +2,9 @@
 
 import { useEffect, useMemo, useState } from "react";
 import TrainerShell from "app/_components/TrainerShell";
+import CollapsibleSection from "app/_components/CollapsibleSection";
 import {
   buildScheduleActionLabel,
-  buildScheduleReminderText,
-  buildScheduleReminderWindows,
   formatScheduleDateLabel,
   formatScheduleTimeLabel,
   getNextScheduleReminderSummary,
@@ -14,6 +13,12 @@ import {
   normalizeScheduleTime,
   sortScheduleEvents,
 } from "app/lib/schedule";
+import {
+  enableScheduleReminders,
+  isNativeApp,
+  remindersButtonLabel,
+  syncScheduleReminders,
+} from "app/lib/scheduleRemindersClient";
 import SwipeableCard from "app/_components/SwipeableCard";
 
 const FILTERS = ["all", "pending", "accepted", "declined", "cancelled", "completed"];
@@ -88,6 +93,7 @@ export default function Page() {
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
   const [remindersEnabled, setRemindersEnabled] = useState(false);
+  const [remindersNative, setRemindersNative] = useState(false);
   const [form, setForm] = useState(defaultForm());
   const [calView, setCalView] = useState("list");
   const [weekPivot, setWeekPivot] = useState(new Date().toISOString().slice(0, 10));
@@ -116,35 +122,26 @@ export default function Page() {
     } catch {
       setRemindersEnabled(false);
     }
+    isNativeApp().then(setRemindersNative).catch(() => setRemindersNative(false));
   }, []);
 
   useEffect(() => {
-    if (!remindersEnabled || typeof window === "undefined" || !("Notification" in window)) return;
-    if (Notification.permission !== "granted") return;
-
-    const scan = () => {
-      const now = Date.now();
-      const upcoming = sortNewFirst(events)
-        .filter((event) => isUpcomingEvent(event, now))
-        .filter((event) => !["declined", "cancelled", "completed"].includes(String(event.status || "").toLowerCase()));
-
-      upcoming.slice(0, 5).forEach((event) => {
-        buildScheduleReminderWindows(event, now).forEach((reminder) => {
-          if (reminder.delayMs > 60000 || reminder.delayMs < -60000) return;
-          const storageKey = `${NOTIFIED_KEY}:${reminder.marker}`;
-          if (window.localStorage.getItem(storageKey)) return;
-          window.localStorage.setItem(storageKey, "1");
-          new Notification("Schedule reminder", {
-            body: buildScheduleReminderText(event, reminder.hours),
-            tag: `trainer-schedule-${event.id}-${reminder.hours}`,
-          });
-        });
+    if (!remindersEnabled) return undefined;
+    let cancelled = false;
+    const run = async () => {
+      if (cancelled) return;
+      await syncScheduleReminders({
+        events,
+        notifiedKeyPrefix: NOTIFIED_KEY,
+        tagPrefix: "trainer-schedule",
       });
     };
-
-    scan();
-    const timer = window.setInterval(scan, 30000);
-    return () => window.clearInterval(timer);
+    run();
+    const timer = window.setInterval(run, 30000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
   }, [events, remindersEnabled]);
 
   const counts = useMemo(() => {
@@ -195,25 +192,16 @@ export default function Page() {
   }, [events, weekDates]);
 
   async function enableReminders() {
-    if (typeof window === "undefined" || !("Notification" in window)) {
-      setMessage("This browser does not support notifications.");
-      return;
+    const result = await enableScheduleReminders({ storageKey: REMINDER_KEY });
+    setMessage(result.message);
+    if (result.ok) {
+      setRemindersEnabled(true);
+      await syncScheduleReminders({
+        events,
+        notifiedKeyPrefix: NOTIFIED_KEY,
+        tagPrefix: "trainer-schedule",
+      });
     }
-
-    const permission = Notification.permission === "granted" ? "granted" : await Notification.requestPermission();
-    if (permission !== "granted") {
-      setMessage("Notifications are off. You can still use the schedule tab as your reminder list.");
-      return;
-    }
-
-    try {
-      window.localStorage.setItem(REMINDER_KEY, "1");
-    } catch {
-      /* ignore */
-    }
-
-    setRemindersEnabled(true);
-    setMessage("Browser reminders enabled.");
   }
 
   async function createOrUpdate() {
@@ -305,26 +293,25 @@ export default function Page() {
   return (
     <TrainerShell title="Schedule Calendar" subtitle="Simple two-way requests, confirmations, and calendar-style reminders.">
       <article className="card panel">
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, marginBottom: 10 }}>
           <div className="filter-chip-row" style={{ flex: 1, minWidth: 0, paddingBottom: 0 }}>
             <span className="status-chip" style={{ whiteSpace: "nowrap" }}>Total {counts.total}</span>
             <span className="status-chip" style={{ color: "#facc15", whiteSpace: "nowrap" }}>Pending {counts.pending}</span>
             <span className="status-chip" style={{ color: "#34d399", whiteSpace: "nowrap" }}>Accepted {counts.accepted}</span>
             <span className="status-chip" style={{ color: "#93c5fd", whiteSpace: "nowrap" }}>Done {counts.completed}</span>
           </div>
-          <div style={{ display: "flex", gap: 6, flexShrink: 0, marginLeft: 8 }}>
+          <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
             <button type="button" className={calView === "list" ? "mint-button mint-button-sm" : "ghost-button ghost-button-sm"} onClick={() => setCalView("list")}>List</button>
             <button type="button" className={calView === "week" ? "mint-button mint-button-sm" : "ghost-button ghost-button-sm"} onClick={() => setCalView("week")}>Week</button>
           </div>
         </div>
         {calView === "list" ? (
-          <div className="filter-chip-row">
+          <div className="filter-chip-row" aria-label="Filter by status">
             {FILTERS.map((f) => (
               <button
                 key={f}
                 type="button"
-                style={{ whiteSpace: "nowrap" }}
-                className={f === filter ? "mint-button mint-button-sm" : "ghost-button ghost-button-sm"}
+                className={f === filter ? "filter-chip filter-chip-active" : "filter-chip"}
                 onClick={() => setFilter(f)}
               >
                 {f === "all" ? "All" : f[0].toUpperCase() + f.slice(1)}
@@ -438,14 +425,10 @@ export default function Page() {
         )}
       </article>
 
-      <article className="card panel">
+      <CollapsibleSection title="Reminders" subtitle="24h and 1h alerts" defaultOpen={false}>
         <div className="section-header" style={{ marginBottom: 10 }}>
-          <div>
-            <h2 style={{ marginBottom: 4 }}>Reminders</h2>
-            <p className="item-sub">24h and 1h alerts for upcoming sessions.</p>
-          </div>
-          <button type="button" className="mint-button mint-button-sm" onClick={enableReminders}>
-            {remindersEnabled ? "Reminders enabled" : "Enable browser reminders"}
+          <button type="button" className="mint-button mint-button-sm" onClick={enableReminders} disabled={remindersEnabled}>
+            {remindersButtonLabel({ enabled: remindersEnabled, native: remindersNative })}
           </button>
         </div>
         {upcoming.length === 0 ? (
@@ -469,10 +452,13 @@ export default function Page() {
             ))}
           </div>
         )}
-      </article>
+      </CollapsibleSection>
 
-      <article className="card panel">
-        <h2>{editingId ? "Reschedule appointment" : "Create appointment request"}</h2>
+      <CollapsibleSection
+        title={editingId ? "Reschedule appointment" : "Create appointment request"}
+        subtitle="One note, one status, clear confirmation"
+        defaultOpen={false}
+      >
         <p className="item-sub" style={{ marginBottom: 10 }}>
           Keep it simple: one note, one status, and a clear confirmation state.
         </p>
@@ -556,7 +542,7 @@ export default function Page() {
             </button>
           ) : null}
         </div>
-      </article>
+      </CollapsibleSection>
 
       <article className="card panel">
         <div className="section-header" style={{ marginBottom: 12 }}>
@@ -584,8 +570,10 @@ export default function Page() {
                         <p className="item-title">
                           {formatScheduleTimeLabel(event.scheduled_time)} · {event.client_name || "Client"}
                         </p>
-                        <p className="item-sub">Requested by {event.created_by_role || "trainer"}</p>
-                        {event.notes ? <p className="item-sub">{event.notes}</p> : null}
+                        <p className="item-sub">
+                          {String(event.created_by_role || "trainer") === "client" ? "Client request" : "Trainer request"}
+                          {event.notes ? ` · ${event.notes}` : ""}
+                        </p>
                       </div>
                       <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
                         <span className="status-chip" style={tone}>{buildScheduleActionLabel(event.status)}</span>

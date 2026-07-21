@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import TrainerShell from "app/_components/TrainerShell";
+import { useModalDismiss } from "app/_components/useModalDismiss";
+import { useToast } from "app/_components/ToastProvider";
 
 const EMPTY_FORM = {
   name: "",
@@ -24,6 +26,12 @@ export default function Page() {
   const [saving, setSaving] = useState(false);
   const [billing, setBilling] = useState({ status: "trial", maxClients: 5, perClientCostInr: 99 });
   const [form, setForm] = useState(EMPTY_FORM);
+  const { showToast } = useToast();
+  const closeModal = useCallback(() => {
+    setShowModal(false);
+    setModalError("");
+  }, []);
+  useModalDismiss(showModal, closeModal);
 
   async function loadClients() {
     try {
@@ -103,6 +111,7 @@ export default function Page() {
       setShowModal(false);
       setForm(EMPTY_FORM);
       setModalError("");
+      showToast("Client added.");
       await loadClients();
     } catch {
       setModalError("Could not add client.");

@@ -1,0 +1,184 @@
+{
+  "generatedAt": "2026-07-20T07:23:37.957Z",
+  "perCategory": 2,
+  "count": 22,
+  "missingApproved": 22,
+  "candidates": [
+    {
+      "exerciseId": "barbell_curl_straight_bar_straight_bar",
+      "name": "Barbell Curl (Straight bar)",
+      "category": "Arms",
+      "equipment": "Barbell",
+      "formQuality": "Primary",
+      "hasApprovedMedia": false
+    },
+    {
+      "exerciseId": "bench_dip_bodyweight_bodyweight",
+      "name": "Bench Dip (Bodyweight)",
+      "category": "Arms",
+      "equipment": "Bench",
+      "formQuality": "Primary",
+      "hasApprovedMedia": false
+    },
+    {
+      "exerciseId": "assisted_pull_up_machine_machine",
+      "name": "Assisted Pull-up (Machine)",
+      "category": "Back",
+      "equipment": "Assisted machine",
+      "formQuality": "Primary",
+      "hasApprovedMedia": false
+    },
+    {
+      "exerciseId": "back_extension_45_degree_bench_45_degree_bench",
+      "name": "Back Extension (45-degree bench)",
+      "category": "Back",
+      "equipment": "Bench",
+      "formQuality": "Primary",
+      "hasApprovedMedia": false
+    },
+    {
+      "exerciseId": "calf_raise_bodyweight_standing_bodyweight_standing",
+      "name": "Calf Raise (Bodyweight standing)",
+      "category": "Bodyweight/Calisthenics",
+      "equipment": "Bodyweight",
+      "formQuality": "Primary",
+      "hasApprovedMedia": false
+    },
+    {
+      "exerciseId": "ex0206_pistol_squat_assisted_assisted",
+      "name": "EX0206 - Pistol Squat (Assisted) (Assisted)",
+      "category": "Bodyweight/Calisthenics",
+      "equipment": "Bodyweight",
+      "formQuality": "Primary",
+      "hasApprovedMedia": false
+    },
+    {
+      "exerciseId": "air_bike_intervals_intervals",
+      "name": "Air Bike (Intervals)",
+      "category": "Cardio",
+      "equipment": "Air bike",
+      "formQuality": "N/A",
+      "hasApprovedMedia": false
+    },
+    {
+      "exerciseId": "arc_trainer_steady_state_steady_state",
+      "name": "Arc Trainer (Steady state)",
+      "category": "Cardio",
+      "equipment": "Machine",
+      "formQuality": "N/A",
+      "hasApprovedMedia": false
+    },
+    {
+      "exerciseId": "bench_press_close_grip_barbell_close_grip_barbell",
+      "name": "Bench Press (Close-grip barbell)",
+      "category": "Chest",
+      "equipment": "Barbell",
+      "formQuality": "Primary",
+      "hasApprovedMedia": false
+    },
+    {
+      "exerciseId": "bench_press_decline_barbell_decline_barbell",
+      "name": "Bench Press (Decline barbell)",
+      "category": "Chest",
+      "equipment": "Barbell",
+      "formQuality": "Primary",
+      "hasApprovedMedia": false
+    },
+    {
+      "exerciseId": "ab_wheel_rollout_kneeling_kneeling",
+      "name": "Ab Wheel Rollout (Kneeling)",
+      "category": "Core",
+      "equipment": "Ab wheel",
+      "formQuality": "Primary",
+      "hasApprovedMedia": false
+    },
+    {
+      "exerciseId": "bicycle_crunch_alternating_alternating",
+      "name": "Bicycle Crunch (Alternating)",
+      "category": "Core",
+      "equipment": "Bodyweight",
+      "formQuality": "Primary",
+      "hasApprovedMedia": false
+    },
+    {
+      "exerciseId": "battle_rope_slams_double_arm_double_arm",
+      "name": "Battle Rope Slams (Double arm)",
+      "category": "Functional",
+      "equipment": "Battle ropes",
+      "formQuality": "Primary",
+      "hasApprovedMedia": false
+    },
+    {
+      "exerciseId": "battle_rope_waves_alternating_alternating",
+      "name": "Battle Rope Waves (Alternating)",
+      "category": "Functional",
+      "equipment": "Battle ropes",
+      "formQuality": "Primary",
+      "hasApprovedMedia": false
+    },
+    {
+      "exerciseId": "back_squat_high_bar_high_bar",
+      "name": "Back Squat (High bar)",
+      "category": "Legs",
+      "equipment": "Barbell",
+      "formQuality": "Primary",
+      "hasApprovedMedia": false
+    },
+    {
+      "exerciseId": "back_squat_low_bar_low_bar",
+      "name": "Back Squat (Low bar)",
+      "category": "Legs",
+      "equipment": "Barbell",
+      "formQuality": "Primary",
+      "hasApprovedMedia": false
+    },
+    {
+      "exerciseId": "ankle_mobility_ankle_circles_ankle_circles",
+      "name": "Ankle Mobility (Ankle circles)",
+      "category": "Mobility/Warm-up",
+      "equipment": "Bodyweight",
+      "formQuality": "Primary",
+      "hasApprovedMedia": false
+    },
+    {
+      "exerciseId": "ankle_mobility_knee_to_wall_knee_to_wall",
+      "name": "Ankle Mobility (Knee-to-wall)",
+      "category": "Mobility/Warm-up",
+      "equipment": "Wall",
+      "formQuality": "Primary",
+      "hasApprovedMedia": false
+    },
+    {
+      "exerciseId": "bear_crawl_forward_forward",
+      "name": "Bear Crawl (Forward)",
+      "category": "Outdoor",
+      "equipment": "Outdoor",
+      "formQuality": "Primary",
+      "hasApprovedMedia": false
+    },
+    {
+      "exerciseId": "broad_jump_standing_standing",
+      "name": "Broad Jump (Standing)",
+      "category": "Outdoor",
+      "equipment": "Outdoor",
+      "formQuality": "Primary",
+      "hasApprovedMedia": false
+    },
+    {
+      "exerciseId": "arnold_press_dumbbell_dumbbell",
+      "name": "Arnold Press (Dumbbell)",
+      "category": "Shoulders",
+      "equipment": "Dumbbells",
+      "formQuality": "Primary",
+      "hasApprovedMedia": false
+    },
+    {
+      "exerciseId": "dumbbell_shoulder_press_seated_seated",
+      "name": "Dumbbell Shoulder Press (Seated)",
+      "category": "Shoulders",
+      "equipment": "Dumbbells",
+      "formQuality": "Primary",
+      "hasApprovedMedia": false
+    }
+  ]
+}

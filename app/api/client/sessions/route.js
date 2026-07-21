@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { buildRecoveredPayload } from "app/lib/apiResponse";
 import { hasDatabaseUrl, query } from "app/lib/db";
+import { notifyClientSelfLogSubmitted } from "app/lib/pushNotifications";
 import { readClientSession } from "app/lib/session";
 
 export async function GET(request) {
@@ -148,6 +149,13 @@ export async function POST(request) {
     ]
   );
 
+  notifyClientSelfLogSubmitted({
+    sessionId: rows[0]?.id,
+    clientId,
+    clientName,
+    sessionTitle,
+  }).catch(() => {});
+
   return NextResponse.json(
     {
       ok: true,
@@ -250,8 +258,11 @@ function buildStructuredPayload(body, fallback) {
 }
 
 function normalizeExercise(exercise, index) {
+  const masterExerciseId = String(exercise?.masterExerciseId ?? exercise?.exerciseId ?? "").trim();
   return {
     id: String(exercise?.id ?? `exercise-${index}`),
+    masterExerciseId: masterExerciseId || null,
+    exerciseId: masterExerciseId || null,
     name: String(exercise?.name ?? exercise?.exercise ?? `Exercise ${index + 1}`).trim(),
     target: String(exercise?.target ?? "").trim(),
     actual: String(exercise?.actual ?? exercise?.done ?? "").trim(),
