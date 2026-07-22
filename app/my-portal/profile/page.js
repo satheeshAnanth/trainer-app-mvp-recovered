@@ -3,14 +3,16 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import ClientShell from "app/_components/ClientShell";
+import CollapsibleSection from "app/_components/CollapsibleSection";
+import { useToast } from "app/_components/ToastProvider";
 
 const ACTIVITY_OPTIONS = ["sedentary", "lightly active", "moderately active", "very active"];
 
 export default function Page() {
+  const { showToast } = useToast();
   const [profile, setProfile] = useState(null);
   const [form, setForm] = useState({ weight_kg: "", height_cm: "", activity_level: "", goal: "" });
   const [saving, setSaving] = useState(false);
-  const [message, setMessage] = useState("");
 
   useEffect(() => {
     fetch("/api/client/profile")
@@ -31,7 +33,6 @@ export default function Page() {
 
   async function save() {
     setSaving(true);
-    setMessage("");
     try {
       const res = await fetch("/api/client/profile", {
         method: "PATCH",
@@ -40,9 +41,9 @@ export default function Page() {
       });
       const json = await res.json();
       if (!res.ok || !json.ok) throw new Error(json.message ?? "Unable to save.");
-      setMessage("Profile updated.");
+      showToast("Profile updated.");
     } catch (e) {
-      setMessage(e.message ?? "Unable to save.");
+      showToast(e.message ?? "Unable to save.", { variant: "error" });
     } finally {
       setSaving(false);
     }
@@ -88,7 +89,9 @@ export default function Page() {
                   onChange={(e) => setForm((p) => ({ ...p, activity_level: e.target.value }))}
                 >
                   <option value="">Not set</option>
-                  {ACTIVITY_OPTIONS.map((o) => <option key={o} value={o}>{o}</option>)}
+                  {ACTIVITY_OPTIONS.map((o) => (
+                    <option key={o} value={o}>{o}</option>
+                  ))}
                 </select>
               </label>
               <label className="field full">
@@ -101,11 +104,6 @@ export default function Page() {
                 />
               </label>
             </div>
-            {message ? (
-              <p className="item-sub" style={{ color: message.includes("Unable") ? "#fca5a5" : "#34d399", marginTop: 10 }}>
-                {message}
-              </p>
-            ) : null}
             <button className="continue-btn" type="button" style={{ marginTop: 14 }} onClick={save} disabled={saving}>
               {saving ? "Saving…" : "Save profile"}
             </button>
@@ -113,23 +111,21 @@ export default function Page() {
         )}
       </article>
 
-      <article className="card panel">
-        <h2>Exercise Library</h2>
-        <p className="item-sub" style={{ marginBottom: 12 }}>Browse exercises and watch form examples.</p>
-        <Link href="/exercises" className="ghost-button" style={{ display: "inline-block" }}>Open exercise library</Link>
-      </article>
-
-      <article className="card panel">
-        <h2>Session</h2>
+      <CollapsibleSection title="More" subtitle="Library, progress, tips, and account" defaultOpen={false}>
+        <div className="quick-actions" style={{ flexWrap: "wrap" }}>
+          <Link href="/exercises" className="ghost-button ghost-button-sm">Exercise library</Link>
+          <Link href="/my-portal/progress" className="ghost-button ghost-button-sm">Progress</Link>
+          <Link href="/my-portal/tips" className="ghost-button ghost-button-sm">Tips</Link>
+        </div>
         <button
           type="button"
           className="ghost-button"
-          style={{ width: "100%", borderColor: "#7f1d1d", color: "#fca5a5" }}
+          style={{ width: "100%", marginTop: 14, borderColor: "#7f1d1d", color: "#fca5a5" }}
           onClick={signOut}
         >
           Sign Out
         </button>
-      </article>
+      </CollapsibleSection>
     </ClientShell>
   );
 }

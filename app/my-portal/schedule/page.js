@@ -2,12 +2,14 @@
 
 import { useEffect, useMemo, useState } from "react";
 import ClientShell from "app/_components/ClientShell";
+import CollapsibleSection from "app/_components/CollapsibleSection";
+import SwipeableCard from "app/_components/SwipeableCard";
+import { useToast } from "app/_components/ToastProvider";
 import {
   buildScheduleActionLabel,
   formatScheduleDateLabel,
   formatScheduleTimeLabel,
   getNextScheduleReminderSummary,
-  isUpcomingEvent,
   normalizeScheduleDate,
   normalizeScheduleTime,
   sortScheduleEvents,
@@ -18,7 +20,6 @@ import {
   remindersButtonLabel,
   syncScheduleReminders,
 } from "app/lib/scheduleRemindersClient";
-import SwipeableCard from "app/_components/SwipeableCard";
 
 const REMINDER_KEY = "client-schedule-reminders-enabled";
 const NOTIFIED_KEY = "client-schedule-notified";
@@ -41,10 +42,10 @@ function defaultForm() {
 }
 
 export default function Page() {
+  const { showToast } = useToast();
   const [sessionUser, setSessionUser] = useState(null);
   const [events, setEvents] = useState([]);
   const [editingId, setEditingId] = useState("");
-  const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
   const [remindersEnabled, setRemindersEnabled] = useState(false);
   const [remindersNative, setRemindersNative] = useState(false);
@@ -55,9 +56,7 @@ export default function Page() {
     const [sessionRes, eventsRes] = await Promise.all([fetch("/api/client-auth/session"), fetch("/api/schedule/events")]);
     const sessionJson = await sessionRes.json();
     const eventsJson = await eventsRes.json();
-
-    const user = sessionJson?.data?.user ?? null;
-    setSessionUser(user);
+    setSessionUser(sessionJson?.data?.user ?? null);
     setEvents(eventsJson?.data?.events ?? []);
   }
 
@@ -109,21 +108,18 @@ export default function Page() {
     return [...map.entries()].sort((a, b) => (a[0] < b[0] ? 1 : -1));
   }, [visibleEvents]);
 
-  const upcoming = useMemo(() => {
-    return sortScheduleEvents(events)
-      .filter((event) => isUpcomingEvent(event))
-      .filter((event) => !["declined", "cancelled", "completed"].includes(String(event.status || "").toLowerCase()))
-      .slice(0, 3);
-  }, [events]);
-
-  const pendingEvents = useMemo(
-    () => sortScheduleEvents(events).filter((event) => String(event.status || "").toLowerCase() === "pending"),
+  const pendingCount = useMemo(
+    () => events.filter((event) => String(event.status || "").toLowerCase() === "pending").length,
+    [events]
+  );
+  const acceptedCount = useMemo(
+    () => events.filter((event) => String(event.status || "").toLowerCase() === "accepted").length,
     [events]
   );
 
   async function enableReminders() {
     const result = await enableScheduleReminders({ storageKey: REMINDER_KEY });
-    setMessage(result.message);
+    showToast(result.message, { variant: result.ok ? "default" : "error" });
     if (result.ok) {
       setRemindersEnabled(true);
       await syncScheduleReminders({
@@ -135,7 +131,6 @@ export default function Page() {
   }
 
   async function createOrUpdate() {
-    setMessage("");
     setSaving(true);
     try {
       if (!sessionUser?.clientId) {
@@ -162,19 +157,18 @@ export default function Page() {
       const json = await res.json();
       if (!res.ok || !json?.ok) throw new Error(json?.message ?? "Unable to save request.");
 
-      setMessage(editingId ? "Request updated. If the time changed, it will return to pending." : "Request sent to your trainer.");
+      showToast(editingId ? "Request updated." : "Request sent to your trainer.");
       setEditingId("");
       setForm(defaultForm());
       await load();
     } catch (error) {
-      setMessage(error?.message ?? "Unable to save request.");
+      showToast(error?.message ?? "Unable to save request.", { variant: "error" });
     } finally {
       setSaving(false);
     }
   }
 
   async function changeStatus(id, status) {
-    setMessage("");
     const res = await fetch(`/api/schedule/events/${id}/status`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -182,10 +176,10 @@ export default function Page() {
     });
     const json = await res.json();
     if (!res.ok || !json?.ok) {
-      setMessage(json?.message ?? `Unable to set status to ${status}.`);
+      showToast(json?.message ?? `Unable to set status to ${status}.`, { variant: "error" });
       return;
     }
-    setMessage(`Marked as ${buildScheduleActionLabel(status).toLowerCase()}.`);
+    showToast(`Marked as ${buildScheduleActionLabel(status).toLowerCase()}.`);
     await load();
   }
 
@@ -198,50 +192,50 @@ export default function Page() {
     });
   }
 
-  const ownRequests = events.filter((event) => String(event.created_by_role || "") === "client");
-
   return (
-    <ClientShell title="My Schedule" subtitle="Simple requests, confirmations, reminders, and reschedules—no chat thread.">
+    <ClientShell title="My Schedule" subtitle="Confirm sessions, request times, and get reminders.">
       <article className="card panel">
         <div className="filter-chip-row" style={{ marginBottom: 10 }}>
           <span className="status-chip" style={{ whiteSpace: "nowrap" }}>Total {events.length}</span>
-          <span className="status-chip" style={{ color: "#facc15", whiteSpace: "nowrap" }}>Pending {events.filter((event) => String(event.status || "").toLowerCase() === "pending").length}</span>
-          <span className="status-chip" style={{ color: "#34d399", whiteSpace: "nowrap" }}>Accepted {events.filter((event) => String(event.status || "").toLowerCase() === "accepted").length}</span>
+          <span className="status-chip" style={{ color: "#facc15", whiteSpace: "nowrap" }}>Pending {pendingCount}</span>
+          <span className="status-chip" style={{ color: "#34d399", whiteSpace: "nowrap" }}>Accepted {acceptedCount}</span>
         </div>
-        <div className="section-header" style={{ marginBottom: 0, alignItems: "center" }}>
-          <p className="item-sub" style={{ margin: 0 }}>
-            {sessionUser?.name ? `Signed in as ${sessionUser.name}.` : "Loading your client schedule..."}
-          </p>
-          <button type="button" className="ghost-button ghost-button-sm" onClick={enableReminders} disabled={remindersEnabled}>
-            {remindersButtonLabel({ enabled: remindersEnabled, native: remindersNative })}
-          </button>
-        </div>
+        <p className="item-sub" style={{ margin: 0 }}>
+          {sessionUser?.name ? `Signed in as ${sessionUser.name}.` : "Loading your client schedule..."}
+          {pendingCount > 0 ? ` ${pendingCount} waiting on a response.` : ""}
+        </p>
       </article>
 
-      <article className="card panel">
-        <h2>{editingId ? "Reschedule session" : "Request a session"}</h2>
-        <p className="item-sub" style={{ marginBottom: 10 }}>
-          Send one note with the request. Your trainer confirms, declines, or adjusts the time—there is no long chat.
-        </p>
-        {editingId ? <p className="item-sub">Editing an existing request keeps the note and will reset to pending if the time changes.</p> : null}
+      <CollapsibleSection
+        title="Reminders"
+        subtitle="24h and 1h alerts for upcoming sessions"
+        defaultOpen={false}
+        badge={remindersEnabled ? "On" : null}
+      >
+        <button type="button" className="mint-button mint-button-sm" onClick={enableReminders} disabled={remindersEnabled}>
+          {remindersButtonLabel({ enabled: remindersEnabled, native: remindersNative })}
+        </button>
+      </CollapsibleSection>
+
+      <CollapsibleSection
+        key={editingId || "create-request"}
+        title={editingId ? "Reschedule session" : "Request a session"}
+        subtitle="One note, clear confirmation — no chat thread"
+        defaultOpen={Boolean(editingId)}
+      >
+        {editingId ? (
+          <p className="item-sub" style={{ marginBottom: 10 }}>
+            Editing keeps the note and returns the request to pending if the time changes.
+          </p>
+        ) : null}
         <div className="form-grid">
           <label className="field">
             <span>Date</span>
-            <input
-              value={form.date}
-              onChange={(e) => setForm((p) => ({ ...p, date: e.target.value }))}
-              placeholder="YYYY-MM-DD"
-              type="date"
-            />
+            <input value={form.date} onChange={(e) => setForm((p) => ({ ...p, date: e.target.value }))} type="date" />
           </label>
           <label className="field">
             <span>Time</span>
-            <input
-              value={form.time}
-              onChange={(e) => setForm((p) => ({ ...p, time: e.target.value }))}
-              placeholder="09:00"
-              type="time"
-            />
+            <input value={form.time} onChange={(e) => setForm((p) => ({ ...p, time: e.target.value }))} type="time" />
           </label>
           <label className="field full">
             <span>Note for trainer (optional)</span>
@@ -270,26 +264,17 @@ export default function Page() {
             </button>
           ) : null}
         </div>
-      </article>
+      </CollapsibleSection>
 
       <article className="card panel">
-        <div className="section-header" style={{ marginBottom: 10 }}>
-          <div>
-            <h2 style={{ marginBottom: 4 }}>Schedule</h2>
-            <p className="item-sub">Pending items first, then the rest. Swipe or open actions to respond.</p>
-          </div>
-          <span className="status-chip">{events.length} shown</span>
-        </div>
+        <h2 style={{ marginBottom: 4 }}>Schedule</h2>
+        <p className="item-sub" style={{ marginBottom: 12 }}>
+          Swipe or tap Actions to confirm, decline, or reschedule.
+        </p>
         {grouped.length === 0 ? (
           <p className="item-sub">No sessions yet.</p>
         ) : (
-          <>
-            {pendingEvents.length > 0 ? (
-              <p className="item-sub" style={{ marginBottom: 8 }}>
-                {pendingEvents.length} pending confirmation{pendingEvents.length === 1 ? "" : "s"}
-              </p>
-            ) : null}
-            {grouped.map(([date, list]) => (
+          grouped.map(([date, list]) => (
             <div key={date} className="metric-card" style={{ marginBottom: 10 }}>
               <p className="item-title" style={{ marginBottom: 8 }}>{formatScheduleDateLabel(date)}</p>
               {list.map((event) => {
@@ -309,7 +294,9 @@ export default function Page() {
                           {formatScheduleTimeLabel(event.scheduled_time)} · {ownRequest ? "Your request" : "Trainer request"}
                         </p>
                         {event.notes ? <p className="item-sub">{event.notes}</p> : null}
-                        {getNextScheduleReminderSummary(event) ? <p className="item-sub">{getNextScheduleReminderSummary(event)}</p> : null}
+                        {getNextScheduleReminderSummary(event) ? (
+                          <p className="item-sub">{getNextScheduleReminderSummary(event)}</p>
+                        ) : null}
                       </div>
                       <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
                         <span className="status-chip" style={tone}>{buildScheduleActionLabel(event.status)}</span>
@@ -324,16 +311,25 @@ export default function Page() {
                 );
               })}
             </div>
-          ))}
-          </>
+          ))
         )}
       </article>
 
-      {message ? <p className="item-sub">{message}</p> : null}
-
       {sheetEvent ? (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(2,6,23,0.72)", zIndex: 60, display: "flex", alignItems: "flex-end" }} onClick={() => setSheetEvent(null)}>
-          <div style={{ width: "100%", background: "#0f172a", borderRadius: "20px 20px 0 0", padding: "20px 16px", paddingBottom: "calc(20px + env(safe-area-inset-bottom))" }} onClick={(e) => e.stopPropagation()}>
+        <div
+          style={{ position: "fixed", inset: 0, background: "rgba(2,6,23,0.72)", zIndex: 60, display: "flex", alignItems: "flex-end" }}
+          onClick={() => setSheetEvent(null)}
+        >
+          <div
+            style={{
+              width: "100%",
+              background: "#0f172a",
+              borderRadius: "20px 20px 0 0",
+              padding: "20px 16px",
+              paddingBottom: "calc(20px + env(safe-area-inset-bottom))",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
             <div style={{ width: 40, height: 4, borderRadius: 2, background: "#334155", margin: "0 auto 16px" }} />
             <p className="item-title" style={{ marginBottom: 4 }}>{sheetEvent.event.client_name || sessionUser?.name || "Session"}</p>
             <p className="item-sub" style={{ marginBottom: 16 }}>
@@ -343,7 +339,14 @@ export default function Page() {
               {sheetEvent.ownRequest ? (
                 <>
                   <button className="ghost-button" type="button" onClick={() => { editEvent(sheetEvent.event); setSheetEvent(null); }}>Reschedule</button>
-                  <button className="ghost-button" type="button" style={{ borderColor: "#7f1d1d", color: "#fecaca" }} onClick={() => { changeStatus(sheetEvent.event.id, "cancelled"); setSheetEvent(null); }}>Cancel request</button>
+                  <button
+                    className="ghost-button"
+                    type="button"
+                    style={{ borderColor: "#7f1d1d", color: "#fecaca" }}
+                    onClick={() => { changeStatus(sheetEvent.event.id, "cancelled"); setSheetEvent(null); }}
+                  >
+                    Cancel request
+                  </button>
                 </>
               ) : (
                 <>

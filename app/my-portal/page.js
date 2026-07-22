@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import ClientShell from "app/_components/ClientShell";
+import CollapsibleSection from "app/_components/CollapsibleSection";
 import {
   buildGoalProgressSnapshot,
   buildRecentActivity,
@@ -346,8 +347,11 @@ export default function Page() {
         </article>
       </div>
 
-      <article className="card panel">
-        <h2>Recent activity</h2>
+      <CollapsibleSection
+        title="Recent activity"
+        subtitle={loading ? "Loading…" : `${model.activity.length} update${model.activity.length === 1 ? "" : "s"}`}
+        defaultOpen={!loading && model.activity.length > 0 && model.activity.length <= 4}
+      >
         {loading ? (
           <p className="item-sub">Loading activity…</p>
         ) : model.activity.length === 0 ? (
@@ -372,12 +376,17 @@ export default function Page() {
             ))}
           </ul>
         )}
-      </article>
+      </CollapsibleSection>
 
-      <article className="card panel">
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-          <h2 style={{ margin: 0 }}>Session history</h2>
-          <Link className="ghost-button ghost-button-sm" href="/my-portal/progress">All sessions</Link>
+      <CollapsibleSection
+        title="Session history"
+        subtitle="Trainer-logged sessions"
+        defaultOpen={false}
+      >
+        <div className="quick-actions" style={{ marginBottom: 12 }}>
+          <Link className="ghost-button ghost-button-sm" href="/my-portal/progress">
+            Open progress
+          </Link>
         </div>
         {loading ? (
           <p className="item-sub">Loading…</p>
@@ -417,7 +426,7 @@ export default function Page() {
               })}
           </ul>
         )}
-      </article>
+      </CollapsibleSection>
 
       {!loading && sessions.length > 0 ? (() => {
         const allExercises = sessions.flatMap((raw) => {
@@ -427,9 +436,11 @@ export default function Page() {
         const uniqueNames = [...new Map(allExercises.map((ex) => [String(ex.name ?? "").toLowerCase(), ex])).values()].slice(0, 10);
         if (uniqueNames.length === 0) return null;
         return (
-          <article className="card panel">
-            <h2>Exercise history</h2>
-            <p className="item-sub" style={{ marginBottom: 12 }}>Exercises your trainer has logged for you across all sessions.</p>
+          <CollapsibleSection
+            title="Exercise history"
+            subtitle="From your trainer's session logs"
+            defaultOpen={false}
+          >
             <ul className="list">
               {uniqueNames.map((ex, idx) => (
                 <li key={`${ex.name}-${idx}`} className="list-item" style={{ padding: "8px 0" }}>
@@ -448,7 +459,7 @@ export default function Page() {
                 </li>
               ))}
             </ul>
-          </article>
+          </CollapsibleSection>
         );
       })() : null}
     </ClientShell>

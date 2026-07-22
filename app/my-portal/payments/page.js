@@ -54,19 +54,14 @@ export default function Page() {
       title="Payments"
       subtitle={clientName ? `Track what is due for your sessions, ${clientName.split(/\s+/)[0]}.` : "Track what is due for your sessions."}
     >
-      <section className="card panel" style={{ borderLeft: "4px solid var(--mint)" }}>
-        <p className="eyebrow" style={{ marginTop: 0 }}>
-          Payment overview
-        </p>
-        <div className="quick-actions" style={{ marginTop: 14 }}>
-          <Link className="mint-button mint-button-sm" href="/my-portal">
-            Back to dashboard
-          </Link>
-          <Link className="ghost-button ghost-button-sm" href="/my-portal/schedule">
-            Open schedule
-          </Link>
-        </div>
-      </section>
+      <div className="quick-actions" style={{ marginBottom: 4 }}>
+        <Link className="ghost-button ghost-button-sm" href="/my-portal">
+          Home
+        </Link>
+        <Link className="ghost-button ghost-button-sm" href="/my-portal/schedule">
+          Schedule
+        </Link>
+      </div>
 
       <div
         style={{
@@ -76,9 +71,7 @@ export default function Page() {
         }}
       >
         <article className="card panel">
-          <p className="eyebrow" style={{ marginTop: 0 }}>
-            Outstanding total
-          </p>
+          <p className="item-sub" style={{ marginTop: 0, marginBottom: 6 }}>Outstanding total</p>
           <p className="panel-value" style={{ fontSize: 30 }}>
             ₹{Math.round(dueTotal).toLocaleString("en-IN")}
           </p>
@@ -88,9 +81,7 @@ export default function Page() {
         </article>
 
         <article className="card panel">
-          <p className="eyebrow" style={{ marginTop: 0 }}>
-            Current status
-          </p>
+          <p className="item-sub" style={{ marginTop: 0, marginBottom: 6 }}>Current status</p>
           <p className="panel-value" style={{ fontSize: 30 }}>
             {outstanding.length === 0 ? "Clear" : "Pending"}
           </p>

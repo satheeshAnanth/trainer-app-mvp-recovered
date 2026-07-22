@@ -63,19 +63,14 @@ export default function Page() {
       title="Progress"
       subtitle={clientName ? `See how your training is trending, ${clientName.split(/\s+/)[0]}.` : "See how your training is trending."}
     >
-      <section className="card panel" style={{ borderLeft: "4px solid var(--mint)" }}>
-        <p className="eyebrow" style={{ marginTop: 0 }}>
-          Progress at a glance
-        </p>
-        <div className="quick-actions" style={{ marginTop: 14 }}>
-          <Link className="mint-button mint-button-sm" href="/my-portal/self-log">
-            Log a workout
-          </Link>
-          <Link className="ghost-button ghost-button-sm" href="/my-portal/payments">
-            Review payments
-          </Link>
-        </div>
-      </section>
+      <div className="quick-actions" style={{ marginBottom: 4 }}>
+        <Link className="mint-button mint-button-sm" href="/my-portal/self-log">
+          Log a workout
+        </Link>
+        <Link className="ghost-button ghost-button-sm" href="/my-portal">
+          Home
+        </Link>
+      </div>
 
       <div
         style={{
@@ -85,9 +80,7 @@ export default function Page() {
         }}
       >
         <article className="card panel">
-          <p className="eyebrow" style={{ marginTop: 0 }}>
-            Completion rate
-          </p>
+          <p className="item-sub" style={{ marginTop: 0, marginBottom: 6 }}>Completion rate</p>
           <p className="panel-value" style={{ fontSize: 30 }}>
             {model.completionRate}%
           </p>
@@ -97,9 +90,7 @@ export default function Page() {
         </article>
 
         <article className="card panel">
-          <p className="eyebrow" style={{ marginTop: 0 }}>
-            Current streak
-          </p>
+          <p className="item-sub" style={{ marginTop: 0, marginBottom: 6 }}>Current streak</p>
           <p className="panel-value" style={{ fontSize: 30 }}>
             {model.streakDays}
           </p>
@@ -109,9 +100,7 @@ export default function Page() {
         </article>
 
         <article className="card panel">
-          <p className="eyebrow" style={{ marginTop: 0 }}>
-            Review queue
-          </p>
+          <p className="item-sub" style={{ marginTop: 0, marginBottom: 6 }}>Review queue</p>
           <p className="panel-value" style={{ fontSize: 30 }}>
             {model.reviewQueue}
           </p>

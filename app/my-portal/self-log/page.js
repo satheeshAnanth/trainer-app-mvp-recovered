@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import ClientShell from "app/_components/ClientShell";
+import CollapsibleSection from "app/_components/CollapsibleSection";
 import ExercisePicker from "app/_components/ExercisePicker";
 import { ExerciseMediaSheet } from "app/_components/ExerciseMediaSheet";
 import { useToast } from "app/_components/ToastProvider";
@@ -481,8 +482,11 @@ export default function Page() {
         <ExerciseMediaSheet exercise={mediaPreviewExercise} onClose={() => setMediaPreviewExercise(null)} />
       ) : null}
 
-      <article className="card panel">
-        <h2>Reflection</h2>
+      <CollapsibleSection
+        title="Reflection"
+        subtitle="Optional notes for your coach"
+        defaultOpen={false}
+      >
         <div className="form-grid">
           <label className="field full">
             <span>What went well</span>
@@ -512,7 +516,7 @@ export default function Page() {
             />
           </label>
         </div>
-      </article>
+      </CollapsibleSection>
 
       <article className="card panel">
         <h2>Submit</h2>
