@@ -136,7 +136,13 @@ export default function ExercisesPage() {
         <Link href={role === "client" ? "/my-portal/profile" : "/profile"}>Back to profile</Link>
       </p>
 
-      {selected ? <ExerciseMediaSheet exercise={selected} onClose={() => setSelected(null)} /> : null}
+      {selected ? (
+        <ExerciseMediaSheet
+          exercise={selected}
+          onClose={() => setSelected(null)}
+          allowSubmit={role === "trainer"}
+        />
+      ) : null}
     </Shell>
   );
 }

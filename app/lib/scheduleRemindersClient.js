@@ -2,7 +2,13 @@
 
 /**
  * Schedule reminder helpers for web + Capacitor Android.
- * Browser Notification API is missing/broken in Android WebView — use LocalNotifications there.
+ *
+ * Priority:
+ * 1) Native Capacitor LocalNotifications (timed local alerts — works offline)
+ * 2) Browser Notification / SW (web only; unreliable in Android WebView)
+ *
+ * Remote event pushes (session publish, schedule request, etc.) use FCM via
+ * PushNotificationInit + server `pushNotifications.js` — not this module.
  */
 
 import {

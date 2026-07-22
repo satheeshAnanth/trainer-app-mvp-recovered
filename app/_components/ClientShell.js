@@ -25,9 +25,8 @@ export default function ClientShell({ title, subtitle, children }) {
       <div className="trainer-container">
         <header className="trainer-header card surface-elevated">
           <div>
-            <p className="eyebrow">Client Portal</p>
             <h1 className="trainer-title">{title}</h1>
-            <p className="trainer-subtitle">{subtitle}</p>
+            {subtitle ? <p className="trainer-subtitle">{subtitle}</p> : null}
           </div>
         </header>
 

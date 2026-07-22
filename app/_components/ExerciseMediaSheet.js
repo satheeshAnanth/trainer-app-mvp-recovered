@@ -3,9 +3,12 @@
 import { useEffect, useState } from "react";
 import { useModalDismiss } from "app/_components/useModalDismiss";
 
-export function ExerciseMediaSheet({ exercise, onClose }) {
+export function ExerciseMediaSheet({ exercise, onClose, allowSubmit = false }) {
   const [mediaList, setMediaList] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [youtubeUrl, setYoutubeUrl] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [submitMessage, setSubmitMessage] = useState("");
 
   useModalDismiss(Boolean(exercise), onClose);
 
@@ -14,6 +17,8 @@ export function ExerciseMediaSheet({ exercise, onClose }) {
     let cancelled = false;
     (async () => {
       setLoading(true);
+      setSubmitMessage("");
+      setYoutubeUrl("");
       try {
         const res = await fetch(`/api/exercises/master/${encodeURIComponent(exercise.id)}/media`);
         const json = await res.json();
@@ -30,6 +35,27 @@ export function ExerciseMediaSheet({ exercise, onClose }) {
       cancelled = true;
     };
   }, [exercise?.id]);
+
+  async function submitSuggestion() {
+    if (!exercise?.id || !youtubeUrl.trim()) return;
+    setSubmitting(true);
+    setSubmitMessage("");
+    try {
+      const res = await fetch(`/api/exercises/master/${encodeURIComponent(exercise.id)}/media/submit`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ youtubeUrlOrId: youtubeUrl.trim() }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json?.ok) throw new Error(json?.message ?? "Submit failed.");
+      setYoutubeUrl("");
+      setSubmitMessage(json?.data?.note ?? "Submitted for review.");
+    } catch (error) {
+      setSubmitMessage(error.message ?? "Unable to submit.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
   if (!exercise) return null;
 
@@ -69,32 +95,35 @@ export function ExerciseMediaSheet({ exercise, onClose }) {
 
         {!loading && !display ? (
           <article className="callout-card" style={{ marginTop: 12 }}>
-            <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-              <div
-                style={{
-                  width: 56,
-                  height: 56,
-                  borderRadius: 12,
-                  display: "grid",
-                  placeItems: "center",
-                  fontWeight: 700,
-                  border: "1px solid var(--line-strong)",
-                  color: "var(--mint)",
-                  background: "var(--mint-dim)",
-                }}
-              >
-                {(exercise.category || "EX").slice(0, 2).toUpperCase()}
-              </div>
-              <div>
-                <p className="item-title" style={{ margin: 0 }}>No example yet</p>
-                <p className="item-sub" style={{ margin: "4px 0 0" }}>A curated form demo for this exercise has not been added yet.</p>
-              </div>
-            </div>
+            <p className="item-title" style={{ margin: 0 }}>No example yet</p>
+            <p className="item-sub" style={{ margin: "4px 0 0" }}>A curated form demo for this exercise has not been added yet.</p>
           </article>
         ) : null}
 
         {display?.title ? <p className="item-sub" style={{ marginTop: 10 }}>{display.title}{display.channelName ? ` · ${display.channelName}` : ""}</p> : null}
         {display?.attribution ? <p className="item-sub" style={{ marginTop: 4 }}>{display.attribution}</p> : null}
+
+        {allowSubmit ? (
+          <div style={{ marginTop: 16, paddingTop: 12, borderTop: "1px solid var(--line-strong)" }}>
+            <p className="item-title" style={{ marginBottom: 6 }}>Suggest a form video</p>
+            <p className="item-sub" style={{ marginBottom: 8 }}>Paste a YouTube link. It goes to admin review before clients see it.</p>
+            <label className="field full">
+              <span>YouTube URL</span>
+              <input
+                type="url"
+                value={youtubeUrl}
+                onChange={(e) => setYoutubeUrl(e.target.value)}
+                placeholder="https://www.youtube.com/watch?v=…"
+              />
+            </label>
+            <div className="quick-actions" style={{ marginTop: 10 }}>
+              <button className="mint-button" type="button" disabled={submitting || !youtubeUrl.trim()} onClick={submitSuggestion}>
+                {submitting ? "Submitting…" : "Submit for review"}
+              </button>
+            </div>
+            {submitMessage ? <p className="item-sub" style={{ marginTop: 8 }}>{submitMessage}</p> : null}
+          </div>
+        ) : null}
       </div>
     </div>
   );

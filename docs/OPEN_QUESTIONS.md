@@ -14,8 +14,8 @@ Track decisions deferred, assumptions made, and items that need product/ops inpu
 | 1 | **Are the seeded YouTube IDs actually correct form demos for each exercise/equipment variant?** | First 13 rows were auto-approved via `scripts/approve-exercise-media-subset.mjs` using conservative name/equipment matching — videos were not manually watched in this session. | **Needs human QA** — spot-check in `/admin/exercise-media` |
 | 2 | **Should we approve equipment variants separately (e.g. dumbbell vs barbell bench) with the same generic video?** | Subset skipped dumbbell bench, incline push-up, seated press, etc. | Defer until channel-specific videos are sourced |
 | 3 | **How to handle duplicate catalog rows (`EX#### - …` vs clean names)?** | Seed matched both; approvals only on clean `exercise_id` slugs. | Decide dedupe strategy for catalog or seed script |
-| 4 | **Who owns ongoing curation — admin-only or trainer submissions (spec §4C)?** | Admin UI exists; trainer submit flow not built. | Product decision |
-| 5 | **Link-rot checks** — weekly oEmbed cron? | Spec §6; not implemented. | Engineering backlog |
+| 4 | **Who owns ongoing curation — admin-only or trainer submissions (spec §4C)?** | Admin UI exists; trainers can submit YouTube links from Exercise Library (pending_review). | **Trainer submit shipped** — admin still approves |
+| 5 | **Link-rot checks** — weekly oEmbed cron? | Spec §6; `npm run media:check-links` (+ `--mark-broken`). | **Script done** — schedule owner ops |
 | 6 | **YouTube embed behavior in Capacitor WebView** | Fullscreen/autoplay/consent quirks unknown on real devices. | Test on Android hardware |
 
 ### Approved subset (13 primary, pending human QA)
@@ -67,12 +67,12 @@ Track decisions deferred, assumptions made, and items that need product/ops inpu
 | # | Question | Context | Status |
 |---|----------|---------|--------|
 | 14 | **`ADMIN_SECRET` in production — who has it, rotation policy?** | Admin media + ops console depend on it. | Ops |
-| 15 | **Should `/admin/*` pages be middleware-protected beyond secret header?** | Currently public routes with secret gate on API only. | Security review |
-| 16 | **`FIREBASE_SERVICE_ACCOUNT_JSON` + `google-services.json`** | Local: wired from `192.168.1.6` TrainerApp folder into `.env.local` + `android/app/google-services.json` (gitignored). **Still need same JSON on Vercel + redeploy.** | **Local done** — Vercel owner/CLI |
+| 15 | **Should `/admin/*` pages be middleware-protected beyond secret header?** | Cookie gate in middleware + `/admin/login`. APIs still require admin session or `X-Admin-Secret`. | **Done** |
+| 16 | **`FIREBASE_SERVICE_ACCOUNT_JSON` + `google-services.json`** | Local + Vercel Production/Preview set. | **Done** — verify delivery on device |
 | 17 | **Session publish push?** | Triggers on `POST /api/sessions/[id]/share` (publish to client). | **Done** — needs FCM to deliver |
 | 18 | **Client self-log push to trainer?** | Triggers on `POST /api/client/sessions`. | **Done** — needs FCM to deliver |
 | 19 | **New schedule request push?** | Triggers on `POST /api/schedule/events` when status is pending. | **Done** — needs FCM to deliver |
-| 20 | **Migrate off browser `Notification` reminders?** | Schedule pages still use local browser notifications. | Replace after FCM proven on device |
+| 20 | **Migrate off browser `Notification` reminders?** | Native uses LocalNotifications; remote events use FCM. Browser path remains web-only fallback. | **Done for Android path** |
 
 ---
 

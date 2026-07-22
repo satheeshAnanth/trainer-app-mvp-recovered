@@ -17,6 +17,8 @@
     "media:workoutx:refresh": "node --env-file=.env.local scripts/seed-workoutx-media.mjs --refresh-catalog",
     "media:approve-subset": "node scripts/approve-exercise-media-subset.mjs",
     "media:reject-bad": "node scripts/reject-exercise-media-bad.mjs",
+    "media:check-links": "node --env-file=.env.local scripts/check-exercise-media-links.mjs",
+    "media:check-links:mark": "node --env-file=.env.local scripts/check-exercise-media-links.mjs --mark-broken",
     "play:check": "node scripts/play/check.mjs",
     "play:status": "node scripts/play/status.mjs",
     "play:build": "cd android && ./gradlew bundleRelease",

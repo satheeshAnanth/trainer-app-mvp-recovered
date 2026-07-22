@@ -11,6 +11,21 @@ function matchesPrefix(pathname, prefixes) {
 export function middleware(request) {
   const { pathname } = request.nextUrl;
 
+  // Admin console — cookie gate (login page is public)
+  if (pathname === "/admin" || pathname.startsWith("/admin/")) {
+    if (pathname === "/admin/login" || pathname.startsWith("/admin/login/")) {
+      return NextResponse.next();
+    }
+    const adminSession = request.cookies.get("admin_session")?.value;
+    if (!adminSession) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/admin/login";
+      url.searchParams.set("next", pathname);
+      return NextResponse.redirect(url);
+    }
+    return NextResponse.next();
+  }
+
   if (pathname === "/exercises" || pathname.startsWith("/exercises/")) {
     const trainerSession = request.cookies.get("trainer_session")?.value;
     const clientSession = request.cookies.get("client_session")?.value;
@@ -32,7 +47,6 @@ export function middleware(request) {
       return NextResponse.redirect(url);
     }
 
-    // Enforce subscription status (set by /api/auth/session on each portal load)
     const billingStatus = request.cookies.get("trainer_billing_status")?.value;
     if (billingStatus && BLOCKED_BILLING_STATUSES.includes(billingStatus)) {
       const url = request.nextUrl.clone();
@@ -58,6 +72,8 @@ export function middleware(request) {
 
 export const config = {
   matcher: [
+    "/admin",
+    "/admin/:path*",
     "/portal",
     "/portal/:path*",
     "/clients/:path*",

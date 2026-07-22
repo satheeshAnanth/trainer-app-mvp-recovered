@@ -208,75 +208,14 @@ export default function Page() {
           <span className="status-chip" style={{ color: "#facc15", whiteSpace: "nowrap" }}>Pending {events.filter((event) => String(event.status || "").toLowerCase() === "pending").length}</span>
           <span className="status-chip" style={{ color: "#34d399", whiteSpace: "nowrap" }}>Accepted {events.filter((event) => String(event.status || "").toLowerCase() === "accepted").length}</span>
         </div>
-        <p className="item-sub">
-          {sessionUser?.name ? `Signed in as ${sessionUser.name}.` : "Loading your client schedule..."}
-        </p>
-      </article>
-
-      <article className="card panel">
-        <div className="section-header" style={{ marginBottom: 10 }}>
-          <div>
-            <h2 style={{ marginBottom: 4 }}>Pending confirmations</h2>
-            <p className="item-sub">These are the requests waiting for a response or a reschedule.</p>
-          </div>
-          <span className="status-chip" style={{ color: pendingEvents.length ? "#facc15" : "#cbd5e1" }}>
-            {pendingEvents.length ? `${pendingEvents.length} waiting` : "All caught up"}
-          </span>
-        </div>
-        {pendingEvents.length === 0 ? (
-          <p className="item-sub">No pending confirmations right now.</p>
-        ) : (
-          <div className="list">
-            {pendingEvents.slice(0, 3).map((event) => (
-              <div key={event.id} className="list-item" style={{ alignItems: "flex-start" }}>
-                <div>
-                  <p className="item-title">{event.client_name || sessionUser?.name || "Schedule item"}</p>
-                  <p className="item-sub">
-                    {formatScheduleDateLabel(event.scheduled_date)} · {formatScheduleTimeLabel(event.scheduled_time)}
-                  </p>
-                  {event.notes ? <p className="item-sub">{event.notes}</p> : null}
-                  {getNextScheduleReminderSummary(event) ? <p className="item-sub">{getNextScheduleReminderSummary(event)}</p> : null}
-                </div>
-                <span className="status-chip" style={statusTone(event.status)}>
-                  {buildScheduleActionLabel(event.status)}
-                </span>
-              </div>
-            ))}
-          </div>
-        )}
-      </article>
-
-      <article className="card panel">
-        <div className="section-header" style={{ marginBottom: 10 }}>
-          <div>
-            <h2 style={{ marginBottom: 4 }}>Reminders</h2>
-            <p className="item-sub">24h and 1h alerts for upcoming sessions.</p>
-          </div>
-          <button type="button" className="mint-button mint-button-sm" onClick={enableReminders} disabled={remindersEnabled}>
+        <div className="section-header" style={{ marginBottom: 0, alignItems: "center" }}>
+          <p className="item-sub" style={{ margin: 0 }}>
+            {sessionUser?.name ? `Signed in as ${sessionUser.name}.` : "Loading your client schedule..."}
+          </p>
+          <button type="button" className="ghost-button ghost-button-sm" onClick={enableReminders} disabled={remindersEnabled}>
             {remindersButtonLabel({ enabled: remindersEnabled, native: remindersNative })}
           </button>
         </div>
-        {upcoming.length === 0 ? (
-          <p className="item-sub">No upcoming reminders in the next 24 hours.</p>
-        ) : (
-          <div className="list">
-            {upcoming.map((event) => (
-              <div key={event.id} className="list-item" style={{ alignItems: "flex-start" }}>
-                <div>
-                  <p className="item-title">{event.client_name || sessionUser?.name || "Schedule item"}</p>
-                  <p className="item-sub">
-                    {formatScheduleDateLabel(event.scheduled_date)} · {formatScheduleTimeLabel(event.scheduled_time)}
-                  </p>
-                  {event.notes ? <p className="item-sub">{event.notes}</p> : null}
-                  <p className="item-sub">{getNextScheduleReminderSummary(event) || "Reminder scheduled."}</p>
-                </div>
-                <span className="status-chip" style={statusTone(event.status)}>
-                  {buildScheduleActionLabel(event.status)}
-                </span>
-              </div>
-            ))}
-          </div>
-        )}
       </article>
 
       <article className="card panel">
@@ -336,15 +275,21 @@ export default function Page() {
       <article className="card panel">
         <div className="section-header" style={{ marginBottom: 10 }}>
           <div>
-            <h2 style={{ marginBottom: 4 }}>All sessions</h2>
-            <p className="item-sub">Everything stays mirrored between trainer and client schedule tabs.</p>
+            <h2 style={{ marginBottom: 4 }}>Schedule</h2>
+            <p className="item-sub">Pending items first, then the rest. Swipe or open actions to respond.</p>
           </div>
-          <span className="status-chip">{ownRequests.length} shown</span>
+          <span className="status-chip">{events.length} shown</span>
         </div>
         {grouped.length === 0 ? (
           <p className="item-sub">No sessions yet.</p>
         ) : (
-          grouped.map(([date, list]) => (
+          <>
+            {pendingEvents.length > 0 ? (
+              <p className="item-sub" style={{ marginBottom: 8 }}>
+                {pendingEvents.length} pending confirmation{pendingEvents.length === 1 ? "" : "s"}
+              </p>
+            ) : null}
+            {grouped.map(([date, list]) => (
             <div key={date} className="metric-card" style={{ marginBottom: 10 }}>
               <p className="item-title" style={{ marginBottom: 8 }}>{formatScheduleDateLabel(date)}</p>
               {list.map((event) => {
@@ -379,7 +324,8 @@ export default function Page() {
                 );
               })}
             </div>
-          ))
+          ))}
+          </>
         )}
       </article>
 

@@ -79,6 +79,7 @@ export default function AdminShell({ title, children }) {
     setAdminEmail("");
     setEmail("");
     setPassword("");
+    window.location.href = "/admin/login";
   }
 
   if (checking) {
@@ -91,34 +92,14 @@ export default function AdminShell({ title, children }) {
   }
 
   if (!authenticated) {
+    if (typeof window !== "undefined") {
+      const next = encodeURIComponent(pathname || "/admin");
+      window.location.replace(`/admin/login?next=${next}`);
+    }
     return (
       <main style={shellStyle}>
         <p style={eyebrowStyle}>{title || "TRAINER APP — ADMIN"}</p>
-        <form onSubmit={login} style={{ display: "grid", gap: 10, maxWidth: 380, marginTop: 20 }} autoComplete="off">
-          <input
-            type="email"
-            autoComplete="username"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="Admin email"
-            required
-            autoFocus
-            style={inputStyle}
-          />
-          <input
-            type="password"
-            autoComplete="new-password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="Password"
-            required
-            style={inputStyle}
-          />
-          <button type="submit" disabled={loading || !email || !password} style={buttonStyle}>
-            {loading ? "Signing in…" : "Sign in"}
-          </button>
-        </form>
-        {error ? <p style={{ color: "#f87171", marginTop: 12, fontSize: 13 }}>{error}</p> : null}
+        <p style={{ color: "#94a3b8", fontSize: 13 }}>Redirecting to sign in…</p>
       </main>
     );
   }

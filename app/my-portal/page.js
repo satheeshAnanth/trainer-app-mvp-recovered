@@ -128,24 +128,9 @@ export default function Page() {
           background: "linear-gradient(135deg, rgba(45, 212, 191, 0.08), transparent)",
         }}
       >
-        <p className="eyebrow" style={{ marginTop: 0 }}>
-          Next step
-        </p>
-        <p className="trainer-subtitle" style={{ marginTop: 6, fontSize: 15, color: "#e2e8f0" }}>
-          {loading ? "Loading your dashboard…" : "Jump back into training or stay on top of requests."}
-        </p>
-        <div className="quick-actions" style={{ marginTop: 14 }}>
+        <div className="quick-actions" style={{ marginTop: 0 }}>
           <Link className="mint-button mint-button-sm" href={model.cta.href}>
-            {model.cta.label}
-          </Link>
-          <Link className="ghost-button ghost-button-sm" href="/my-portal/schedule">
-            Schedule
-          </Link>
-          <Link className="ghost-button ghost-button-sm" href="/my-portal/progress">
-            Progress
-          </Link>
-          <Link className="ghost-button ghost-button-sm" href="/my-portal/payments">
-            Payments
+            {loading ? "Loading…" : model.cta.label}
           </Link>
         </div>
       </section>
