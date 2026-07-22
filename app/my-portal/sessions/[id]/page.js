@@ -2,24 +2,53 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import ClientShell from "app/_components/ClientShell";
+import { useToast } from "app/_components/ToastProvider";
+import {
+  describeExerciseDone,
+  friendlyExerciseStatus,
+  friendlySessionStatus,
+  isGoalExercise,
+} from "app/lib/clientSessionLabels";
 
-function statusColor(status) {
-  if (status === "completed") return "#34d399";
-  if (status === "pending_notes") return "#facc15";
-  if (status === "draft") return "#94a3b8";
-  return "#94a3b8";
+function ExerciseRow({ exercise }) {
+  const status = friendlyExerciseStatus(exercise.completionStatus);
+  const done = describeExerciseDone(exercise);
+  const target = String(exercise.target ?? "").trim();
+  const skipReason = String(exercise.skipReason ?? "").trim();
+  const note = String(exercise.note ?? exercise.notes ?? "").trim();
+
+  return (
+    <li className="list-item" style={{ alignItems: "flex-start", padding: "10px 0" }}>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <p className="item-title">{exercise.name || "Exercise"}</p>
+        <p className="item-sub" style={{ marginTop: 4 }}>
+          Target: {target || "—"}
+          {done ? ` · Done: ${done}` : ""}
+        </p>
+        {skipReason ? (
+          <p className="item-sub" style={{ marginTop: 4, color: "#fecaca" }}>
+            Skip reason: {skipReason}
+          </p>
+        ) : null}
+        {note ? <p className="item-sub" style={{ marginTop: 4, color: "#cbd5e1" }}>{note}</p> : null}
+      </div>
+      <span className="status-chip" style={{ color: status.color }}>
+        {status.label}
+      </span>
+    </li>
+  );
 }
 
 export default function Page() {
   const { id } = useParams();
+  const { showToast } = useToast();
   const [session, setSession] = useState(null);
   const [comments, setComments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [newComment, setNewComment] = useState("");
   const [sending, setSending] = useState(false);
-  const [message, setMessage] = useState("");
 
   useEffect(() => {
     if (!id) return;
@@ -36,10 +65,38 @@ export default function Page() {
       .finally(() => setLoading(false));
   }, [id]);
 
+  const payload = useMemo(() => {
+    if (!session) return {};
+    try {
+      return typeof session.payload_json === "string"
+        ? JSON.parse(session.payload_json)
+        : (session.payload_json ?? session.payload ?? {});
+    } catch {
+      return {};
+    }
+  }, [session]);
+
+  const exercises = useMemo(
+    () => (Array.isArray(payload.exercises) ? payload.exercises : []),
+    [payload]
+  );
+  const goalExercises = useMemo(() => exercises.filter(isGoalExercise), [exercises]);
+  const otherExercises = useMemo(() => exercises.filter((ex) => !isGoalExercise(ex)), [exercises]);
+  const goalName = String(payload.goalTemplateName ?? payload.goalName ?? "").trim();
+  const assessment = payload.assessment ?? null;
+  const sessionStatus = friendlySessionStatus(session?.status);
+
+  const sessionDate = session?.session_date
+    ? new Date(session.session_date).toLocaleDateString("en-IN", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+      })
+    : "Date unknown";
+
   async function sendComment() {
     if (!newComment.trim()) return;
     setSending(true);
-    setMessage("");
     try {
       const res = await fetch(`/api/sessions/${id}/comments`, {
         method: "POST",
@@ -52,8 +109,9 @@ export default function Page() {
       const updated = await fetch(`/api/sessions/${id}/comments`).then((r) => r.json());
       const raw = updated?.data?.comments ?? updated?.data ?? [];
       setComments(Array.isArray(raw) ? raw : []);
+      showToast("Message sent.");
     } catch (e) {
-      setMessage(e.message ?? "Unable to send.");
+      showToast(e.message ?? "Unable to send.", { variant: "error" });
     } finally {
       setSending(false);
     }
@@ -72,63 +130,68 @@ export default function Page() {
       <ClientShell title="Session" subtitle="">
         <article className="card panel">
           <p className="item-sub">Session not found.</p>
-          <Link className="ghost-button" href="/my-portal" style={{ marginTop: 12, display: "inline-block" }}>← Back</Link>
+          <Link className="ghost-button" href="/my-portal" style={{ marginTop: 12, display: "inline-block" }}>
+            ← Back
+          </Link>
         </article>
       </ClientShell>
     );
   }
 
-  const payload = (() => {
-    try {
-      return typeof session.payload_json === "string" ? JSON.parse(session.payload_json) : (session.payload_json ?? {});
-    } catch { return {}; }
-  })();
-  const exercises = Array.isArray(payload.exercises) ? payload.exercises : [];
-  const assessment = payload.assessment ?? null;
-  const sessionDate = session.session_date
-    ? new Date(session.session_date).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })
-    : "Date unknown";
-
   return (
     <ClientShell title={session.session_title || "Session"} subtitle={sessionDate}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4 }}>
-        <Link className="ghost-button ghost-button-sm" href="/my-portal">← Back</Link>
-        <span className="status-chip" style={{ color: statusColor(session.status) }}>
-          {String(session.status ?? "draft").replace(/_/g, " ")}
+      {(goalName || goalExercises.length > 0) ? (
+        <div className="session-goal-sticky">
+          <p className="item-title" style={{ marginBottom: 4 }}>
+            {goalName || "Your goal work"}
+          </p>
+          <p className="item-sub">
+            {goalExercises.length
+              ? `${goalExercises.length} goal exercise${goalExercises.length === 1 ? "" : "s"} in this session`
+              : "Goal context from your coach"}
+            {" · "}
+            <span style={{ color: sessionStatus.color }}>{sessionStatus.label}</span>
+          </p>
+        </div>
+      ) : null}
+
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 4, flexWrap: "wrap" }}>
+        <Link className="ghost-button ghost-button-sm" href="/my-portal">← Home</Link>
+        <Link className="ghost-button ghost-button-sm" href="/my-portal/progress">Progress</Link>
+        <span className="status-chip" style={{ color: sessionStatus.color }}>
+          {sessionStatus.label}
         </span>
       </div>
 
-      {exercises.length > 0 ? (
+      {goalExercises.length > 0 ? (
+        <article className="card panel">
+          <h2>Goal exercises</h2>
+          <p className="item-sub" style={{ marginBottom: 8 }}>
+            What your coach planned for this session.
+          </p>
+          <ul className="list">
+            {goalExercises.map((ex, i) => (
+              <ExerciseRow key={`goal-${ex.name}-${i}`} exercise={ex} />
+            ))}
+          </ul>
+        </article>
+      ) : null}
+
+      {otherExercises.length > 0 ? (
+        <article className="card panel">
+          <h2>{goalExercises.length ? "Additional work" : "Exercises"}</h2>
+          <ul className="list">
+            {otherExercises.map((ex, i) => (
+              <ExerciseRow key={`other-${ex.name}-${i}`} exercise={ex} />
+            ))}
+          </ul>
+        </article>
+      ) : null}
+
+      {exercises.length === 0 ? (
         <article className="card panel">
           <h2>Exercises</h2>
-          <ul className="list">
-            {exercises.map((ex, i) => {
-              const sets = ex.metrics?.setsData ?? [];
-              return (
-                <li key={`${ex.name}-${i}`} className="list-item" style={{ alignItems: "flex-start", padding: "10px 0" }}>
-                  <div style={{ flex: 1 }}>
-                    <p className="item-title">{ex.name || "Exercise"}</p>
-                    {ex.completionStatus ? (
-                      <p className="item-sub" style={{ marginTop: 4 }}>
-                        Status: {ex.completionStatus}
-                        {ex.skipReason ? ` · Reason: ${ex.skipReason}` : ""}
-                      </p>
-                    ) : null}
-                    {sets.length > 0 ? (
-                      <p className="item-sub" style={{ marginTop: 4 }}>
-                        {sets.length} set{sets.length !== 1 ? "s" : ""}
-                        {sets[0] ? " · " + Object.entries(sets[0]).filter(([, v]) => v).map(([k, v]) => `${k}: ${v}`).join(", ") : ""}
-                      </p>
-                    ) : null}
-                    {ex.note ? <p className="item-sub" style={{ marginTop: 4, color: "#cbd5e1" }}>{ex.note}</p> : null}
-                  </div>
-                  <span className="status-chip" style={{ color: ex.completionStatus === "completed" ? "#34d399" : ex.completionStatus === "skipped" ? "#f87171" : "#94a3b8" }}>
-                    {ex.completionStatus || "logged"}
-                  </span>
-                </li>
-              );
-            })}
-          </ul>
+          <p className="item-sub">No structured exercises on this session yet.</p>
         </article>
       ) : null}
 
@@ -140,7 +203,9 @@ export default function Page() {
             <>
               <p className="item-sub" style={{ marginTop: 10, marginBottom: 6 }}>What went well</p>
               <ul className="list">
-                {assessment.wentWell.map((w, i) => <li key={i} className="list-item"><span>{w}</span></li>)}
+                {assessment.wentWell.map((w, i) => (
+                  <li key={i} className="list-item"><span>{w}</span></li>
+                ))}
               </ul>
             </>
           ) : null}
@@ -148,7 +213,9 @@ export default function Page() {
             <>
               <p className="item-sub" style={{ marginTop: 10, marginBottom: 6 }}>Next session focus</p>
               <ul className="list">
-                {assessment.improve.map((w, i) => <li key={i} className="list-item"><span>{w}</span></li>)}
+                {assessment.improve.map((w, i) => (
+                  <li key={i} className="list-item"><span>{w}</span></li>
+                ))}
               </ul>
             </>
           ) : null}
@@ -171,7 +238,9 @@ export default function Page() {
             {comments.map((c) => (
               <li key={c.id} className="list-item" style={{ alignItems: "flex-start" }}>
                 <div>
-                  <p className="item-title">{c.author_name ?? c.authorName ?? "User"} · {c.author_role ?? c.authorRole ?? ""}</p>
+                  <p className="item-title">
+                    {c.author_name ?? c.authorName ?? "User"} · {c.author_role ?? c.authorRole ?? ""}
+                  </p>
                   <p className="item-sub">{c.text}</p>
                 </div>
               </li>
@@ -189,7 +258,6 @@ export default function Page() {
             {sending ? "…" : "Send"}
           </button>
         </div>
-        {message ? <p className="item-sub" style={{ color: "#fca5a5", marginTop: 8 }}>{message}</p> : null}
       </article>
     </ClientShell>
   );

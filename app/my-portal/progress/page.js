@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import ClientShell from "app/_components/ClientShell";
 import { buildClientProgressSnapshot } from "app/lib/clientProgress";
 import { formatSessionDateShort, normalizeClientSession } from "app/lib/clientDashboard";
+import { friendlySessionStatus } from "app/lib/clientSessionLabels";
 
 export default function Page() {
   const [sessions, setSessions] = useState([]);
@@ -194,9 +195,20 @@ export default function Page() {
                       <div>
                         <p className="item-title">{row.name}</p>
                         <p className="item-sub">Target: {row.target || "—"} · Done: {row.done || row.completionStatus || "—"}</p>
+                        {row.skipReason ? (
+                          <p className="item-sub" style={{ color: "#fecaca", marginTop: 4 }}>
+                            Skip reason: {row.skipReason}
+                          </p>
+                        ) : null}
                       </div>
-                      <span className="status-chip" style={{ color: row.progress === "up" ? "#4ade80" : row.progress === "down" ? "#f87171" : "#94a3b8" }}>
-                        {row.progress === "up" ? "↑" : row.progress === "down" ? "↓" : "→"}
+                      <span className="status-chip" style={{ color: String(row.completionStatus).toLowerCase() === "skipped" ? "#f87171" : row.progress === "up" ? "#4ade80" : row.progress === "down" ? "#f87171" : "#94a3b8" }}>
+                        {String(row.completionStatus).toLowerCase() === "skipped"
+                          ? "Skipped"
+                          : row.progress === "up"
+                            ? "↑"
+                            : row.progress === "down"
+                              ? "↓"
+                              : "→"}
                       </span>
                     </li>
                   ))}
@@ -214,15 +226,21 @@ export default function Page() {
             </p>
           ) : (
             <ul className="list">
-              {recentSessions.map((session) => (
-                <li key={session.id} className="list-item" style={{ alignItems: "flex-start" }}>
-                  <div>
-                    <p className="item-title">{session.sessionTitle}</p>
-                    <p className="item-sub">{formatSessionDateShort(session.sessionDate) || "Date TBD"}</p>
-                  </div>
-                  <span className="status-chip">{session.status || "session"}</span>
-                </li>
-              ))}
+              {recentSessions.map((session) => {
+                const status = friendlySessionStatus(session.status);
+                const href = session.id ? `/my-portal/sessions/${session.id}` : "/my-portal/progress";
+                return (
+                  <li key={session.id || session.sessionTitle} className="list-item" style={{ alignItems: "flex-start" }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <Link href={href} className="item-title" style={{ color: "inherit", textDecoration: "none" }}>
+                        {session.sessionTitle}
+                      </Link>
+                      <p className="item-sub">{formatSessionDateShort(session.sessionDate) || "Date TBD"}</p>
+                    </div>
+                    <span className="status-chip" style={{ color: status.color }}>{status.label}</span>
+                  </li>
+                );
+              })}
             </ul>
           )}
         </article>

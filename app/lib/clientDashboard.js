@@ -42,11 +42,14 @@ function safeParseMaybeJson(value) {
 function deriveGoalRowsFromPayload(payload) {
   const exercises = Array.isArray(payload?.exercises) ? payload.exercises : [];
   return exercises
-    .filter((ex) => ex?.source === "goal")
+    .filter((ex) => {
+      const source = String(ex?.source ?? "").toLowerCase();
+      return source === "goal" || source === "goal_template" || Boolean(ex?.fromGoal);
+    })
     .map((exercise) => ({
       name: exercise?.name ?? "Exercise",
       target: String(exercise?.target ?? "").trim(),
-      done: "",
+      done: String(exercise?.actual ?? exercise?.done ?? "").trim(),
       completionStatus: String(exercise?.completionStatus ?? ""),
       skipReason: String(exercise?.skipReason ?? ""),
       progress: "same",

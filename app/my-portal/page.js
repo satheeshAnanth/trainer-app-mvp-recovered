@@ -270,9 +270,20 @@ export default function Page() {
                         <p className="item-sub">
                           Target: {row.target || "—"} · Done: {row.done || row.completionStatus || "—"}
                         </p>
+                        {row.skipReason ? (
+                          <p className="item-sub" style={{ color: "#fecaca", marginTop: 4 }}>
+                            Skip reason: {row.skipReason}
+                          </p>
+                        ) : null}
                       </div>
                       <span className="status-chip">
-                        {row.progress === "up" ? "↑" : row.progress === "down" ? "↓" : "→"}
+                        {String(row.completionStatus).toLowerCase() === "skipped"
+                          ? "Skipped"
+                          : row.progress === "up"
+                            ? "↑"
+                            : row.progress === "down"
+                              ? "↓"
+                              : "→"}
                       </span>
                     </li>
                   ))}

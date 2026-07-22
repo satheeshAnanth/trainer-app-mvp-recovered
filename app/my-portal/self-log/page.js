@@ -26,6 +26,7 @@ function makeExerciseRow(seed = {}, index = 0) {
     notes: String(seed.notes ?? seed.variation ?? ""),
     effort: String(seed.effort ?? ""),
     completionStatus: String(seed.completionStatus ?? "planned"),
+    skipReason: String(seed.skipReason ?? ""),
     source: String(seed.source ?? "client_log"),
   };
 }
@@ -174,7 +175,14 @@ export default function Page() {
   function updateExercise(id, key, value) {
     setForm((prev) => ({
       ...prev,
-      exercises: prev.exercises.map((exercise) => (exercise.id === id ? { ...exercise, [key]: value } : exercise)),
+      exercises: prev.exercises.map((exercise) => {
+        if (exercise.id !== id) return exercise;
+        const next = { ...exercise, [key]: value };
+        if (key === "completionStatus" && value !== "skipped") {
+          next.skipReason = "";
+        }
+        return next;
+      }),
     }));
   }
 
@@ -231,6 +239,15 @@ export default function Page() {
       return;
     }
 
+    const skippedMissingReason = form.exercises.filter((exercise) => {
+      const status = String(exercise.completionStatus ?? "").toLowerCase();
+      return status === "skipped" && !String(exercise.skipReason ?? "").trim();
+    });
+    if (skippedMissingReason.length > 0) {
+      showToast("Add a skip reason for every skipped exercise.", { variant: "error" });
+      return;
+    }
+
     const exercises = form.exercises
       .map((exercise) => ({
         id: exercise.id,
@@ -241,6 +258,10 @@ export default function Page() {
         notes: String(exercise.notes ?? "").trim(),
         effort: String(exercise.effort ?? "").trim(),
         completionStatus: String(exercise.completionStatus ?? "planned").trim() || "planned",
+        skipReason:
+          String(exercise.completionStatus ?? "").toLowerCase() === "skipped"
+            ? String(exercise.skipReason ?? "").trim()
+            : "",
         source: String(exercise.source ?? "client_log").trim() || "client_log",
       }))
       .filter((exercise) => exercise.name || exercise.actual || exercise.notes || exercise.target);
@@ -291,18 +312,14 @@ export default function Page() {
 
   return (
     <ClientShell title="Self Log" subtitle="Capture your workout in a structured way your coach can review.">
-      <section
-        className="card panel"
-        style={{
-          borderLeft: "4px solid var(--mint)",
-          background: "linear-gradient(135deg, rgba(45, 212, 191, 0.08), transparent)",
-        }}
-      >
-        <p className="eyebrow" style={{ marginTop: 0 }}>
-          {goalTemplateName ? `Goal template: ${goalTemplateName}` : loading ? "Loading your setup…" : "Use this form for any solo workout"}
+      <section className="session-goal-sticky" style={{ marginBottom: 12 }}>
+        <p className="item-title" style={{ marginBottom: 4 }}>
+          {goalTemplateName || (loading ? "Loading your setup…" : "Solo workout")}
         </p>
         <p className="item-sub" style={{ marginBottom: 0 }}>
-          Log the session title, what you did, what felt good, and what needs coach attention.
+          {goalTemplateName
+            ? "Goal exercises are seeded below. Mark skipped ones with a reason so your coach sees why."
+            : "Log what you did so your coach can review it."}
         </p>
       </section>
 
@@ -360,6 +377,9 @@ export default function Page() {
                 <div>
                   <p className="item-title" style={{ marginBottom: 4 }}>
                     Exercise {index + 1}
+                    {exercise.source === "goal" ? (
+                      <span className="status-chip" style={{ marginLeft: 8, color: "#2dd4bf" }}>Goal</span>
+                    ) : null}
                   </p>
                   <p className="item-sub" style={{ marginBottom: 0 }}>
                     Keep it short and clear for your coach.
@@ -426,6 +446,17 @@ export default function Page() {
                     <option value="skipped">Skipped</option>
                   </select>
                 </label>
+                {String(exercise.completionStatus).toLowerCase() === "skipped" ? (
+                  <label className="field full">
+                    <span>Skip reason *</span>
+                    <input
+                      type="text"
+                      value={exercise.skipReason}
+                      onChange={(event) => updateExercise(exercise.id, "skipReason", event.target.value)}
+                      placeholder="e.g. Knee discomfort, ran out of time"
+                    />
+                  </label>
+                ) : null}
                 <label className="field full">
                   <span>Notes</span>
                   <textarea rows={3} value={exercise.notes} onChange={(event) => updateExercise(exercise.id, "notes", event.target.value)} />
