@@ -18,14 +18,17 @@ function normalizePhone(raw) {
 }
 
 function homeForRole(role, nextParam) {
+  if (role === "platform_admin") {
+    const next = safeNextPath(nextParam, "/admin");
+    return next.startsWith("/admin") ? next : "/admin";
+  }
   if (role === "gym") {
     const next = safeNextPath(nextParam, "/gym");
     return next.startsWith("/gym") ? next : "/gym";
   }
   if (role === "client") return "/my-portal";
   const next = safeNextPath(nextParam, "/portal");
-  // Don't send a trainer into gym routes via a stale next= param
-  if (next.startsWith("/gym") || next.startsWith("/my-portal")) return "/portal";
+  if (next.startsWith("/gym") || next.startsWith("/my-portal") || next.startsWith("/admin")) return "/portal";
   return next;
 }
 
@@ -80,7 +83,8 @@ function LoginForm() {
     if (role === "client") {
       await sendClientOtp(normalizedPhone);
     } else {
-      // trainer and gym admin share the same OTP send path
+      // trainer, gym admin, and platform admin share trainer OTP send
+      // (platform admin is allowed without a trainer_phones row)
       await sendTrainerOtp(normalizedPhone);
     }
   }
@@ -99,7 +103,7 @@ function LoginForm() {
 
     try {
       const normalizedPhone = normalizePhone(phone);
-      const [trainerRes, clientRes, gymRes] = await Promise.all([
+      const [trainerRes, clientRes, gymRes, adminRes] = await Promise.all([
         fetch("/api/auth/check-phone", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -115,13 +119,20 @@ function LoginForm() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ phone: normalizedPhone }),
         }),
+        fetch("/api/admin/check-phone", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ phone: normalizedPhone }),
+        }),
       ]);
 
       const trainerJson = await trainerRes.json();
       const clientJson = await clientRes.json();
       const gymJson = await gymRes.json();
+      const adminJson = await adminRes.json();
 
       const found = [];
+      if (adminRes.ok && adminJson?.data?.exists) found.push("platform_admin");
       if (gymRes.ok && gymJson?.data?.exists) found.push("gym");
       if (trainerRes.ok && trainerJson?.data?.exists) found.push("trainer");
       if (clientRes.ok && clientJson?.data?.exists) found.push("client");
@@ -192,6 +203,7 @@ function LoginForm() {
       let endpoint = "/api/auth/otp/verify";
       if (detectedRole === "client") endpoint = "/api/client-auth/otp/verify";
       if (detectedRole === "gym") endpoint = "/api/gym/session";
+      if (detectedRole === "platform_admin") endpoint = "/api/admin/otp/verify";
 
       const verifyRes = await fetch(endpoint, {
         method: "POST",
@@ -202,8 +214,8 @@ function LoginForm() {
       const verifyJson = await verifyRes.json();
 
       const ok =
-        detectedRole === "gym"
-          ? Boolean(verifyRes.ok && verifyJson?.ok && verifyJson?.data?.authenticated)
+        detectedRole === "gym" || detectedRole === "platform_admin"
+          ? Boolean(verifyRes.ok && verifyJson?.ok && (verifyJson?.data?.authenticated || verifyJson?.data?.verified))
           : Boolean(verifyRes.ok && verifyJson?.data?.verified);
 
       if (!ok) {
@@ -222,6 +234,7 @@ function LoginForm() {
   const progress = uiStep === "phone" ? 25 : uiStep === "choose" ? 50 : uiStep === "verify" ? 100 : 50;
 
   const roleLabels = {
+    platform_admin: "Platform admin",
     gym: "Gym admin",
     trainer: "Trainer",
     client: "Client",
@@ -364,7 +377,7 @@ function LoginForm() {
               <p className="eyebrow">Not found</p>
               <h1 className="auth-title">Number not registered</h1>
               <p className="auth-subtitle">
-                This number is not registered as a gym admin, trainer, or trainer-added client.
+                This number is not registered as a platform admin, gym admin, trainer, or trainer-added client.
               </p>
 
               <div className="auth-form">

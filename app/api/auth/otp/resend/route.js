@@ -2,21 +2,18 @@ import { NextResponse } from "next/server";
 import { hasDatabaseUrl, query } from "app/lib/db";
 import { generateOtpCode, sendOtpViaMSG91 } from "app/lib/msg91";
 import { checkOtpSendLimit } from "app/lib/rateLimit";
+import {
+  fixedOtpCode,
+  isFixedOtpPhone,
+  isPlatformAdminPhone,
+  normalizeIndiaPhone,
+} from "app/lib/fixedOtp";
 
 const RESEND_COOLDOWN_SECONDS = 60;
 
-function normalizePhone(phone = "") {
-  const digits = String(phone).replace(/\D/g, "");
-  if (!digits) return "";
-  if (digits.length === 10) return `+91${digits}`;
-  if (digits.startsWith("91") && digits.length === 12) return `+${digits}`;
-  if (String(phone).startsWith("+")) return String(phone);
-  return `+${digits}`;
-}
-
 export async function POST(request) {
   const body = await request.json();
-  const phone = normalizePhone(body?.phone);
+  const phone = normalizeIndiaPhone(body?.phone);
 
   if (!phone) {
     return NextResponse.json({ ok: false, message: "phone is required." }, { status: 400 });
@@ -35,20 +32,20 @@ export async function POST(request) {
   }
 
   const digits = phone.replace(/\D/g, "");
+  const isPlatformAdmin = isPlatformAdminPhone(phone);
   const trainerRows = await query(
     `SELECT id FROM trainer_phones
      WHERE regexp_replace(COALESCE(phone, ''), '[^0-9]', '', 'g') = $1
      LIMIT 1`,
     [digits]
   );
-  if (!trainerRows[0]) {
+  if (!trainerRows[0] && !isPlatformAdmin) {
     return NextResponse.json(
       { ok: false, message: "Trainer not found." },
       { status: 404 }
     );
   }
 
-  // Enforce cooldown: block if a code was sent within the last 60 seconds
   const recent = await query(
     `SELECT created_at FROM otp_codes
      WHERE phone = $1
@@ -67,18 +64,25 @@ export async function POST(request) {
     }
   }
 
-  const code = generateOtpCode();
+  const useFixed = isFixedOtpPhone(phone);
+  const code = useFixed ? fixedOtpCode() : generateOtpCode();
+  const expiry = useFixed ? "INTERVAL '10 years'" : "INTERVAL '10 minutes'";
 
   await query(
     `INSERT INTO otp_codes (id, phone, code, attempts, max_attempts, expires_at, created_at)
      VALUES (
        md5(random()::text || clock_timestamp()::text),
-       $1, $2, 0, 5,
-       NOW() + INTERVAL '10 minutes',
+       $1, $2, 0, 99,
+       NOW() + ${expiry},
        NOW()
      )`,
     [phone, code]
   );
+
+  if (useFixed) {
+    console.warn(`[otp] Fixed test OTP for ${phone}: ${code}`);
+    return NextResponse.json({ ok: true, data: { sent: true, phone, fixedOtp: true } });
+  }
 
   const sms = await sendOtpViaMSG91(phone, code);
   if (!sms.ok) {

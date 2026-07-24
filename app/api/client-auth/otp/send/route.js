@@ -3,14 +3,10 @@ import { hasDatabaseUrl, query } from "app/lib/db";
 import { mockData } from "app/lib/mockData";
 import { generateOtpCode, sendOtpViaMSG91 } from "app/lib/msg91";
 import { checkOtpSendLimit } from "app/lib/rateLimit";
+import { fixedOtpCode, isFixedOtpPhone, normalizeIndiaPhone } from "app/lib/fixedOtp";
 
 function normalizePhone(phone = "") {
-  const digits = String(phone).replace(/\D/g, "");
-  if (!digits) return "";
-  if (digits.length === 10) return `+91${digits}`;
-  if (digits.startsWith("91") && digits.length === 12) return `+${digits}`;
-  if (String(phone).startsWith("+")) return String(phone);
-  return `+${digits}`;
+  return normalizeIndiaPhone(phone);
 }
 
 function talkToTrainerResponse(phone, status = 403) {
@@ -57,8 +53,8 @@ export async function POST(request) {
     return talkToTrainerResponse(phone);
   }
 
-  const isTestPhone = phone.startsWith("+919911000");
-  const code = isTestPhone ? "123456" : generateOtpCode();
+  const isTestPhone = isFixedOtpPhone(phone);
+  const code = isTestPhone ? fixedOtpCode() : generateOtpCode();
   const expiry = isTestPhone ? "INTERVAL '10 years'" : "INTERVAL '10 minutes'";
 
   await query(
@@ -71,6 +67,11 @@ export async function POST(request) {
      )`,
     [phone, code]
   );
+
+  if (isTestPhone) {
+    console.warn(`[otp] Fixed test OTP for ${phone}: ${code}`);
+    return NextResponse.json({ ok: true, data: { sent: true, phone, fixedOtp: true } });
+  }
 
   const sms = await sendOtpViaMSG91(phone, code);
   if (!sms.ok) {

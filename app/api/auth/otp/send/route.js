@@ -2,26 +2,22 @@ import { NextResponse } from "next/server";
 import { hasDatabaseUrl, query } from "app/lib/db";
 import { generateOtpCode, sendOtpViaMSG91 } from "app/lib/msg91";
 import { checkOtpSendLimit } from "app/lib/rateLimit";
-
-function normalizePhone(phone = "") {
-  const digits = String(phone).replace(/\D/g, "");
-  if (!digits) return "";
-  if (digits.length === 10) return `+91${digits}`;
-  if (digits.startsWith("91") && digits.length === 12) return `+${digits}`;
-  if (String(phone).startsWith("+")) return String(phone);
-  return `+${digits}`;
-}
+import {
+  fixedOtpCode,
+  isFixedOtpPhone,
+  isPlatformAdminPhone,
+  normalizeIndiaPhone,
+} from "app/lib/fixedOtp";
 
 export async function POST(request) {
   const body = await request.json();
-  const phone = normalizePhone(body?.phone);
+  const phone = normalizeIndiaPhone(body?.phone);
 
   if (!phone) {
     return NextResponse.json({ ok: false, message: "phone is required." }, { status: 400 });
   }
 
   if (!hasDatabaseUrl()) {
-    // Dev-only: no DB, skip everything
     return NextResponse.json({ ok: true, data: { sent: true, phone, source: "mock" } });
   }
 
@@ -34,22 +30,24 @@ export async function POST(request) {
   }
 
   const digits = phone.replace(/\D/g, "");
+  const isPlatformAdmin = isPlatformAdminPhone(phone);
   const trainerRows = await query(
     `SELECT id FROM trainer_phones
      WHERE regexp_replace(COALESCE(phone, ''), '[^0-9]', '', 'g') = $1
      LIMIT 1`,
     [digits]
   );
-  if (!trainerRows[0]) {
+
+  if (!trainerRows[0] && !isPlatformAdmin) {
     return NextResponse.json(
       { ok: false, message: "Trainer not found. Please complete trainer onboarding first." },
       { status: 404 }
     );
   }
 
-  const isTestPhone = phone.startsWith("+919900000");
-  const code = isTestPhone ? "123456" : generateOtpCode();
-  const expiry = isTestPhone ? "INTERVAL '10 years'" : "INTERVAL '10 minutes'";
+  const useFixed = isFixedOtpPhone(phone);
+  const code = useFixed ? fixedOtpCode() : generateOtpCode();
+  const expiry = useFixed ? "INTERVAL '10 years'" : "INTERVAL '10 minutes'";
 
   await query(
     `INSERT INTO otp_codes (id, phone, code, attempts, max_attempts, expires_at, created_at)
@@ -61,6 +59,11 @@ export async function POST(request) {
      )`,
     [phone, code]
   );
+
+  if (useFixed) {
+    console.warn(`[otp] Fixed test OTP for ${phone}: ${code}`);
+    return NextResponse.json({ ok: true, data: { sent: true, phone, fixedOtp: true } });
+  }
 
   const sms = await sendOtpViaMSG91(phone, code);
   if (!sms.ok) {
