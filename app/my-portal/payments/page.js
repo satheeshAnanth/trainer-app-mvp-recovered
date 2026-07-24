@@ -72,7 +72,7 @@ export default function Page() {
       >
         <article className="card panel">
           <p className="item-sub" style={{ marginTop: 0, marginBottom: 6 }}>Outstanding total</p>
-          <p className="panel-value" style={{ fontSize: 30 }}>
+          <p className="panel-value">
             ₹{Math.round(dueTotal).toLocaleString("en-IN")}
           </p>
           <p className="item-sub" style={{ marginBottom: 0 }}>
@@ -82,7 +82,7 @@ export default function Page() {
 
         <article className="card panel">
           <p className="item-sub" style={{ marginTop: 0, marginBottom: 6 }}>Current status</p>
-          <p className="panel-value" style={{ fontSize: 30 }}>
+          <p className="panel-value">
             {outstanding.length === 0 ? "Clear" : "Pending"}
           </p>
           <p className="item-sub" style={{ marginBottom: 0 }}>

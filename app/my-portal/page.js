@@ -192,7 +192,7 @@ export default function Page() {
             <p className="item-sub">Loading sessions…</p>
           ) : model.feedbackSessions.length === 0 ? (
             <div>
-              <p className="panel-value" style={{ fontSize: 28 }}>
+              <p className="panel-value">
                 All caught up
               </p>
               <p className="item-sub" style={{ marginTop: 8 }}>
@@ -201,7 +201,7 @@ export default function Page() {
             </div>
           ) : (
             <div>
-              <p className="panel-value" style={{ fontSize: 28 }}>
+              <p className="panel-value">
                 {model.feedbackSessions.length}
               </p>
               <p className="item-sub" style={{ marginTop: 4 }}>
@@ -322,7 +322,7 @@ export default function Page() {
             </div>
           ) : (
             <div>
-              <p className="panel-value" style={{ fontSize: 26 }}>
+              <p className="panel-value">
                 ₹{Math.round(model.paymentTotalInr).toLocaleString("en-IN")}
               </p>
               <p className="item-sub" style={{ marginTop: 4 }}>Due across {model.paymentLines.length} session(s)</p>

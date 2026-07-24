@@ -81,7 +81,7 @@ export default function Page() {
       >
         <article className="card panel">
           <p className="item-sub" style={{ marginTop: 0, marginBottom: 6 }}>Completion rate</p>
-          <p className="panel-value" style={{ fontSize: 30 }}>
+          <p className="panel-value">
             {model.completionRate}%
           </p>
           <p className="item-sub" style={{ marginBottom: 0 }}>
@@ -91,7 +91,7 @@ export default function Page() {
 
         <article className="card panel">
           <p className="item-sub" style={{ marginTop: 0, marginBottom: 6 }}>Current streak</p>
-          <p className="panel-value" style={{ fontSize: 30 }}>
+          <p className="panel-value">
             {model.streakDays}
           </p>
           <p className="item-sub" style={{ marginBottom: 0 }}>
@@ -101,7 +101,7 @@ export default function Page() {
 
         <article className="card panel">
           <p className="item-sub" style={{ marginTop: 0, marginBottom: 6 }}>Review queue</p>
-          <p className="panel-value" style={{ fontSize: 30 }}>
+          <p className="panel-value">
             {model.reviewQueue}
           </p>
           <p className="item-sub" style={{ marginBottom: 0 }}>

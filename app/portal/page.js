@@ -303,17 +303,17 @@ export default function Page() {
       <div className="kpi-grid">
         <article className="kpi-card">
           <p className="item-title">Pending review</p>
-          <p className="kpi-value" style={{ fontSize: 36 }}>{computed.pendingReview}</p>
+          <p className="kpi-value">{computed.pendingReview}</p>
           <p className="item-sub">Client-submitted or note updates needing trainer action</p>
         </article>
         <article className="kpi-card">
           <p className="item-title">Ready to share</p>
-          <p className="kpi-value" style={{ fontSize: 36 }}>{computed.readyToShare}</p>
+          <p className="kpi-value">{computed.readyToShare}</p>
           <p className="item-sub">Prepared sessions waiting for publish approval</p>
         </article>
         <article className="kpi-card">
           <p className="item-title">Most active client</p>
-          <p className="kpi-value" style={{ fontSize: 36 }}>{computed.mostActiveClient}</p>
+          <p className="kpi-value">{computed.mostActiveClient}</p>
           <p className="item-sub">{computed.mostActiveCount} logged sessions</p>
         </article>
       </div>
@@ -374,9 +374,9 @@ export default function Page() {
           <Link href="/schedule" className="ghost-button ghost-button-sm">Open schedule</Link>
         </div>
         {computed.pendingReview > 0 ? (
-          <p className="panel-value" style={{ fontSize: 36, color: "#facc15" }}>{computed.pendingReview} pending</p>
+          <p className="panel-value" style={{ color: "#facc15" }}>{computed.pendingReview} pending</p>
         ) : (
-          <p className="panel-value" style={{ fontSize: 36 }}>All clear</p>
+          <p className="panel-value">All clear</p>
         )}
         <p className="item-sub">Go to Schedule to confirm or reschedule appointments.</p>
       </article>

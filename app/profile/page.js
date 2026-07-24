@@ -6,6 +6,8 @@ import TrainerShell from "app/_components/TrainerShell";
 import TrainerInsightsPanel from "app/_components/TrainerInsightsPanel";
 import CollapsibleSection from "app/_components/CollapsibleSection";
 import { useToast } from "app/_components/ToastProvider";
+import { writeClipboard } from "app/lib/nativeClipboard";
+import { hapticLight } from "app/lib/haptics";
 
 const ALL_SKILLS = [
   "Strength Training",
@@ -183,17 +185,15 @@ export default function Page() {
                     className="ghost-button ghost-button-sm"
                     onClick={async () => {
                       const url = `${window.location.origin}/join?ref=${referralCode}`;
-                      try {
-                        const { Capacitor } = await import("@capacitor/core");
-                        if (Capacitor.isNativePlatform()) {
-                          const { Clipboard } = await import("@capacitor/clipboard");
-                          await Clipboard.write({ string: url });
-                        } else {
-                          await navigator.clipboard.writeText(url);
-                        }
+                      const ok = await writeClipboard(url);
+                      if (ok) {
+                        void hapticLight();
                         setCopied(true);
+                        showToast("Referral link copied");
                         setTimeout(() => setCopied(false), 2000);
-                      } catch { /* ignore */ }
+                      } else {
+                        showToast("Could not copy link", { variant: "error" });
+                      }
                     }}
                   >
                     {copied ? "Copied!" : "Copy"}

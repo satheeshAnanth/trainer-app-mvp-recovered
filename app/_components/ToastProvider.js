@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { hapticError, hapticSuccess } from "app/lib/haptics";
 
 const ToastContext = createContext(null);
 
@@ -17,6 +18,8 @@ export function ToastProvider({ children }) {
       onAction: typeof options.onAction === "function" ? options.onAction : null,
       durationMs: Number(options.durationMs) > 0 ? Number(options.durationMs) : 3200,
     });
+    if (variant === "error") void hapticError();
+    else void hapticSuccess();
   }, []);
 
   useEffect(() => {

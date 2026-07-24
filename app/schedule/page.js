@@ -293,20 +293,34 @@ export default function Page() {
   return (
     <TrainerShell title="Schedule Calendar" subtitle="Simple two-way requests, confirmations, and calendar-style reminders.">
       <article className="card panel">
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, marginBottom: 10 }}>
-          <div className="filter-chip-row" style={{ flex: 1, minWidth: 0, paddingBottom: 0 }}>
-            <span className="status-chip" style={{ whiteSpace: "nowrap" }}>Total {counts.total}</span>
-            <span className="status-chip" style={{ color: "#facc15", whiteSpace: "nowrap" }}>Pending {counts.pending}</span>
-            <span className="status-chip" style={{ color: "#34d399", whiteSpace: "nowrap" }}>Accepted {counts.accepted}</span>
-            <span className="status-chip" style={{ color: "#93c5fd", whiteSpace: "nowrap" }}>Done {counts.completed}</span>
-          </div>
-          <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
-            <button type="button" className={calView === "list" ? "mint-button mint-button-sm" : "ghost-button ghost-button-sm"} onClick={() => setCalView("list")}>List</button>
-            <button type="button" className={calView === "week" ? "mint-button mint-button-sm" : "ghost-button ghost-button-sm"} onClick={() => setCalView("week")}>Week</button>
-          </div>
+        <div className="schedule-view-toggle" role="tablist" aria-label="Calendar view">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={calView === "list"}
+            className={calView === "list" ? "schedule-view-btn schedule-view-btn-active" : "schedule-view-btn"}
+            onClick={() => setCalView("list")}
+          >
+            List
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={calView === "week"}
+            className={calView === "week" ? "schedule-view-btn schedule-view-btn-active" : "schedule-view-btn"}
+            onClick={() => setCalView("week")}
+          >
+            Week
+          </button>
+        </div>
+        <div className="filter-chip-row" style={{ marginTop: 12 }} aria-label="Schedule counts">
+          <span className="status-chip" style={{ whiteSpace: "nowrap" }}>Total {counts.total}</span>
+          <span className="status-chip" style={{ color: "#facc15", whiteSpace: "nowrap" }}>Pending {counts.pending}</span>
+          <span className="status-chip" style={{ color: "#34d399", whiteSpace: "nowrap" }}>Accepted {counts.accepted}</span>
+          <span className="status-chip" style={{ color: "#93c5fd", whiteSpace: "nowrap" }}>Done {counts.completed}</span>
         </div>
         {calView === "list" ? (
-          <div className="filter-chip-row" aria-label="Filter by status">
+          <div className="filter-chip-row" style={{ marginTop: 10 }} aria-label="Filter by status">
             {FILTERS.map((f) => (
               <button
                 key={f}
@@ -323,9 +337,9 @@ export default function Page() {
 
       {calView === "week" ? (
         <article className="card panel">
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+          <div className="schedule-week-nav" style={{ marginBottom: 12 }}>
             <button className="ghost-button ghost-button-sm" type="button" onClick={() => setWeekPivot(addDays(isoDate(weekDates[0]), -7))}>← Prev</button>
-            <p className="item-title" style={{ margin: 0 }}>
+            <p className="item-title schedule-week-range">
               {weekDates[0].toLocaleDateString("en-IN", { day: "numeric", month: "short" })} – {weekDates[6].toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
             </p>
             <button className="ghost-button ghost-button-sm" type="button" onClick={() => setWeekPivot(addDays(isoDate(weekDates[0]), 7))}>Next →</button>
@@ -376,14 +390,29 @@ export default function Page() {
                   <p className="item-sub">No appointments this day.</p>
                 ) : dayEvents.map((event) => {
                   const tone = statusTone(event.status);
+                  const actionable = !["completed", "cancelled"].includes(String(event.status || "").toLowerCase());
                   return (
-                    <div key={event.id} className="list-item" style={{ marginBottom: 8, alignItems: "flex-start", borderLeft: `3px solid ${tone.color}`, paddingLeft: 10 }}>
-                      <div style={{ flex: 1 }}>
-                        <p className="item-title">{event.client_name || "Client"} · {formatScheduleTimeLabel(event.scheduled_time)}</p>
-                        {event.notes ? <p className="item-sub">{event.notes}</p> : null}
+                    <SwipeableCard
+                      key={event.id}
+                      disabled={!actionable}
+                      onSwipeLeft={() => setSheetEvent(event)}
+                      style={{ marginBottom: 8 }}
+                    >
+                      <div className="list-item" style={{ alignItems: "flex-start", borderLeft: `3px solid ${tone.color}`, paddingLeft: 10 }}>
+                        <div style={{ flex: 1 }}>
+                          <p className="item-title">{event.client_name || "Client"} · {formatScheduleTimeLabel(event.scheduled_time)}</p>
+                          {event.notes ? <p className="item-sub">{event.notes}</p> : null}
+                        </div>
+                        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
+                          <span className="status-chip" style={tone}>{buildScheduleActionLabel(event.status)}</span>
+                          {actionable ? (
+                            <button className="ghost-button ghost-button-sm" type="button" onClick={() => setSheetEvent(event)}>
+                              Actions
+                            </button>
+                          ) : null}
+                        </div>
                       </div>
-                      <span className="status-chip" style={tone}>{buildScheduleActionLabel(event.status)}</span>
-                    </div>
+                    </SwipeableCard>
                   );
                 })}
               </div>
