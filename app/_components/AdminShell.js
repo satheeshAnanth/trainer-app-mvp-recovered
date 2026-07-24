@@ -86,7 +86,7 @@ export default function AdminShell({ title, children }) {
   if (checking) {
     return (
       <main style={shellStyle}>
-        <p style={eyebrowStyle}>{title || "TRAINER APP — ADMIN"}</p>
+        <p style={eyebrowStyle}>{title || "CADENCE — ADMIN"}</p>
         <p style={{ color: "#94a3b8", fontSize: 13 }}>Checking session…</p>
       </main>
     );
@@ -99,7 +99,7 @@ export default function AdminShell({ title, children }) {
     }
     return (
       <main style={shellStyle}>
-        <p style={eyebrowStyle}>{title || "TRAINER APP — ADMIN"}</p>
+        <p style={eyebrowStyle}>{title || "CADENCE — ADMIN"}</p>
         <p style={{ color: "#94a3b8", fontSize: 13 }}>Redirecting to sign in…</p>
       </main>
     );
@@ -109,7 +109,7 @@ export default function AdminShell({ title, children }) {
     <main style={shellStyle}>
       <header style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-start", flexWrap: "wrap" }}>
         <div>
-          <p style={{ ...eyebrowStyle, margin: 0 }}>{title || "TRAINER APP — ADMIN"}</p>
+          <p style={{ ...eyebrowStyle, margin: 0 }}>{title || "CADENCE — ADMIN"}</p>
           <nav style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 12 }}>
             {NAV.map((item) => {
               const active = item.exact

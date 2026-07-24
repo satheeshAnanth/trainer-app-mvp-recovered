@@ -149,7 +149,7 @@ function Dashboard() {
 
 export default function AdminPage() {
   return (
-    <AdminShell title="TRAINER APP — OPS CONSOLE">
+    <AdminShell title="CADENCE — OPS CONSOLE">
       <Dashboard />
     </AdminShell>
   );

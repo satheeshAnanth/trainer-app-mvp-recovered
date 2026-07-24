@@ -301,7 +301,7 @@ const buttonStyle = {
 
 export default function AdminExerciseMediaPage() {
   return (
-    <AdminShell title="TRAINER APP — EXERCISE MEDIA REVIEW">
+    <AdminShell title="CADENCE — EXERCISE MEDIA REVIEW">
       <ExerciseMediaConsole />
     </AdminShell>
   );
