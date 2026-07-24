@@ -10,7 +10,7 @@ Track decisions deferred, assumptions made, and items that need product/ops inpu
 
 | # | Question | Context | Status |
 |---|----------|---------|--------|
-| 0 | **Should we permanently store WorkoutX GIF binaries?** | Proxy + CDN cache today. | **Deferred** — see `docs/WORKOUTX_GIF_STORAGE.md`; needs written redistribution rights |
+| 0 | **Should we permanently store WorkoutX GIF binaries?** | Testing: approved all mapped rows + local/Blob cache via `npm run media:workoutx:approve-cache`. | **Testing OK** — production subscription/licensing still deferred (`docs/WORKOUTX_GIF_STORAGE.md`) |
 | 1 | **Are the seeded YouTube IDs actually correct form demos for each exercise/equipment variant?** | First 13 rows were auto-approved via `scripts/approve-exercise-media-subset.mjs` using conservative name/equipment matching — videos were not manually watched in this session. | **Needs human QA** — spot-check in `/admin/exercise-media` |
 | 2 | **Should we approve equipment variants separately (e.g. dumbbell vs barbell bench) with the same generic video?** | Subset skipped dumbbell bench, incline push-up, seated press, etc. | Defer until channel-specific videos are sourced |
 | 3 | **How to handle duplicate catalog rows (`EX#### - …` vs clean names)?** | Seed matched both; approvals only on clean `exercise_id` slugs. | Decide dedupe strategy for catalog or seed script |

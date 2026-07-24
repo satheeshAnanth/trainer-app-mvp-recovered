@@ -1,43 +1,33 @@
 # WorkoutX GIF Storage — Licensing & Architecture Eval
 
-Last updated: 2026-07-21
+Last updated: 24 July 2026
 
-## Current behavior
+## Current behavior (testing mode)
 
-- Exercise GIFs are **not permanently stored** in our blob storage.
-- The app serves them through `/api/workoutx/gif/[id]`, which fetches from the WorkoutX CDN and can cache responses at the edge/CDN layer.
-- Catalog mappings (exercise ↔ WorkoutX media id) live in our DB; the GIF bytes remain upstream.
+- Catalog mappings (exercise ↔ WorkoutX media id) live in `exercise_media`.
+- For **closed testing**, all WorkoutX-linked rows are **approved** and GIFs are **cached**:
+  - Prefer Vercel Blob URL in `cached_image_url` when `BLOB_READ_WRITE_TOKEN` is set
+  - Else files under `storage/workoutx-gifs/` (gitignored), served by `/api/workoutx/gif/[id]`
+  - Upstream WorkoutX API remains the fallback if cache miss
+- App-facing `image_url` stays `/api/workoutx/gif/{id}` so clients do not need the API key.
 
-## Recommendation (v1)
+Approve + cache:
 
-**Keep proxy + cache; do not permanently host GIF binaries yet.**
+```bash
+npm run media:workoutx:approve-only   # DB approve only
+npm run media:workoutx:approve-cache  # approve + download/cache GIFs (~2s pacing)
+```
 
-Reasons:
+## Production subscription decision (deferred)
 
-1. **Licensing risk** — Permanent rehosting usually requires explicit redistribution rights. Until WorkoutX (or an alternate library) confirms we may store and serve copies, proxying is the safer compliance posture.
-2. **Cost / ops** — Hosting hundreds of animated GIFs increases blob egress and moderation burden for little UX gain once CDN caching is warm.
-3. **Freshness** — Upstream can update or revoke media; permanent copies drift and create stale form demos.
+**Do not treat local/Blob caching as a production license.** Permanent redistribution still needs written WorkoutX rights / a paid plan decision after testing.
 
-## When to revisit permanent storage
+When ready for production:
 
-Only after **written confirmation** that we may:
+1. Confirm redistribution / commercial terms with WorkoutX (or switch library)
+2. Prefer Blob/R2 with `license`, `source`, `retrieved_at`, `sha256` metadata
+3. Keep proxy as fallback for uncached ids
 
-- download and store GIF/WebP files
-- serve them to authenticated trainers/clients inside TrainerApp
-- retain attribution / license metadata as required
+## Earlier v1 recommendation (still valid for prod licensing)
 
-Then prefer:
-
-- store compressed WebP/MP4 in Vercel Blob (or R2)
-- keep `license`, `source`, `retrieved_at`, `sha256` on the media row
-- retain the proxy as a fallback for uncached items
-
-## Interim UX mitigations (done / acceptable)
-
-- Compact sticky preview in the exercise picker so trainers can still judge form when a GIF exists
-- Clear “No approved GIF yet” empty state when media is missing
-- Admin media review for YouTube form demos remains a separate, ToS-compliant path
-
-## Decision
-
-**Defer permanent WorkoutX GIF storage.** Track licensing outreach as an owner action; engineering stays on proxy + CDN cache until cleared.
+Permanent rehosting without written rights is a compliance risk. Testing cache is an explicit, temporary exception owned by the product decision to finish Play closed testing first.
