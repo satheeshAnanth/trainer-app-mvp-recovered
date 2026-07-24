@@ -97,3 +97,14 @@ Track decisions deferred, assumptions made, and items that need product/ops inpu
 4. Source mobility videos (Cat-Cow, World's Greatest Stretch) — no seed matches in DB
 5. Wire remaining modals to `useModalDismiss` (audit/schedule TBD)
 6. Replace browser Notification reminders once FCM works on device
+7. **Gym org v1** — see `docs/plans/gym-org.md` (optional B2B seats layer; solo trainers unchanged)
+
+---
+
+## Gym org (v1)
+
+| # | Question | Context | Status |
+|---|----------|---------|--------|
+| 21 | Gym = seats + light ops; trainer owns clients | Product decision 2026-07-22 | **Locked** — implemented |
+| 22 | Gym billing / Razorpay for seat invoices | Seats tracked in DB; payment collection TBD | Future |
+| 23 | Multi-gym membership per trainer | v1 = one primary gym | Deferred |

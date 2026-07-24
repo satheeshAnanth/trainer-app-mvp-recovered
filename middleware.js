@@ -26,6 +26,21 @@ export function middleware(request) {
     return NextResponse.next();
   }
 
+  // Gym portal — cookie gate (login page is public)
+  if (pathname === "/gym" || pathname.startsWith("/gym/")) {
+    if (pathname === "/gym/login" || pathname.startsWith("/gym/login/")) {
+      return NextResponse.next();
+    }
+    const gymSession = request.cookies.get("gym_session")?.value;
+    if (!gymSession) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/gym/login";
+      url.searchParams.set("next", pathname);
+      return NextResponse.redirect(url);
+    }
+    return NextResponse.next();
+  }
+
   if (pathname === "/exercises" || pathname.startsWith("/exercises/")) {
     const trainerSession = request.cookies.get("trainer_session")?.value;
     const clientSession = request.cookies.get("client_session")?.value;
@@ -74,6 +89,8 @@ export const config = {
   matcher: [
     "/admin",
     "/admin/:path*",
+    "/gym",
+    "/gym/:path*",
     "/portal",
     "/portal/:path*",
     "/clients/:path*",

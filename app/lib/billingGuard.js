@@ -1,4 +1,5 @@
 import { hasDatabaseUrl, query } from "app/lib/db";
+import { isTrainerGymCovered } from "app/lib/gyms";
 
 /**
  * Possible billing states returned to callers:
@@ -6,6 +7,7 @@ import { hasDatabaseUrl, query } from "app/lib/db";
  *   trial    — trainer is within their trial window
  *   expired  — trial window has passed and no paid plan is active
  *   suspended — admin has explicitly suspended the account
+ *   gym_covered — trainer has an active gym membership (treated as active for access)
  *   unknown  — no DB or record not found (fail open in dev)
  */
 
@@ -14,11 +16,17 @@ export function deriveEffectiveBillingStatus({
   billing_status,
   trial_ends_at,
   max_clients,
+  gymCovered = false,
 } = {}) {
   const stored = String(billing_status ?? "").toLowerCase();
 
   if (stored === "suspended") {
     return { status: "suspended", storedStatus: stored, max_clients };
+  }
+
+  // Gym seat covers access without changing solo trainer trial semantics for non-members.
+  if (gymCovered) {
+    return { status: "active", storedStatus: stored, max_clients, gymCovered: true };
   }
 
   if (stored === "active" || stored === "per_client") {
@@ -80,7 +88,8 @@ export async function getTrainerBillingStatus(phone) {
   );
 
   if (!rows[0]) return { status: "unknown" };
-  return deriveEffectiveBillingStatus(rows[0]);
+  const gymCovered = await isTrainerGymCovered(phone);
+  return deriveEffectiveBillingStatus({ ...rows[0], gymCovered });
 }
 
 /** Persist trial → expired when trial_ends_at has elapsed. Returns updated count. */
@@ -105,6 +114,7 @@ export async function reconcileExpiredTrials({ actor = "system", limit = 500, ph
         WHERE LOWER(COALESCE(billing_status, '')) = 'trial'
           AND trial_ends_at IS NOT NULL
           AND trial_ends_at < NOW()
+          AND gym_id IS NULL
           ${phoneFilter}
         LIMIT $${params.length}
       )

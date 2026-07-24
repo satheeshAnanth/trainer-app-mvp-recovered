@@ -92,3 +92,24 @@ export function readAdminSession(token) {
     return parsed;
   });
 }
+
+// ── Gym admin session ────────────────────────────────────────────────────────
+
+export function createGymAdminToken(phone, gymId) {
+  const exp = Math.floor(Date.now() / 1000) + SESSION_TTL_SECONDS;
+  const dataB64 = Buffer.from(
+    JSON.stringify({ role: "gym_admin", phone: String(phone ?? ""), gymId: String(gymId ?? "") }),
+    "utf8"
+  ).toString("base64url");
+  const payload = `${dataB64}.${exp}`;
+  return `${payload}.${sign(payload)}`;
+}
+
+/** Returns { role: 'gym_admin', phone, gymId }, or null if token is invalid/expired. */
+export function readGymAdminSession(token) {
+  return verifyAndDecode(token, (raw) => {
+    const parsed = JSON.parse(raw);
+    if (!parsed || parsed.role !== "gym_admin" || !parsed.phone || !parsed.gymId) return null;
+    return parsed;
+  });
+}
