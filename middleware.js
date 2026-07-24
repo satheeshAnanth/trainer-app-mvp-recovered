@@ -26,7 +26,7 @@ export function middleware(request) {
     return NextResponse.next();
   }
 
-  // Gym portal — cookie gate (login page is public)
+  // Gym portal — cookie gate; unauthenticated users use unified /login (record-based roles)
   if (pathname === "/gym" || pathname.startsWith("/gym/")) {
     if (pathname === "/gym/login" || pathname.startsWith("/gym/login/")) {
       return NextResponse.next();
@@ -34,7 +34,7 @@ export function middleware(request) {
     const gymSession = request.cookies.get("gym_session")?.value;
     if (!gymSession) {
       const url = request.nextUrl.clone();
-      url.pathname = "/gym/login";
+      url.pathname = "/login";
       url.searchParams.set("next", pathname);
       return NextResponse.redirect(url);
     }

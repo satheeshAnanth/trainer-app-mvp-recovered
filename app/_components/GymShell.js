@@ -27,7 +27,7 @@ export default function GymShell({ title, children }) {
         } else {
           setSession(null);
           if (pathname !== "/gym/login") {
-            router.replace(`/gym/login?next=${encodeURIComponent(pathname)}`);
+            router.replace(`/login?next=${encodeURIComponent(pathname)}`);
           }
         }
       } catch {
@@ -43,7 +43,7 @@ export default function GymShell({ title, children }) {
 
   async function logout() {
     await fetch("/api/gym/session", { method: "DELETE", credentials: "include" });
-    router.replace("/gym/login");
+    router.replace("/login");
   }
 
   if (pathname === "/gym/login") {

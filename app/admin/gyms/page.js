@@ -59,11 +59,11 @@ export default function AdminGymsPage() {
   return (
     <AdminShell title="GYMS">
       <p style={{ color: "#94a3b8", fontSize: 13, marginTop: 0 }}>
-        B2B seat orgs. Solo trainers are unchanged. Gym admins use{" "}
-        <Link href="/gym/login" style={{ color: "#34d399" }}>
-          /gym/login
-        </Link>
-        .
+        B2B seat orgs. Solo trainers are unchanged. Gym admins sign in via{" "}
+        <Link href="/login" style={{ color: "#34d399" }}>
+          /login
+        </Link>{" "}
+        (same as trainers/clients — role comes from the phone record).
       </p>
 
       <Panel title="CREATE GYM">

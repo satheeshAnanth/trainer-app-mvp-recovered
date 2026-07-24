@@ -10,11 +10,14 @@
 
 ## Surfaces
 
-| Who | URL |
-|-----|-----|
-| Platform admin | `/admin/gyms` |
-| Gym admin | `/gym/login` → `/gym`, `/gym/trainers` |
-| Trainer invite | `/gym-invite/[token]` |
+| Who | How they sign in |
+|-----|------------------|
+| Platform admin | `/admin/login` (email/password) |
+| Gym admin / trainer / client | **`/login`** — phone looked up in `gym_admins` / `trainer_phones` / `clients`; routes to the matching home |
+| Trainer gym invite accept | `/gym-invite/[token]` (onboarding into membership) |
+
+Homes after auth: gym → `/gym`, trainer → `/portal`, client → `/my-portal`.  
+Legacy `/gym/login` redirects to `/login`.
 
 ## Schema
 

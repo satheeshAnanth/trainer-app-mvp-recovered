@@ -3,9 +3,9 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useState } from "react";
 
-function safeNextPath(next) {
-  if (!next || typeof next !== "string") return "/portal";
-  if (!next.startsWith("/") || next.startsWith("//")) return "/portal";
+function safeNextPath(next, fallback = "/portal") {
+  if (!next || typeof next !== "string") return fallback;
+  if (!next.startsWith("/") || next.startsWith("//")) return fallback;
   return next;
 }
 
@@ -17,14 +17,27 @@ function normalizePhone(raw) {
   return `+${digits}`;
 }
 
+function homeForRole(role, nextParam) {
+  if (role === "gym") {
+    const next = safeNextPath(nextParam, "/gym");
+    return next.startsWith("/gym") ? next : "/gym";
+  }
+  if (role === "client") return "/my-portal";
+  const next = safeNextPath(nextParam, "/portal");
+  // Don't send a trainer into gym routes via a stale next= param
+  if (next.startsWith("/gym") || next.startsWith("/my-portal")) return "/portal";
+  return next;
+}
+
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
   const [phone, setPhone] = useState("");
   const [otp, setOtp] = useState("");
-  const [uiStep, setUiStep] = useState("phone"); // phone | verify | unknown
-  const [detectedRole, setDetectedRole] = useState("trainer"); // trainer | client
+  const [uiStep, setUiStep] = useState("phone"); // phone | choose | verify | unknown
+  const [roles, setRoles] = useState([]); // gym | trainer | client
+  const [detectedRole, setDetectedRole] = useState("trainer");
   const [resendCountdown, setResendCountdown] = useState(15);
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -63,6 +76,22 @@ function LoginForm() {
     }
   }
 
+  async function sendOtpForRole(role, normalizedPhone) {
+    if (role === "client") {
+      await sendClientOtp(normalizedPhone);
+    } else {
+      // trainer and gym admin share the same OTP send path
+      await sendTrainerOtp(normalizedPhone);
+    }
+  }
+
+  async function beginVerify(role, normalizedPhone) {
+    setDetectedRole(role);
+    await sendOtpForRole(role, normalizedPhone);
+    setResendCountdown(15);
+    setUiStep("verify");
+  }
+
   async function handlePhoneContinue() {
     if (!isValidPhone || submitting) return;
     setSubmitting(true);
@@ -70,7 +99,7 @@ function LoginForm() {
 
     try {
       const normalizedPhone = normalizePhone(phone);
-      const [trainerRes, clientRes] = await Promise.all([
+      const [trainerRes, clientRes, gymRes] = await Promise.all([
         fetch("/api/auth/check-phone", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -81,38 +110,57 @@ function LoginForm() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ phone: normalizedPhone }),
         }),
+        fetch("/api/gym/check-phone", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ phone: normalizedPhone }),
+        }),
       ]);
 
       const trainerJson = await trainerRes.json();
       const clientJson = await clientRes.json();
+      const gymJson = await gymRes.json();
 
-      const trainerExists = Boolean(trainerRes.ok && trainerJson?.data?.exists);
-      const clientExists = Boolean(clientRes.ok && clientJson?.data?.exists);
+      const found = [];
+      if (gymRes.ok && gymJson?.data?.exists) found.push("gym");
+      if (trainerRes.ok && trainerJson?.data?.exists) found.push("trainer");
+      if (clientRes.ok && clientJson?.data?.exists) found.push("client");
 
-      if (trainerExists && clientExists) {
-        setError("Phone is mapped to multiple roles. Contact support.");
+      setRoles(found);
+
+      if (found.length === 0) {
+        setUiStep("unknown");
         return;
       }
 
-      if (trainerExists) {
-        setDetectedRole("trainer");
-        await sendTrainerOtp(normalizedPhone);
-        setResendCountdown(15);
-        setUiStep("verify");
+      // Trainer + client on one number remains unsupported (identity conflict).
+      if (found.includes("trainer") && found.includes("client")) {
+        setError("Phone is mapped to both trainer and client. Contact support.");
         return;
       }
 
-      if (clientExists) {
-        setDetectedRole("client");
-        await sendClientOtp(normalizedPhone);
-        setResendCountdown(15);
-        setUiStep("verify");
+      if (found.length === 1) {
+        await beginVerify(found[0], normalizedPhone);
         return;
       }
 
-      setUiStep("unknown");
+      // Multiple roles from records (e.g. gym admin + trainer) → choose once.
+      setUiStep("choose");
     } catch (e) {
       setError(e?.message ?? "Unable to continue.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleChooseRole(role) {
+    if (submitting) return;
+    setSubmitting(true);
+    setError("");
+    try {
+      await beginVerify(role, normalizePhone(phone));
+    } catch (e) {
+      setError(e?.message ?? "Unable to send OTP.");
     } finally {
       setSubmitting(false);
     }
@@ -124,12 +172,7 @@ function LoginForm() {
     setError("");
 
     try {
-      const normalizedPhone = normalizePhone(phone);
-      if (detectedRole === "client") {
-        await sendClientOtp(normalizedPhone);
-      } else {
-        await sendTrainerOtp(normalizedPhone);
-      }
+      await sendOtpForRole(detectedRole, normalizePhone(phone));
       setResendCountdown(15);
     } catch (e) {
       setError(e?.message ?? "Unable to resend OTP.");
@@ -145,30 +188,44 @@ function LoginForm() {
 
     try {
       const normalizedPhone = normalizePhone(phone);
-      const endpoint = detectedRole === "client" ? "/api/client-auth/otp/verify" : "/api/auth/otp/verify";
+      const code = otp.replace(/\D/g, "");
+      let endpoint = "/api/auth/otp/verify";
+      if (detectedRole === "client") endpoint = "/api/client-auth/otp/verify";
+      if (detectedRole === "gym") endpoint = "/api/gym/session";
+
       const verifyRes = await fetch(endpoint, {
         method: "POST",
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone: normalizedPhone, code: otp.replace(/\D/g, "") }),
+        body: JSON.stringify({ phone: normalizedPhone, code }),
       });
       const verifyJson = await verifyRes.json();
-      if (!verifyRes.ok || !verifyJson?.data?.verified) {
+
+      const ok =
+        detectedRole === "gym"
+          ? Boolean(verifyRes.ok && verifyJson?.ok && verifyJson?.data?.authenticated)
+          : Boolean(verifyRes.ok && verifyJson?.data?.verified);
+
+      if (!ok) {
         setError(verifyJson?.message ?? "Invalid OTP.");
         return;
       }
 
-      if (detectedRole === "client") {
-        router.push("/my-portal");
-      } else {
-        router.push(safeNextPath(searchParams.get("next")));
-      }
+      router.push(homeForRole(detectedRole, searchParams.get("next")));
     } finally {
       setSubmitting(false);
     }
   }
 
-  const stepLabel = uiStep === "phone" ? "Phone" : uiStep === "verify" ? "Verify" : "Not found";
-  const progress = uiStep === "phone" ? 25 : uiStep === "verify" ? 100 : 50;
+  const stepLabel =
+    uiStep === "phone" ? "Phone" : uiStep === "choose" ? "Role" : uiStep === "verify" ? "Verify" : "Not found";
+  const progress = uiStep === "phone" ? 25 : uiStep === "choose" ? 50 : uiStep === "verify" ? 100 : 50;
+
+  const roleLabels = {
+    gym: "Gym admin",
+    trainer: "Trainer",
+    client: "Client",
+  };
 
   return (
     <main className="auth-screen">
@@ -176,7 +233,7 @@ function LoginForm() {
         <section className="card auth-card">
           <div className="auth-progress">
             <div className="auth-progress-meta">
-              <span>Step {uiStep === "phone" ? 1 : 2} of 2</span>
+              <span>Step {uiStep === "phone" ? 1 : uiStep === "choose" ? 2 : 2} of 2</span>
               <span>{stepLabel}</span>
             </div>
             <div className="progress-track">
@@ -219,11 +276,42 @@ function LoginForm() {
             </>
           ) : null}
 
+          {uiStep === "choose" ? (
+            <>
+              <p className="eyebrow">Choose role</p>
+              <h1 className="auth-title">How do you want to sign in?</h1>
+              <p className="auth-subtitle">
+                This number is registered for more than one role. Pick one for this session.
+              </p>
+              <div className="auth-form">
+                {roles.map((role) => (
+                  <button
+                    key={role}
+                    type="button"
+                    className="continue-btn"
+                    disabled={submitting}
+                    onClick={() => handleChooseRole(role)}
+                    style={role !== roles[0] ? { marginTop: 8, background: "transparent", border: "1px solid #334155", color: "#e2e8f0" } : undefined}
+                  >
+                    {submitting ? "Please wait..." : `Continue as ${roleLabels[role] || role}`}
+                  </button>
+                ))}
+                {error ? <p className="auth-alert">{error}</p> : null}
+                <button type="button" className="ghost-button" onClick={() => setUiStep("phone")}>
+                  Change number
+                </button>
+              </div>
+            </>
+          ) : null}
+
           {uiStep === "verify" ? (
             <>
               <p className="eyebrow">Verify OTP</p>
               <h1 className="auth-title">Enter OTP</h1>
-              <p className="auth-subtitle">Enter the 6-digit code sent to {normalizePhone(phone)}</p>
+              <p className="auth-subtitle">
+                Enter the 6-digit code sent to {normalizePhone(phone)}
+                {detectedRole ? ` · ${roleLabels[detectedRole] || detectedRole}` : ""}
+              </p>
 
               <div className="auth-form">
                 <label className="auth-label" htmlFor="otp">OTP Code</label>
@@ -242,8 +330,15 @@ function LoginForm() {
                 />
 
                 <div className="auth-button-row">
-                  <button type="button" className="ghost-button" onClick={() => { setUiStep("phone"); setOtp(""); }}>
-                    Change number
+                  <button
+                    type="button"
+                    className="ghost-button"
+                    onClick={() => {
+                      setUiStep(roles.length > 1 ? "choose" : "phone");
+                      setOtp("");
+                    }}
+                  >
+                    Back
                   </button>
                   <button type="button" className="ghost-button" onClick={handleResendOtp} disabled={resendCountdown > 0 || submitting}>
                     {resendCountdown > 0 ? `Resend OTP in ${resendCountdown}s` : "Resend OTP"}
@@ -269,7 +364,7 @@ function LoginForm() {
               <p className="eyebrow">Not found</p>
               <h1 className="auth-title">Number not registered</h1>
               <p className="auth-subtitle">
-                This number is not registered as a trainer or a trainer-added client.
+                This number is not registered as a gym admin, trainer, or trainer-added client.
               </p>
 
               <div className="auth-form">
