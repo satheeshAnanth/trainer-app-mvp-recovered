@@ -2,7 +2,7 @@ import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
   appId: 'in.trainer.fitness',
-  appName: 'TrainerApp',
+  appName: 'Cadence',
   webDir: 'out',
   server: {
     // Point to live Vercel deployment — no static export needed.
@@ -15,13 +15,13 @@ const config: CapacitorConfig = {
   plugins: {
     SplashScreen: {
       launchShowDuration: 2000,
-      backgroundColor: '#020617',
+      backgroundColor: '#0E1319',
       showSpinner: false,
       androidScaleType: 'CENTER_CROP',
     },
     StatusBar: {
       style: 'Dark',
-      backgroundColor: '#020617',
+      backgroundColor: '#0E1319',
       overlaysWebView: false,
     },
     Keyboard: {

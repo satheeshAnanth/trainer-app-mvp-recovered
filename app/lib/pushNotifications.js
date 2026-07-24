@@ -156,7 +156,7 @@ async function sendFcmHttpV1(token, { title, body, data = {} }) {
         message: {
           token,
           notification: {
-            title: String(title ?? "Trainer App"),
+            title: String(title ?? "Cadence"),
             body: String(body ?? ""),
           },
           data: Object.fromEntries(Object.entries(data).map(([k, v]) => [k, String(v ?? "")])),

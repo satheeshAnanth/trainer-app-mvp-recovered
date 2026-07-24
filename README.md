@@ -1,4 +1,6 @@
-# Trainer App MVP
+# Cadence (trainer practice MVP)
+
+Session capture and client management for fitness trainers in India.
 
 Recovered Next.js 14 App Router project for trainer/client coaching workflows.
 

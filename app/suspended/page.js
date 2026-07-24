@@ -22,7 +22,7 @@ export default function SuspendedPage() {
           Account Suspended
         </h1>
         <p style={{ color: "#aaa", lineHeight: 1.6, marginBottom: "1.5rem" }}>
-          Your TrainerApp account is currently suspended or your free trial has ended.
+          Your Cadence account is currently suspended or your free trial has ended.
           Please contact us to reactivate your account.
         </p>
         <p style={{ color: "#6ee7b7", fontSize: "0.9rem" }}>

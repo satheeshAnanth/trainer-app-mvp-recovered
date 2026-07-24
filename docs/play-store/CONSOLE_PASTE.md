@@ -45,7 +45,8 @@ Expected: Everyone / Everyone 3+. Target audience tip: 18+.
 
 ## 5. Release
 
-- Internal: **1.2.1 (versionCode 4)** already uploaded
+- Latest build: **Cadence 1.3.0 (versionCode 6)** — AAB in `Playstore/release/`
+- Prior: 1.2.2 (5), 1.2.1 (4) on internal/closed tracks
 - Promote when listing + Data safety + rating + screenshots complete
 
 ## 6. App access for reviewers

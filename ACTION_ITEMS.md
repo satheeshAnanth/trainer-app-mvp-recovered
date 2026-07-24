@@ -1,4 +1,4 @@
-# Trainer App — Owner Action Items
+# Cadence — Owner Action Items
 
 Everything here needs to be done before going live. None of it blocks ongoing development.
 
@@ -40,12 +40,12 @@ Once approved, copy the Template ID into your env vars.
 
 **OTP template** → `MSG91_TEMPLATE_ID`
 ```
-Your OTP for TrainerApp login is ##OTP##. Valid for 10 minutes. Do not share this code.
+Your OTP for Cadence login is ##OTP##. Valid for 10 minutes. Do not share this code.
 ```
 
 **Invite template** → `MSG91_INVITE_TEMPLATE_ID`
 ```
-Hi ##client_name##, ##trainer_name## has invited you to TrainerApp. Join here: ##invite_link##
+Hi ##client_name##, ##trainer_name## has invited you to Cadence. Join here: ##invite_link##
 ```
 
 ---

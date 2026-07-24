@@ -1,4 +1,4 @@
-# Play Store Listing — TrainerApp
+# Play Store Listing — Cadence
 
 _Paste these into Google Play Console → Store Presence → Main Store Listing_
 
@@ -32,7 +32,7 @@ npm run play:ship -- --build
 |-------|--------|
 | **Play Console login** | `getsatxray@gmail.com` (personal Google account) |
 | **Package / applicationId** | `in.trainer.fitness` |
-| **App name** | TrainerApp |
+| **App name** | Cadence |
 | **Keystore org (cert DN)** | Raak Advisory (IN) |
 | **Support email** | `getsatxray@gmail.com` |
 | **Privacy policy** | `https://trainer-app-mvp-recovered.vercel.app/privacy` |
@@ -45,7 +45,7 @@ Use this account for Play Console uploads, Internal testing, and listing edits. 
 
 **App name** (max 30 chars)
 ```
-TrainerApp
+Cadence
 ```
 
 **Short description** (max 80 chars)
@@ -55,9 +55,9 @@ Session logging and client management for fitness trainers in India.
 
 **Full description** (max 4000 chars)
 ```
-TrainerApp helps personal trainers run a more professional and organised practice — from logging sessions to managing clients and scheduling appointments.
+Cadence helps personal trainers run a more professional and organised practice — from logging sessions to managing clients and scheduling appointments.
 
-Built for trainers in India, TrainerApp gives you everything you need to track progress, communicate with clients, and grow your business.
+Built for trainers in India, Cadence gives you everything you need to track progress, communicate with clients, and grow your business.
 
 KEY FEATURES FOR TRAINERS
 • Log every session in detail — exercises, sets, reps, load, RPE, and notes
@@ -84,7 +84,7 @@ SECURE & PRIVATE
 • Each client's data is accessible only to their trainer
 • Sessions and notes are private between trainer and client
 
-TrainerApp is built for the Indian fitness market. Sign up as a trainer today and give your clients the professional experience they deserve.
+Cadence is built for the Indian fitness market. Sign up as a trainer today and give your clients the professional experience they deserve.
 ```
 
 ---
@@ -164,7 +164,7 @@ Do **not** commit keystore passwords or `android/keystore.properties`.
 1. Ensure web production is current (`npx vercel --prod`) so `/privacy` and `/terms` resolve
 2. Signed AAB already builds via `cd android && ./gradlew bundleRelease`
 3. Upload: `android/app/build/outputs/bundle/release/app-release.aab`
-4. Current version for next Console upload: **versionCode 3 / versionName 1.2**
+4. Current version for next Console upload: **versionCode 6 / versionName 1.3.0**
 5. Play Console → Testing (Internal/Closed) or Production → Create release → Upload AAB
 6. Complete Data safety + Content rating before production rollout
 

@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">TrainerApp</string>
-    <string name="title_activity_main">TrainerApp</string>
+    <string name="app_name">Cadence</string>
+    <string name="title_activity_main">Cadence</string>
     <string name="package_name">in.trainer.fitness</string>
     <string name="custom_url_scheme">in.trainer.fitness</string>
 </resources>

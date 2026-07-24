@@ -247,7 +247,7 @@ export default function Page() {
         <button className="ghost-button" type="button" style={{ width: "100%", borderColor: "#7f1d1d", color: "#fca5a5" }} onClick={logout}>
           Logout
         </button>
-        <p className="item-sub" style={{ textAlign: "center", marginTop: 10 }}>Trainer App MVP v0.1.0</p>
+        <p className="item-sub" style={{ textAlign: "center", marginTop: 10 }}>Cadence</p>
       </article>
 
     </TrainerShell>

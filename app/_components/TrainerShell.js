@@ -24,9 +24,12 @@ export default function TrainerShell({ title, subtitle, children }) {
     <main className="trainer-screen">
       <div className="trainer-container">
         <header className="trainer-header card surface-elevated">
-          <div>
-            <h1 className="trainer-title">{title}</h1>
-            {subtitle ? <p className="trainer-subtitle">{subtitle}</p> : null}
+          <div className="trainer-header-row">
+            <img src="/cadence-mark.svg" alt="" width={28} height={28} className="trainer-brand-mark" />
+            <div>
+              <h1 className="trainer-title">{title}</h1>
+              {subtitle ? <p className="trainer-subtitle">{subtitle}</p> : null}
+            </div>
           </div>
         </header>
 

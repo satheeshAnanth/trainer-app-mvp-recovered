@@ -1,17 +1,24 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="500" viewBox="0 0 1024 500" role="img" aria-label="TrainerApp">
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="500" viewBox="0 0 1024 500" role="img" aria-label="Cadence">
   <defs>
     <radialGradient id="glow" cx="50%" cy="40%" r="55%">
-      <stop offset="0%" stop-color="#134e4a" stop-opacity="0.55"/>
-      <stop offset="100%" stop-color="#020617" stop-opacity="0"/>
+      <stop offset="0%" stop-color="#134e4a" stop-opacity="0.45"/>
+      <stop offset="100%" stop-color="#0E1319" stop-opacity="0"/>
     </radialGradient>
+    <linearGradient id="markGrad" x1="0" y1="1" x2="0.28" y2="0">
+      <stop offset="0" stop-color="#FF7A1A"/>
+      <stop offset="1" stop-color="#C7F53E"/>
+    </linearGradient>
   </defs>
-  <rect width="1024" height="500" fill="#020617"/>
+  <rect width="1024" height="500" fill="#0E1319"/>
   <rect width="1024" height="500" fill="url(#glow)"/>
-  <circle cx="180" cy="250" r="90" fill="none" stroke="#2dd4bf" stroke-opacity="0.18" stroke-width="3"/>
-  <circle cx="180" cy="250" r="58" fill="none" stroke="#2dd4bf" stroke-opacity="0.28" stroke-width="3"/>
-  <circle cx="844" cy="250" r="90" fill="none" stroke="#2dd4bf" stroke-opacity="0.18" stroke-width="3"/>
-  <circle cx="844" cy="250" r="58" fill="none" stroke="#2dd4bf" stroke-opacity="0.28" stroke-width="3"/>
-  <text x="512" y="245" text-anchor="middle" font-family="Inter, Arial, Helvetica, sans-serif" font-size="72" font-weight="700" fill="#2dd4bf">TrainerApp</text>
-  <text x="512" y="300" text-anchor="middle" font-family="Inter, Arial, Helvetica, sans-serif" font-size="26" fill="#94a3b8">Session logging for fitness trainers</text>
+  <g transform="translate(210,250) scale(0.95)">
+    <circle cx="0" cy="0" r="118" fill="none" stroke="#9AA4B0" stroke-opacity="0.35" stroke-width="4.5"/>
+    <circle cx="0" cy="-118" r="9.5" fill="#C7F53E"/>
+    <circle cx="96.6" cy="67.6" r="10.5" fill="#FF7A1A"/>
+    <circle cx="-102" cy="59" r="9.5" fill="#FFB020"/>
+    <path d="M-52 60 L0 -52 L52 60" fill="none" stroke="url(#markGrad)" stroke-width="27" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="0" cy="-77" r="17.5" fill="#C7F53E"/>
+  </g>
+  <text x="640" y="240" text-anchor="middle" font-family="Inter, Arial, Helvetica, sans-serif" font-size="72" font-weight="700" fill="#F4F7F2">Cadence</text>
+  <text x="640" y="295" text-anchor="middle" font-family="Inter, Arial, Helvetica, sans-serif" font-size="24" fill="#94a3b8">Session logging for fitness trainers</text>
 </svg>

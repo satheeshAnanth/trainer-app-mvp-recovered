@@ -2,6 +2,7 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useState } from "react";
+import BrandLogo from "app/_components/BrandLogo";
 
 function safeNextPath(next, fallback = "/portal") {
   if (!next || typeof next !== "string") return fallback;
@@ -256,6 +257,10 @@ function LoginForm() {
 
           {uiStep === "phone" ? (
             <>
+              <div className="auth-brand">
+                <BrandLogo variant="mark" size={56} priority />
+                <p className="auth-brand-name">Cadence</p>
+              </div>
               <p className="eyebrow">Welcome</p>
               <h1 className="auth-title">Sign In</h1>
               <p className="auth-subtitle">Enter your mobile number to get started</p>

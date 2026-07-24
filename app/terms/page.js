@@ -1,25 +1,25 @@
 export const metadata = {
-  title: "Terms of Use | TrainerApp",
-  description: "Terms governing use of TrainerApp by trainers and clients.",
+  title: "Terms of Use | Cadence",
+  description: "Terms governing use of Cadence by trainers and clients.",
 };
 
 export default function TermsPage() {
   return (
     <main className="legal-page">
       <article className="legal-card">
-        <p className="legal-eyebrow">TrainerApp · in.trainer.fitness</p>
+        <p className="legal-eyebrow">Cadence · in.trainer.fitness</p>
         <h1>Terms of Use</h1>
         <p className="legal-meta">Last updated: 21 July 2026</p>
 
         <p>
-          These Terms of Use (&quot;Terms&quot;) govern access to TrainerApp, the Android app and website
+          These Terms of Use (&quot;Terms&quot;) govern access to Cadence, the Android app and website
           operated for fitness trainers and their clients. By creating an account or using the service,
           you agree to these Terms.
         </p>
 
         <h2>1. The service</h2>
         <p>
-          TrainerApp provides tools for session logging, client management, scheduling, goal tracking,
+          Cadence provides tools for session logging, client management, scheduling, goal tracking,
           and related practice workflows. Features may change as we improve the product.
         </p>
 
@@ -42,21 +42,21 @@ export default function TermsPage() {
 
         <h2>4. Health disclaimer</h2>
         <p>
-          TrainerApp is a practice management and logging tool. It is not a medical device and does not
+          Cadence is a practice management and logging tool. It is not a medical device and does not
           provide medical advice, diagnosis, or treatment. Trainers and clients remain responsible for
           training decisions and for seeking qualified professional advice when needed.
         </p>
 
         <h2>5. Payments</h2>
         <p>
-          Any payment fields in the app are for record-keeping between trainer and client. TrainerApp
+          Any payment fields in the app are for record-keeping between trainer and client. Cadence
           does not currently process card payments or in-app purchases inside the Play Store billing
           system unless explicitly stated in a future update.
         </p>
 
         <h2>6. Intellectual property</h2>
         <p>
-          The TrainerApp product, branding, and software remain our property. You retain rights to the
+          The Cadence product, branding, and software remain our property. You retain rights to the
           content and records you enter, and grant us a limited license to host and display that content
           to operate the service for you and your linked trainer/client relationships.
         </p>
@@ -69,7 +69,7 @@ export default function TermsPage() {
 
         <h2>8. Limitation of liability</h2>
         <p>
-          To the maximum extent permitted by law, TrainerApp and its operators are not liable for
+          To the maximum extent permitted by law, Cadence and its operators are not liable for
           indirect, incidental, or consequential damages arising from use of the service, including lost
           profits, lost data, or training outcomes. Our total liability for any claim is limited to the
           amount you paid us for the service in the three months before the claim (or zero if the

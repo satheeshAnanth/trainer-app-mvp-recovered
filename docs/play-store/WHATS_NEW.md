@@ -2,6 +2,21 @@
 
 Paste into Play Console release notes (per language). Keep under ~500 characters when possible.
 
+## 1.3.0 (versionCode 6)
+
+```
+• Rebranded to Cadence with new app icon and branding
+• Expanded exercise GIF library for clearer session demos
+• Same mint UI theme with Cadence mark across web and Android
+```
+
+## 1.2.2 (versionCode 5)
+
+```
+• Mobile polish: segmented schedule views, haptics, clipboard, deep links
+• Schedule List/Week layout fix
+```
+
 ## 1.2.1 (versionCode 4)
 
 ```

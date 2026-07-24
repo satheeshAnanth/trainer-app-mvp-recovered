@@ -15,7 +15,7 @@ export async function POST(request) {
 
   const userRole = String(body?.userRole ?? "").trim();
   const userKey = String(body?.userKey ?? "").trim();
-  const title = String(body?.title ?? "Trainer App").trim();
+  const title = String(body?.title ?? "Cadence").trim();
   const bodyText = String(body?.body ?? "").trim();
 
   if (!userRole || !userKey || !bodyText) {

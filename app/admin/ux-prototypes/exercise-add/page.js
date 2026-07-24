@@ -86,7 +86,7 @@ export default function ExerciseAddPrototypePage() {
       </div>
 
       <div className="prototype-phone">
-        <div className="prototype-phone-status">TrainerApp prototype <span>13:42</span></div>
+        <div className="prototype-phone-status">Cadence prototype <span>13:42</span></div>
         {option === "search" ? (
           <FastSearch
             mode={mode}

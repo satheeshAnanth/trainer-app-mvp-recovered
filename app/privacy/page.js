@@ -1,18 +1,18 @@
 export const metadata = {
-  title: "Privacy Policy | TrainerApp",
-  description: "How TrainerApp collects, uses, and protects trainer and client data.",
+  title: "Privacy Policy | Cadence",
+  description: "How Cadence collects, uses, and protects trainer and client data.",
 };
 
 export default function PrivacyPage() {
   return (
     <main className="legal-page">
       <article className="legal-card">
-        <p className="legal-eyebrow">TrainerApp · in.trainer.fitness</p>
+        <p className="legal-eyebrow">Cadence · in.trainer.fitness</p>
         <h1>Privacy Policy</h1>
         <p className="legal-meta">Last updated: 21 July 2026</p>
 
         <p>
-          TrainerApp (&quot;we&quot;, &quot;us&quot;, &quot;our&quot;) is a fitness practice tool for personal trainers and
+          Cadence (&quot;we&quot;, &quot;us&quot;, &quot;our&quot;) is a fitness practice tool for personal trainers and
           their clients in India. This policy explains what information we collect, why we collect it,
           and how you can control it.
         </p>
@@ -87,14 +87,14 @@ export default function PrivacyPage() {
 
         <h2>6. Security</h2>
         <p>
-          We use OTP-based login (no passwords stored by TrainerApp), access controls that scope client
+          We use OTP-based login (no passwords stored by Cadence), access controls that scope client
           data to the owning trainer relationship, and standard hosting protections. No method of
           transmission or storage is 100% secure.
         </p>
 
         <h2>7. Children</h2>
         <p>
-          TrainerApp is intended for adults managing fitness practices and adult clients. It is not
+          Cadence is intended for adults managing fitness practices and adult clients. It is not
           directed at children under 13. If you believe a child has provided personal data, contact us
           and we will delete it.
         </p>
@@ -111,14 +111,14 @@ export default function PrivacyPage() {
 
         <h2>9. International users</h2>
         <p>
-          TrainerApp is primarily offered in India. If you access the service from another country, your
+          Cadence is primarily offered in India. If you access the service from another country, your
           information may be processed in India or in countries where our hosting providers operate.
         </p>
 
         <h2>10. Changes</h2>
         <p>
           We may update this policy from time to time. The &quot;Last updated&quot; date above will change when
-          we do. Continued use of TrainerApp after an update means you accept the revised policy.
+          we do. Continued use of Cadence after an update means you accept the revised policy.
         </p>
 
         <h2>11. Contact</h2>

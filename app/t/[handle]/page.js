@@ -28,9 +28,9 @@ async function getTrainer(handle) {
 
 export async function generateMetadata({ params }) {
   const trainer = await getTrainer(params.handle);
-  if (!trainer) return { title: "Trainer Not Found — Trainer App" };
+  if (!trainer) return { title: "Trainer Not Found — Cadence" };
   return {
-    title: `${trainer.name} — Trainer App`,
+    title: `${trainer.name} — Cadence`,
     description: trainer.specialization
       ? `${trainer.name} specialises in ${trainer.specialization}.`
       : `${trainer.name} is a certified fitness trainer.`,
@@ -103,7 +103,7 @@ export default async function PublicTrainerProfile({ params }) {
             Train with {trainer.name}
           </h2>
           <p style={{ margin: "0 0 20px", fontSize: 14, color: "#94a3b8", lineHeight: 1.6 }}>
-            {trainer.name} uses Trainer App to track sessions, share workout notes, and keep clients on plan between sessions.
+            {trainer.name} uses Cadence to track sessions, share workout notes, and keep clients on plan between sessions.
           </p>
           <Link
             href="/login"
@@ -121,7 +121,7 @@ export default async function PublicTrainerProfile({ params }) {
         {/* Footer */}
         <footer style={{ marginTop: 40, textAlign: "center" }}>
           <Link href="/login" style={{ fontSize: 12, color: "#475569", textDecoration: "none" }}>
-            Powered by Trainer App
+            Powered by Cadence
           </Link>
         </footer>
       </div>

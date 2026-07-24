@@ -9,14 +9,25 @@ import { ToastProvider } from "app/_components/ToastProvider";
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 
 export const metadata = {
-  title: "Trainer App - Session Capture & Client Management",
+  title: "Cadence - Session Capture & Client Management",
   description: "Session capture and client management for fitness trainers",
   manifest: "/manifest.json",
   themeColor: "#2dd4bf",
+  icons: {
+    icon: [
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/favicon.svg", type: "image/svg+xml" },
+      { url: "/favicon-32.png", sizes: "32x32", type: "image/png" },
+      { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: [{ url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
+    shortcut: ["/favicon.ico"],
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "Trainer App",
+    title: "Cadence",
   },
   viewport: {
     width: "device-width",

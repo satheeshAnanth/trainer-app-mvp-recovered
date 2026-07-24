@@ -105,7 +105,7 @@ function InvitePage() {
               <p className="eyebrow">You&apos;re invited</p>
               <h1 className="auth-title">Hi {invitation.clientName}!</h1>
               <p className="auth-subtitle">
-                <strong>{invitation.trainerName}</strong> has invited you to join their training programme on TrainerApp.
+                <strong>{invitation.trainerName}</strong> has invited you to join their training programme on Cadence.
               </p>
               {invitation.clientGoal && (
                 <div style={{ background: "#1a1a1a", borderRadius: 8, padding: "0.75rem 1rem", margin: "1rem 0" }}>

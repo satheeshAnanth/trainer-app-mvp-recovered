@@ -9,7 +9,7 @@ You can also upload manually in Play Console.
 | `feature-graphic.svg` | Editable source | optional |
 | `feature-graphic-source.png` | Uncropped generated art | optional |
 | `screenshots/` | Phone screenshots | see `docs/play-store/SCREENSHOTS.md` |
-| App icon | Use existing branded icon; export 512×512 PNG if needed | Play requires PNG |
+| App icon | `icon-512.png` (teal T on navy) | Play requires 512×512 PNG |
 
 Related docs:
 
