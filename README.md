@@ -1,10 +1,10 @@
-# Cadence (trainer practice MVP)
+# Cadence
 
 Session capture and client management for fitness trainers in India.
 
-Recovered Next.js 14 App Router project for trainer/client coaching workflows.
+**Start here for agents:** [`docs/AGENT_HANDOFF.md`](docs/AGENT_HANDOFF.md)
 
-If you want the fast path, read this file first, then `docs/AGENT_HANDOFF.md` and `docs/BUILD_CONTEXT.md`.
+Recovered Next.js 14 App Router project (package id `in.trainer.fitness`). Web: https://trainer-app-mvp-recovered.vercel.app
 
 ## Quick start
 

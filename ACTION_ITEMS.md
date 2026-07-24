@@ -1,6 +1,6 @@
 # Cadence — Owner Action Items
 
-Everything here needs to be done before going live. None of it blocks ongoing development.
+Agent continuity: **`docs/AGENT_HANDOFF.md`**. Everything below is owner/ops work before full production launch.
 
 ---
 

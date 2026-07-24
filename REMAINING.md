@@ -1,33 +1,42 @@
-# Remaining Work — Android / Capacitor Migration
+# Cadence — Remaining Work
 
-_P0, P1, P2, P3, and most of P4 are complete._
+_Last updated: 2026-07-24. See `docs/AGENT_HANDOFF.md` for full current state._
 
----
-
-## P4 — Post First APK
-
-- [ ] **4.1 Push notifications (FCM)**
-  - Install `@capacitor/push-notifications`
-  - Set up a Firebase project and add `google-services.json` to `android/app/`
-  - Add FCM token registration on app launch; store token against the trainer/client record in the DB
-  - Server-side: call FCM API to push notifications for schedule confirmations and session publishes
-  - Replace the existing `window.Notification` / localStorage deduplication code
-
-- [x] **4.3 Swipe-to-action on schedule event cards** ✅
-  - `SwipeableCard` component using native touch events (no library)
-  - Swipe left > 55px triggers the Actions bottom sheet on both trainer and client schedule
-
-- [ ] **4.5 Play Store listing — screenshots**
-  - All listing copy is written in `PLAYSTORE_LISTING.md`
-  - Still needed: 4–6 phone screenshots (login, dashboard, session log, client portal, schedule, week view)
-  - Feature graphic: 1024×500 PNG banner
+Much of P0–P4 Capacitor migration and Cadence 1.3.x Play closed testing is done. What’s left:
 
 ---
 
-## Owner Action Items
+## Play / release
 
-- **Play Console account**: Personal Google account `getsatxray@gmail.com` (package `in.trainer.fitness`) — see `PLAYSTORE_LISTING.md`
-- **Production Vercel env vars**: Ensure `MSG91_AUTH_KEY`, `MSG91_TEMPLATE_ID`, `SESSION_SECRET`, `ADMIN_SECRET`, and `NEXT_PUBLIC_APP_URL=https://trainer-app-mvp-recovered.vercel.app` are set in the Vercel dashboard
-- **Firebase project**: Required for push — add Android app `in.trainer.fitness`, put `google-services.json` in `android/app/`, and set `FIREBASE_SERVICE_ACCOUNT_JSON` on Vercel (HTTP v1; no legacy server key)
-- **Play Store screenshots**: Required for 4.5 — take on a real Android device after APK testing
-- **Final brand icon**: Replace `assets/icon-only.png` (1024×1024 PNG) and re-run `npx @capacitor/assets generate`
+- [ ] **Phone screenshots** (≥2, ideally 4–6) for store listing — see `docs/play-store/SCREENSHOTS.md`
+- [ ] Promote **1.3.1 (7)** toward production when screenshots + Data safety + rating done
+- [ ] Optional: upload R8 mapping / native debug symbols (Play warning; non-blocking for closed testing)
+- [x] Cadence branding, icon, splash (1.3.1)
+- [x] Listing title/feature graphic/icon sync for Cadence
+
+## Push (FCM)
+
+- [ ] **On-device verification** that FCM delivers for:
+  - schedule status / new request
+  - session publish
+  - client self-log
+- Server wiring and `google-services.json` were added earlier — treat as “prove on hardware.”
+
+## Media
+
+- [ ] Human QA YouTube approved embeds
+- [ ] WorkoutX **production** license decision (`docs/WORKOUTX_GIF_STORAGE.md`)
+- [x] WorkoutX testing approve + Blob cache + curated shortlist seed
+
+## Product deferred
+
+- [ ] Gym seat **billing** / invoices
+- [ ] Multi-gym membership
+- [ ] Cadence Option B (full lime/orange theme)
+- [ ] iOS
+
+## Owner ops
+
+- Keep Vercel env vars current (`DATABASE_URL`, MSG91, session/admin secrets, WorkoutX, Blob, Firebase SA).
+- MSG91 templates should say **Cadence** (see `ACTION_ITEMS.md`).
+- After any launcher/splash change: uninstall + reinstall Android build.

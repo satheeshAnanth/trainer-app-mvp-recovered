@@ -2,6 +2,13 @@
 
 Paste into Play Console release notes (per language). Keep under ~500 characters when possible.
 
+## 1.3.1 (versionCode 7)
+
+```
+• Cadence splash screens aligned with launcher icon
+• Fix home-icon vs splash mismatch on Android 12+
+```
+
 ## 1.3.0 (versionCode 6)
 
 ```

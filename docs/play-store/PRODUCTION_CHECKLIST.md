@@ -13,9 +13,9 @@ npm run play:ship -- --build
 Details: `docs/play-store/AUTOMATION.md`
 
 Package: `in.trainer.fitness`  
-Current AAB: versionCode **6** / versionName **1.3.0**  
-Path: `android/app/build/outputs/bundle/release/app-release.aab`
-MacBook: `Documents/Raak Consulting/TrainerApp/Playstore/release/Cadence-1.3.0-versionCode6.aab`
+Current AAB: versionCode **7** / versionName **1.3.1**  
+Path: `android/app/build/outputs/bundle/release/app-release.aab`  
+MacBook: `Documents/Raak Consulting/TrainerApp/Playstore/release/Cadence-1.3.1-versionCode7.aab`
 
 
 ## A. Store listing (must complete)

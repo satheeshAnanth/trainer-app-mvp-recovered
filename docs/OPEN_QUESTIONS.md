@@ -1,54 +1,47 @@
 # Open Questions & Revisit Points
 
-Last updated: 2026-07-20
+Last updated: 2026-07-24
 
-Track decisions deferred, assumptions made, and items that need product/ops input before treating as done.
-
----
-
-## Exercise media curation
-
-| # | Question | Context | Status |
-|---|----------|---------|--------|
-| 0 | **Should we permanently store WorkoutX GIF binaries?** | Testing: approved all mapped rows + local/Blob cache via `npm run media:workoutx:approve-cache`. | **Testing OK** — production subscription/licensing still deferred (`docs/WORKOUTX_GIF_STORAGE.md`) |
-| 1 | **Are the seeded YouTube IDs actually correct form demos for each exercise/equipment variant?** | First 13 rows were auto-approved via `scripts/approve-exercise-media-subset.mjs` using conservative name/equipment matching — videos were not manually watched in this session. | **Needs human QA** — spot-check in `/admin/exercise-media` |
-| 2 | **Should we approve equipment variants separately (e.g. dumbbell vs barbell bench) with the same generic video?** | Subset skipped dumbbell bench, incline push-up, seated press, etc. | Defer until channel-specific videos are sourced |
-| 3 | **How to handle duplicate catalog rows (`EX#### - …` vs clean names)?** | Seed matched both; approvals only on clean `exercise_id` slugs. | Decide dedupe strategy for catalog or seed script |
-| 4 | **Who owns ongoing curation — admin-only or trainer submissions (spec §4C)?** | Admin UI exists; trainers can submit YouTube links from Exercise Library (pending_review). | **Trainer submit shipped** — admin still approves |
-| 5 | **Link-rot checks** — weekly oEmbed cron? | Spec §6; `npm run media:check-links` (+ `--mark-broken`). | **Script done** — schedule owner ops |
-| 6 | **YouTube embed behavior in Capacitor WebView** | Fullscreen/autoplay/consent quirks unknown on real devices. | Test on Android hardware |
-
-### Approved subset (13 primary, pending human QA)
-
-- Goblet Squat (Dumbbell/Kettlebell)
-- Romanian Deadlift (Barbell)
-- Bench Press (Flat barbell)
-- Pull-up (Overhand)
-- Lat Pulldown (Wide grip)
-- Overhead Press (Standing barbell)
-- Lateral Raise (Dumbbell)
-- Plank (Front)
-- Dead Bug (Standard)
-- Mountain Climber (Standard)
-- Burpee (Standard)
-- Hip Thrust (Barbell)
-- Farmer Carry (Dumbbells)
-
-**Still pending review:** none — queue cleared (21 rejected total, 13 approved primary).
-
-**Rejected (21 rows):** equipment/variant mismatches, EX#### duplicates, pendlay/upright rows, assisted pull-up, lunges, etc. via `npm run media:reject-bad`.
+Track decisions deferred, assumptions, and items that need product/ops input.  
+For shipped work and how to operate the repo, see **`docs/AGENT_HANDOFF.md`**.
 
 ---
 
-## Mobile / platform
+## Branding
 
 | # | Question | Context | Status |
 |---|----------|---------|--------|
-| 7 | **Is iOS in scope for this phase?** | Android Capacitor only today. | Document deferral in AGENT_HANDOFF or build `ios/` |
-| 7a | **Which Play Console account owns the Android app?** | Package `in.trainer.fitness` / TrainerApp. | **Resolved:** personal account `getsatxray@gmail.com` (see `PLAYSTORE_LISTING.md`) |
-| 8 | **Push notifications — FCM project + server send path?** | HTTP v1 via `FIREBASE_SERVICE_ACCOUNT_JSON` (legacy key removed). Still needs `google-services.json` + service account on Vercel. | **Partially done** — owner infra |
-| 9 | **Dark-only theme intentional?** | MOBILE_UX_REVIEW §6.1 | Product decision |
-| 10 | **Pull-to-refresh on list screens?** | Deferred; scroll container behavior unclear in WebView. | UX spike |
+| B1 | Full theme migration to Cadence lime/orange (Option B)? | Option A shipped: Cadence icons + mint UI. | Deferred — product call |
+| B2 | Rename Play package / Vercel project away from `trainer-app*`? | Display name is Cadence; IDs stay `in.trainer.fitness`. | Keep unless Play migration planned |
+
+---
+
+## Exercise media / WorkoutX
+
+| # | Question | Context | Status |
+|---|----------|---------|--------|
+| 0 | **Permanently store WorkoutX GIF binaries / buy production license?** | Testing: ~137 approved WorkoutX rows, Blob cache via `media:workoutx:approve-cache`. | **Testing OK** — production license deferred (`docs/WORKOUTX_GIF_STORAGE.md`) |
+| 1 | **YouTube IDs correct form demos?** | Early auto-approved subset; not all watched. | **Needs human QA** — `/admin/exercise-media` |
+| 2 | Approve equipment variants with same generic video? | Some variants skipped. | Defer until better sources |
+| 3 | Dedupe `EX#### - …` vs clean catalog names? | Both exist; GIFs often shared. | Decide catalog strategy |
+| 4 | Trainer submissions vs admin-only? | Trainers submit YouTube → pending_review. | **Shipped** — admin approves |
+| 5 | Link-rot cron? | `npm run media:check-links`. | Script done — schedule owner ops |
+| 6 | YouTube embed in Capacitor WebView? | Fullscreen/autoplay quirks. | Test on device |
+| 6a | Face Pull GIF `5203` watermark 503? | Upstream unavailable. | Leave or replace manually |
+
+---
+
+## Mobile / Play
+
+| # | Question | Context | Status |
+|---|----------|---------|--------|
+| 7 | iOS in scope? | Android Capacitor only. | Deferred |
+| 7a | Play Console owner? | `getsatxray@gmail.com` / `in.trainer.fitness`. | **Resolved** |
+| 7b | Production track vs closed testing? | Alpha has **1.3.1 (7)**; screenshots still needed for production. | Ops |
+| 8 | FCM on-device verify? | Server paths + `google-services.json` exist; need real-device proof. | Owner / QA |
+| 9 | Dark-only theme intentional? | Matches brand. | Product |
+| 10 | Pull-to-refresh? | Deferred. | UX spike |
+| 10a | Native rewrite (Expo/Flutter)? | Notes in `docs/NATIVE_VS_CAPACITOR_UX.md`. | Not committed |
 
 ---
 
@@ -56,9 +49,9 @@ Track decisions deferred, assumptions made, and items that need product/ops inpu
 
 | # | Question | Context | Status |
 |---|----------|---------|--------|
-| 11 | **Should client self-log require catalog mapping or stay optional?** | Wiring adds optional `masterExerciseId`; catalog search + Example preview added to self-log. | **Implemented optional** — monitor adoption |
-| 12 | **Can clients call `/api/exercises/master/search` without rate limits?** | Currently unauthenticated read. | Consider auth or caching if abused |
-| 13 | **Match client free-text logs to catalog post-hoc via `aliases_json`?** | Spec §7 side-effect. | Future analytics feature |
+| 11 | Require catalog mapping on self-log? | Optional `masterExerciseId` + search. | Monitor adoption |
+| 12 | Rate-limit master exercise search? | Largely open read. | Consider if abused |
+| 13 | Post-hoc alias matching for free-text logs? | Spec side-effect. | Future |
 
 ---
 
@@ -66,45 +59,38 @@ Track decisions deferred, assumptions made, and items that need product/ops inpu
 
 | # | Question | Context | Status |
 |---|----------|---------|--------|
-| 14 | **`ADMIN_SECRET` in production — who has it, rotation policy?** | Admin media + ops console depend on it. | Ops |
-| 15 | **Should `/admin/*` pages be middleware-protected beyond secret header?** | Cookie gate in middleware + `/admin/login`. APIs still require admin session or `X-Admin-Secret`. | **Done** |
-| 16 | **`FIREBASE_SERVICE_ACCOUNT_JSON` + `google-services.json`** | Local + Vercel Production/Preview set. | **Done** — verify delivery on device |
-| 17 | **Session publish push?** | Triggers on `POST /api/sessions/[id]/share` (publish to client). | **Done** — needs FCM to deliver |
-| 18 | **Client self-log push to trainer?** | Triggers on `POST /api/client/sessions`. | **Done** — needs FCM to deliver |
-| 19 | **New schedule request push?** | Triggers on `POST /api/schedule/events` when status is pending. | **Done** — needs FCM to deliver |
-| 20 | **Migrate off browser `Notification` reminders?** | Native uses LocalNotifications; remote events use FCM. Browser path remains web-only fallback. | **Done for Android path** |
+| 14 | `ADMIN_SECRET` / admin password rotation? | Ops. | Ops |
+| 15 | Admin cookie + API gate? | Middleware + session. | **Done** |
+| 16 | Firebase SA on Vercel? | Set previously. | Verify delivery |
+| 17–19 | Push on publish / self-log / schedule? | Code paths exist. | Need FCM delivery proof |
+| 20 | Drop browser Notification fallback? | Native path preferred. | After FCM solid |
 
 ---
 
-## Assumptions made in this implementation pass
+## Gym org
 
-- Exercise search API is safe to expose to authenticated clients (trainer or client cookie for `/exercises` only; search API is open).
-- One `is_primary` approved video per exercise is enough for v1.
-- Toast + back-button stack cover the highest-traffic modals; not every modal in the app is registered yet.
-- Seed YouTube IDs are placeholders until a coach verifies form quality.
+| # | Question | Context | Status |
+|---|----------|---------|--------|
+| 21 | Gym = seats + light ops; trainer owns clients | Locked 2026-07-22. | **Implemented** |
+| 22 | Gym billing / Razorpay for seats | Seats in DB only. | Future |
+| 23 | Multi-gym per trainer | v1 = one primary. | Deferred |
+
+---
+
+## Assumptions still in force
+
+- Exercise search may stay lightly gated until abuse appears.
+- One primary approved media item per exercise is enough for v1.
+- Seed / curated WorkoutX matches are good enough for testing, not a license.
+- Cadence display name does not require changing `applicationId`.
 
 ---
 
 ## Suggested next actions (ordered)
 
-1. Human QA: watch 13 approved embeds in `/exercises` and `/admin/exercise-media`
-2. ~~Reject clearly wrong pending rows~~ — **done** (21 rejected; 0 pending; 13 approved)
-3. Configure Firebase HTTP v1: `google-services.json` in `android/app/` + `FIREBASE_SERVICE_ACCOUNT_JSON` on Vercel; test pushes:
-   - schedule status change
-   - new appointment request
-   - session publish (`POST .../share`)
-   - client self-log submit
-4. Source mobility videos (Cat-Cow, World's Greatest Stretch) — no seed matches in DB
-5. Wire remaining modals to `useModalDismiss` (audit/schedule TBD)
-6. Replace browser Notification reminders once FCM works on device
-7. **Gym org v1** — see `docs/plans/gym-org.md` (optional B2B seats layer; solo trainers unchanged)
-
----
-
-## Gym org (v1)
-
-| # | Question | Context | Status |
-|---|----------|---------|--------|
-| 21 | Gym = seats + light ops; trainer owns clients | Product decision 2026-07-22 | **Locked** — implemented |
-| 22 | Gym billing / Razorpay for seat invoices | Seats tracked in DB; payment collection TBD | Future |
-| 23 | Multi-gym membership per trainer | v1 = one primary gym | Deferred |
+1. Human QA YouTube embeds in `/exercises` and `/admin/exercise-media`.  
+2. Play screenshots (≥2) → production checklist.  
+3. On-device FCM tests (schedule, publish, self-log).  
+4. WorkoutX production license decision.  
+5. Gym billing only if sales needs it.  
+6. Optional Cap vs native only if closed-test UX blocks shipping.

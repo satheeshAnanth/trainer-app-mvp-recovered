@@ -164,7 +164,7 @@ Do **not** commit keystore passwords or `android/keystore.properties`.
 1. Ensure web production is current (`npx vercel --prod`) so `/privacy` and `/terms` resolve
 2. Signed AAB already builds via `cd android && ./gradlew bundleRelease`
 3. Upload: `android/app/build/outputs/bundle/release/app-release.aab`
-4. Current version for next Console upload: **versionCode 6 / versionName 1.3.0**
+4. Current closed-testing build: **versionCode 7 / versionName 1.3.1** (`Cadence-1.3.1-versionCode7.aab`)
 5. Play Console → Testing (Internal/Closed) or Production → Create release → Upload AAB
 6. Complete Data safety + Content rating before production rollout
 
