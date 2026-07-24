@@ -8,6 +8,7 @@ import {
   isPlatformAdminPhone,
   normalizeIndiaPhone,
 } from "app/lib/fixedOtp";
+import { getGymAdminByPhone } from "app/lib/gyms";
 
 const RESEND_COOLDOWN_SECONDS = 60;
 
@@ -33,15 +34,17 @@ export async function POST(request) {
 
   const digits = phone.replace(/\D/g, "");
   const isPlatformAdmin = isPlatformAdminPhone(phone);
+  const gymAdmin = await getGymAdminByPhone(phone);
+  const isGymAdmin = Boolean(gymAdmin && gymAdmin.gym_status === "active");
   const trainerRows = await query(
     `SELECT id FROM trainer_phones
      WHERE regexp_replace(COALESCE(phone, ''), '[^0-9]', '', 'g') = $1
      LIMIT 1`,
     [digits]
   );
-  if (!trainerRows[0] && !isPlatformAdmin) {
+  if (!trainerRows[0] && !isPlatformAdmin && !isGymAdmin) {
     return NextResponse.json(
-      { ok: false, message: "Trainer not found." },
+      { ok: false, message: "No account found for this number." },
       { status: 404 }
     );
   }
